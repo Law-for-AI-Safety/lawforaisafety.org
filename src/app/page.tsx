@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Nav from "./Nav";
+import WipeButton from "./WipeButton";
 
 function Rule() {
   return (
@@ -250,7 +251,24 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {team.map((person) => (
               <div key={person.name} className="flex flex-col gap-2">
-                <p className="text-xl font-light text-brand-white">{person.name}</p>
+                <a
+                  href={person.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative group w-fit text-xl font-light text-brand-white py-1"
+                >
+                  {person.name}
+                  <svg
+                    className="absolute -bottom-1 left-0 w-full [clip-path:inset(0_100%_0_0)] group-hover:[clip-path:inset(0_0%_0_0)] transition-[clip-path] duration-300"
+                    viewBox="0 0 52 12"
+                    height="8"
+                    preserveAspectRatio="none"
+                    aria-hidden
+                    fill="none"
+                  >
+                    <path d="M0 5 C14 2 38 8 52 5 C38 10 14 7 0 5Z" fill="#9b1c1f" />
+                  </svg>
+                </a>
                 <p className="text-sm font-light text-brand-white/80">{person.role}</p>
                 <p className="text-sm font-light text-brand-white/60 leading-relaxed mt-1">
                   {person.bio}
@@ -277,18 +295,20 @@ export default function Home() {
             contribute to this work.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <a
+            <WipeButton
               href="mailto:hello@lawforaisafety.org"
-              className="px-8 py-4 border border-brand-black/30 text-brand-black text-base font-light hover:border-brand-black transition-colors"
+              className="px-8 py-4 border border-brand-black/30 text-brand-black text-base font-light"
+              hoverBg="rgba(27,51,76,0.07)"
             >
               Contact us
-            </a>
-            <a
+            </WipeButton>
+            <WipeButton
               href="#"
-              className="px-8 py-4 bg-brand-red text-brand-white text-base font-light hover:opacity-90 transition-opacity"
+              className="px-8 py-4 bg-brand-red text-brand-white text-base font-light"
+              hoverBg="rgba(255,255,255,0.15)"
             >
               Follow our work
-            </a>
+            </WipeButton>
           </div>
         </div>
       </section>
