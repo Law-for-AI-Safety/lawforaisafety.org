@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Lighthouse
+lighthouse-report.html
+# Playwright
+.playwright-mcp
