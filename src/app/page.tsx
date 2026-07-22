@@ -77,7 +77,7 @@ export default function Home() {
       <Nav />
 
       {/* Hero */}
-      <section className="bg-brand-white min-h-screen flex flex-col justify-center px-8 md:px-16 pt-32 pb-16">
+      <section className="bg-brand-white flex flex-col justify-center px-8 md:px-16 py-60 pb-30">
         <div className="max-w-4xl mx-auto w-full">
           <div className="flex flex-col gap-8 max-w-3xl">
             <h1
@@ -126,7 +126,7 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <div className="relative w-full aspect-[4/3] md:aspect-[16/9]">
+            <div className="relative w-full aspect-[4/3] md:aspect-[16/9] rounded-sm overflow-hidden">
               <Image
                 src="/images/conference-didier.jpg"
                 alt="Didier Coeurnelle introducing Law for AI Safety's mission at the 2nd International Conference on Large-Scale AI Risks"
@@ -187,43 +187,127 @@ export default function Home() {
 
       {/* Events */}
       <section className="bg-brand-white px-8 md:px-16 py-28 md:py-40">
-        <div className="max-w-4xl mx-auto flex flex-col gap-12">
+        <div className="max-w-4xl mx-auto flex flex-col gap-16">
           <div className="flex flex-col gap-4">
             <Rule />
             <h2 className="text-4xl font-light text-brand-black leading-tight">
-              In the field
+              Our story
             </h2>
           </div>
-          <div className="flex flex-col gap-6">
-            <p className="text-lg font-light text-brand-navy/70 leading-relaxed max-w-2xl">
-              Our team participated in the <em>AI Act in Romania: From Regulation to
-              Implementation</em> conference at the European Parliament in Brussels,
-              hosted by Maria Grapini, Vice-Chair of the Committee on the Internal
-              Market and Consumer Protection.
-            </p>
-            <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
-              Attendees included Victor Negrescu, Vice-President of the European
-              Parliament; Brando Benifei, former co-rapporteur on the EU AI Act;
-              Martin Ulbrich, AI Policy Officer at the European Commission; and
-              representatives of Romanian industry.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { src: "/images/conference-ai-act-1.jpg", alt: "Panel at AI Act in Romania conference" },
-              { src: "/images/conference-ai-act-2.jpg", alt: "Speakers at AI Act in Romania conference" },
-              { src: "/images/conference-ai-act-3.jpg", alt: "Presenter at AI Act in Romania conference" },
-            ].map((img) => (
-              <div key={img.src} className="relative w-full aspect-[4/3]">
-                <Image
-                  src={img.src}
-                  alt={img.alt}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 298px"
-                />
+
+          {/* Timeline — gap-14=56px; line h=calc(100%+44px) bridges gap to next dot */}
+          <div className="flex flex-col gap-14">
+
+            {/* Event 1 */}
+            <div className="flex gap-8">
+              <div className="relative flex-shrink-0 w-3">
+                <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
+                <div className="absolute top-[22px] left-[5px] w-px bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
               </div>
-            ))}
+              <div className="flex flex-col gap-3 min-w-0">
+                <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+                  Team meets at the European Parliament
+                </h3>
+                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                  Our founding team first met at the <em>Beyond the AI Act: Global Security &amp; the Control
+                  Problem</em> conference at the European Parliament, hosted by PauseAI and MEP Ondřej
+                  Kolář. Several members of our team were involved in organising the event.
+                </p>
+              </div>
+            </div>
+
+            {/* Event 2 */}
+            <div className="flex gap-8">
+              <div className="relative flex-shrink-0 w-3">
+                <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
+                <div className="absolute top-[22px] left-[5px] w-px bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+              </div>
+              <div className="flex flex-col gap-3 min-w-0">
+                <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+                  FOI requests drafted &amp; legal groundwork laid
+                </h3>
+                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                  We drafted an initial Freedom of Information request related to the advanced risks
+                  of AI, aimed at Member States, currently being finalised following review by the
+                  Future of Life Institute team. We also conducted preliminary research into legal
+                  and administrative levers and barriers to action, and secured pro bono support
+                  from global law firm Dentons to assist with our registration in Brussels.
+                </p>
+              </div>
+            </div>
+
+            {/* Event 3 */}
+            <div className="flex gap-8">
+              <div className="relative flex-shrink-0 w-3">
+                <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
+                <div className="absolute top-[22px] left-[5px] w-px bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+              </div>
+              <div className="flex flex-col gap-3 min-w-0">
+                <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+                  Building the network
+                </h3>
+                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                  We established a relationship with <a href="https://pauseai.info" target="_blank" rel="noopener noreferrer" className="underline hover:text-brand-black">PauseAI</a> to channel volunteers with legal
+                  backgrounds to our work. Through attending conferences, we connected with experts
+                  including individuals involved with the EU AI Office and AI policy organisations,
+                  who have expressed willingness to collaborate on future opportunities.
+                </p>
+                <div className="pt-4">
+                  <WipeButton
+                    href="https://www.linkedin.com/company/law-for-ai-safety/"
+                    className="inline-flex items-center gap-3 px-6 py-3 border border-brand-black/30 text-brand-black text-sm font-light rounded-sm overflow-hidden"
+                    hoverBg="rgba(27,51,76,0.07)"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                    </svg>
+                    Connect on LinkedIn
+                  </WipeButton>
+                </div>
+              </div>
+            </div>
+
+            {/* Event 4 — no line below */}
+            <div className="flex gap-8">
+              <div className="flex-shrink-0 w-3 mt-[10px]">
+                <div className="w-3 h-3 rounded-full bg-brand-red" aria-hidden />
+              </div>
+              <div className="flex flex-col gap-6 min-w-0">
+              <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+                AI Act in Romania conference, European Parliament
+              </h3>
+              <div className="flex flex-col gap-4">
+                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                  Raphaël Weuts, Karolina Gruzel, and Cristian Teodorescu participated in the{" "}
+                  <em>AI Act in Romania: From Regulation to Implementation</em> conference at the
+                  European Parliament in Brussels, hosted by Maria Grapini, Vice-Chair of the
+                  Committee on the Internal Market and Consumer Protection.
+                </p>
+                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                  Attendees included Victor Negrescu, Vice-President of the European Parliament;
+                  Brando Benifei, former co-rapporteur on the EU AI Act; Martin Ulbrich, AI Policy
+                  Officer at the European Commission; and representatives of Romanian industry.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { src: "/images/conference-ai-act-1.jpg", alt: "Panel at AI Act in Romania conference", position: "object-center" },
+                  { src: "/images/conference-ai-act-2.jpg", alt: "Speakers at AI Act in Romania conference", position: "object-top" },
+                  { src: "/images/conference-ai-act-3.jpg", alt: "Presenter at AI Act in Romania conference", position: "object-center" },
+                ].map((img) => (
+                  <div key={img.src} className="relative w-full aspect-[4/3] rounded-sm overflow-hidden">
+                    <Image
+                      src={img.src}
+                      alt={img.alt}
+                      fill
+                      className={`object-cover ${img.position}`}
+                      sizes="(max-width: 768px) 100vw, 298px"
+                    />
+                  </div>
+                ))}
+              </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -238,7 +322,7 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="relative w-full aspect-[16/9] mb-4">
+          <div className="relative w-full aspect-[16/9] mb-4 rounded-sm overflow-hidden">
             <Image
               src="/images/team-group.jpg"
               alt="Law for AI Safety founding team at the European Parliament"
@@ -293,14 +377,14 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <WipeButton
               href="mailto:hello@lawforaisafety.org"
-              className="px-8 py-4 border border-brand-black/30 text-brand-black text-base font-light"
+              className="px-8 py-4 border border-brand-black/30 text-brand-black text-base font-light rounded-sm overflow-hidden"
               hoverBg="rgba(27,51,76,0.07)"
             >
               Contact us
             </WipeButton>
             <WipeButton
               href="#"
-              className="px-8 py-4 bg-brand-red text-brand-white text-base font-light"
+              className="px-8 py-4 bg-brand-red text-brand-white text-base font-light rounded-sm overflow-hidden"
               hoverBg="rgba(255,255,255,0.15)"
             >
               Follow our work

@@ -95,7 +95,7 @@ export default function Nav() {
           />
 
           {/* Desktop links */}
-          <div className="hidden md:flex gap-8 text-base font-light text-brand-navy">
+          <div className="hidden md:flex gap-8 p-8 text-base font-light text-brand-navy">
             {links.map(({ href, label }) => {
               const id = href.slice(1);
               const isActive = active === id;
