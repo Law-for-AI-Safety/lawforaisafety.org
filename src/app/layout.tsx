@@ -9,6 +9,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://lawforaisafety.org"),
   title: "Law for AI Safety",
   description: "Building the legal foundations for safe artificial intelligence.",
 };
