@@ -104,11 +104,20 @@ export default function Nav() {
                   <span className={`transition-colors duration-200 ${isActive ? "text-brand-red" : "hover:text-brand-red"}`}>
                     {label}
                   </span>
-                  <span
-                    className={`absolute bottom-0 left-0 h-px bg-brand-red transition-transform duration-300 origin-left w-full ${
-                      isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                  <svg
+                    className={`absolute -bottom-1 left-0 w-full transition-[clip-path] duration-300 ${
+                      isActive
+                        ? "[clip-path:inset(0_0%_0_0)]"
+                        : "[clip-path:inset(0_100%_0_0)] group-hover:[clip-path:inset(0_0%_0_0)]"
                     }`}
-                  />
+                    viewBox="0 0 52 12"
+                    height="8"
+                    preserveAspectRatio="none"
+                    aria-hidden
+                    fill="none"
+                  >
+                    <path d="M0 5 C14 2 38 8 52 5 C38 10 14 7 0 5Z" fill="#9b1c1f" />
+                  </svg>
                 </a>
               );
             })}
