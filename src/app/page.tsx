@@ -333,7 +333,7 @@ export default function Home() {
           <div className="relative w-full aspect-[16/9] mb-4 rounded-sm overflow-hidden">
             <Image
               src="/images/team-group.webp"
-              alt="Law for AI Safety founding team at the European Parliament"
+              alt="Founding Law for AI Safety members at the European Parliament with other attendees of the AI Act in Romania conference"
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 896px"
