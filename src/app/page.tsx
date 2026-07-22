@@ -134,7 +134,7 @@ export default function Home() {
                 sizes="(max-width: 768px) 100vw, 896px"
               />
             </div>
-            <p className="text-sm font-light text-brand-white/40">
+            <p className="text-sm font-light text-brand-white/60">
               Board member Didier Coeurnelle introducing Law for AI Safety&rsquo;s mission at the 2nd International Conference on Large-Scale AI Risks.
             </p>
           </div>
@@ -156,7 +156,7 @@ export default function Home() {
               <div key={m.title} className="flex flex-col gap-5">
                 <Rule />
                 <h3 className="text-2xl font-light text-brand-black">{m.title}</h3>
-                <p className="text-base font-light text-brand-navy/60 leading-relaxed">
+                <p className="text-base font-light text-brand-navy/70 leading-relaxed">
                   {m.body}
                 </p>
               </div>
@@ -200,7 +200,7 @@ export default function Home() {
               hosted by Maria Grapini, Vice-Chair of the Committee on the Internal
               Market and Consumer Protection.
             </p>
-            <p className="text-base font-light text-brand-navy/50 leading-relaxed max-w-2xl">
+            <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
               Attendees included Victor Negrescu, Vice-President of the European
               Parliament; Brando Benifei, former co-rapporteur on the EU AI Act;
               Martin Ulbrich, AI Policy Officer at the European Commission; and
@@ -251,8 +251,8 @@ export default function Home() {
             {team.map((person) => (
               <div key={person.name} className="flex flex-col gap-2">
                 <p className="text-xl font-light text-brand-white">{person.name}</p>
-                <p className="text-sm font-light text-brand-red">{person.role}</p>
-                <p className="text-sm font-light text-brand-white/50 leading-relaxed mt-1">
+                <p className="text-sm font-light text-brand-white/80">{person.role}</p>
+                <p className="text-sm font-light text-brand-white/60 leading-relaxed mt-1">
                   {person.bio}
                 </p>
               </div>
@@ -303,7 +303,7 @@ export default function Home() {
             height={48}
             className="w-36 brightness-0 invert opacity-40"
           />
-          <p className="text-sm font-light text-brand-white/30">
+          <p className="text-sm font-light text-brand-white/50">
             © {new Date().getFullYear()} Law for AI Safety. All rights reserved.
           </p>
         </div>
