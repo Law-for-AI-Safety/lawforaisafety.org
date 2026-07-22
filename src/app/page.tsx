@@ -382,7 +382,7 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <WipeButton
-              href="mailto:hello@lawforaisafety.org"
+              href="mailto:info@lawforaisafety.org"
               className="px-8 py-4 border border-brand-black/30 text-brand-black text-base font-light rounded-sm overflow-hidden"
               hoverBg="rgba(27,51,76,0.07)"
             >
