@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://lawforaisafety.org"),
   title: "Law for AI Safety",
   description: "Building the legal foundations for safe artificial intelligence.",
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
