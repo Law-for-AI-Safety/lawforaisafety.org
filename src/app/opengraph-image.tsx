@@ -13,7 +13,7 @@ export const dynamic = 'force-static'
 export default async function Image() {
   const [teamData, logoData, fontData] = await Promise.all([
     readFile(join(process.cwd(), 'src/app/og-assets/team-group.png'), 'base64'),
-    readFile(join(process.cwd(), 'src/app/og-assets/logo-original.png'), 'base64'),
+    readFile(join(process.cwd(), 'src/app/og-assets/logo-white.png'), 'base64'),
     readFile(join(process.cwd(), 'src/app/og-assets/cormorant-garamond-subset.ttf')),
   ])
 
@@ -25,7 +25,7 @@ export default async function Image() {
           height: '100%',
           display: 'flex',
           position: 'relative',
-          background: '#1b334c',
+          background: '#9b1c1f',
         }}
       >
         <img
@@ -39,6 +39,7 @@ export default async function Image() {
             height: '100%',
             objectFit: 'cover',
           }}
+          alt=""
         />
         <div
           style={{
@@ -48,7 +49,7 @@ export default async function Image() {
             height: '100%',
             display: 'flex',
             background:
-              'linear-gradient(180deg, rgba(243,240,236,0) 42%, rgba(243,240,236,1) 66%, rgba(243,240,236,1) 100%)',
+              'linear-gradient(180deg, rgba(155,28,31,0) 42%, rgba(155,28,31,1) 66%, rgba(155,28,31,1) 100%)',
           }}
         />
         <div
@@ -60,7 +61,7 @@ export default async function Image() {
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 40,
+            gap: 100,
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -69,6 +70,7 @@ export default async function Image() {
             width={300}
             height={139}
             style={{ objectFit: 'contain', flexShrink: 0 }}
+            alt=""
           />
           <div
             style={{
@@ -76,8 +78,8 @@ export default async function Image() {
               fontFamily: 'Cormorant Garamond',
               fontSize: 30,
               lineHeight: 1.35,
-              color: '#16161d',
-              maxWidth: 560,
+              color: '#f3f0ec',
+              maxWidth: 460,
             }}
           >
             Building the legal foundations for safe artificial intelligence.
