@@ -210,7 +210,7 @@ export default function Home() {
             <div className="flex gap-8">
               <div className="relative flex-shrink-0 w-3">
                 <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
-                <div className="absolute top-[22px] left-[5px] w-px bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+                <div className="absolute top-[22px] left-[4px] w-1 bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
@@ -228,7 +228,7 @@ export default function Home() {
             <div className="flex gap-8">
               <div className="relative flex-shrink-0 w-3">
                 <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
-                <div className="absolute top-[22px] left-[5px] w-px bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+                <div className="absolute top-[22px] left-[4px] w-1 bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
@@ -248,7 +248,7 @@ export default function Home() {
             <div className="flex gap-8">
               <div className="relative flex-shrink-0 w-3">
                 <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
-                <div className="absolute top-[22px] left-[5px] w-px bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+                <div className="absolute top-[22px] left-[4px] w-1 bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
@@ -299,9 +299,9 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { src: "/images/conference-ai-act-1.webp", alt: "Panel at AI Act in Romania conference", position: "object-center" },
-                  { src: "/images/conference-ai-act-2.webp", alt: "Speakers at AI Act in Romania conference", position: "object-top" },
-                  { src: "/images/conference-ai-act-3.webp", alt: "Presenter at AI Act in Romania conference", position: "object-center" },
+                  { src: "/images/conference-ai-act-1.webp", alt: "Karolina Gruzel on the panel at AI Act in Romania conference", position: "object-center" },
+                  { src: "/images/conference-ai-act-2.webp", alt: "Raphaël Weuts on the panel at AI Act in Romania conference", position: "object-top" },
+                  { src: "/images/conference-ai-act-3.webp", alt: "Cristian Teodorescu on the panel at AI Act in Romania conference", position: "object-center" },
                 ].map((img) => (
                   <div key={img.src} className="relative w-full aspect-[4/3] rounded-sm overflow-hidden">
                     <Image
