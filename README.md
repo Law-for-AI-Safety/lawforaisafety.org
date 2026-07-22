@@ -22,6 +22,18 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Images
+
+This site uses `output: "export"` with `images.unoptimized: true`, so Next's image optimizer does not run — images must be pre-optimized before commit.
+
+Full-res originals live in `design/images-src/` (not the shipped assets). To add or replace a photo:
+
+1. Drop the source JPG/PNG in `design/images-src/`, named to match how it's used (e.g. `team-group.jpg`).
+2. If it needs a specific display size, add a width override in `scripts/optimize-images.mjs` (`WIDTH_OVERRIDES`) — set it to 2x the max render width from the image's `sizes` prop in `page.tsx`. Otherwise it falls back to a 1920px cap.
+3. Run `npm run images` (or just `npm run build`, which runs it automatically via `prebuild`).
+
+This resizes and converts each source image to WebP (q80) into `public/images/`, which is what's committed and shipped. The script skips files that are already up to date.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

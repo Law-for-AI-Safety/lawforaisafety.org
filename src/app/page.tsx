@@ -64,7 +64,7 @@ const team = [
 const mechanisms = [
   {
     title: "Survey & Convene",
-    body: "We survey and convene people working at the intersection of law and AI — through meetups, hackathons, and events — to identify promising opportunities for impact, barriers to litigation, and favourable jurisdictions. We organise research projects and fellowships to develop knowledge and experts in this area, and strategically communicate relevant research to increase the likelihood of it being put into practice.",
+    body: "We survey and convene people working at the intersection of law and AI, through meetups, hackathons, and events, to identify promising opportunities for impact, barriers to litigation, and favourable jurisdictions. We organise research projects and fellowships to develop knowledge and experts in this area, and strategically communicate relevant research to increase the likelihood of it being put into practice.",
   },
   {
     title: "Transparency",
@@ -75,6 +75,8 @@ const mechanisms = [
     body: "We advance dialogue with the European Union, the Council of Europe, and other key stakeholders through conferences, events, and targeted engagement.",
   },
 ];
+
+const linkedin = "https://www.linkedin.com/company/law-for-ai-safety/"
 
 export default function Home() {
   return (
@@ -126,7 +128,7 @@ export default function Home() {
             <p className="text-lg md:text-xl font-light text-brand-white/70 leading-relaxed max-w-2xl">
               We aim to bring together legal professionals who are concerned about these
               risks and interested in using legal and administrative levers to address
-              them — using these levers where they already exist, and researching and
+              them, using these levers where they already exist, and researching and
               advocating for reform where they are outdated.
             </p>
           </div>
@@ -134,7 +136,7 @@ export default function Home() {
           <div className="flex flex-col gap-3">
             <div className="relative w-full aspect-[4/3] md:aspect-[16/9] rounded-sm overflow-hidden">
               <Image
-                src="/images/conference-didier.jpg"
+                src="/images/conference-didier.webp"
                 alt="Didier Coeurnelle introducing Law for AI Safety's mission at the 2nd International Conference on Large-Scale AI Risks"
                 fill
                 className="object-cover"
@@ -201,7 +203,7 @@ export default function Home() {
             </h2>
           </div>
 
-          {/* Timeline — gap-14=56px; line h=calc(100%+44px) bridges gap to next dot */}
+          {/* Timeline: gap-14=56px; line h=calc(100%+44px) bridges gap to next dot */}
           <div className="flex flex-col gap-14">
 
             {/* Event 1 */}
@@ -260,7 +262,7 @@ export default function Home() {
                 </p>
                 <div className="pt-4">
                   <WipeButton
-                    href="https://www.linkedin.com/company/law-for-ai-safety/"
+                    href={linkedin}
                     className="inline-flex items-center gap-3 px-6 py-3 bg-brand-red text-brand-white text-sm font-light rounded-sm overflow-hidden"
                     hoverBg="rgba(255,255,255,0.15)"
                   >
@@ -273,7 +275,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Event 4 — no line below */}
+            {/* Event 4: no line below */}
             <div className="flex gap-8">
               <div className="flex-shrink-0 w-3 mt-[10px]">
                 <div className="w-3 h-3 rounded-full bg-brand-red" aria-hidden />
@@ -297,9 +299,9 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { src: "/images/conference-ai-act-1.jpg", alt: "Panel at AI Act in Romania conference", position: "object-center" },
-                  { src: "/images/conference-ai-act-2.jpg", alt: "Speakers at AI Act in Romania conference", position: "object-top" },
-                  { src: "/images/conference-ai-act-3.jpg", alt: "Presenter at AI Act in Romania conference", position: "object-center" },
+                  { src: "/images/conference-ai-act-1.webp", alt: "Panel at AI Act in Romania conference", position: "object-center" },
+                  { src: "/images/conference-ai-act-2.webp", alt: "Speakers at AI Act in Romania conference", position: "object-top" },
+                  { src: "/images/conference-ai-act-3.webp", alt: "Presenter at AI Act in Romania conference", position: "object-center" },
                 ].map((img) => (
                   <div key={img.src} className="relative w-full aspect-[4/3] rounded-sm overflow-hidden">
                     <Image
@@ -330,7 +332,7 @@ export default function Home() {
 
           <div className="relative w-full aspect-[16/9] mb-4 rounded-sm overflow-hidden">
             <Image
-              src="/images/team-group.jpg"
+              src="/images/team-group.webp"
               alt="Law for AI Safety founding team at the European Parliament"
               fill
               className="object-cover"
@@ -389,7 +391,7 @@ export default function Home() {
               Contact us
             </WipeButton>
             <WipeButton
-              href="https://www.linkedin.com/company/law-for-ai-safety/"
+              href={linkedin}
               className="px-8 py-4 bg-brand-red text-brand-white text-base font-light rounded-sm overflow-hidden"
               hoverBg="rgba(255,255,255,0.15)"
             >
