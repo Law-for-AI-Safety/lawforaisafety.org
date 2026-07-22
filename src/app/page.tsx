@@ -10,6 +10,14 @@ function Rule() {
   );
 }
 
+function RingBullet() {
+  return (
+    <svg viewBox="45 109 89 87" width="20" height="20" aria-hidden>
+      <path d="M45.6629916,146.6460098c3.5526943-28.793663,34.7318051-45.5313207,60.938416-33.2273621,17.5648766,6.945953,31.2843179,25.8792484,28.2118701,45.2992075-5.0611924,32.8726725-42.4664306,48.4200161-69.7619503,30.3102238-14.4563741-8.9429336-21.5606104-25.7715137-19.3883358-42.3820692h0ZM48.6323061,147.0480178c-2.3358111,14.7979655,6.33256,30.1021311,19.3616305,36.9334113,5.2684926,2.6834331,11.3687187,3.7770075,17.2398469,3.4211509,16.5341546-.9545063,30.2459719-15.119223,31.7322923-31.1019064.7488099-8.2632583.6151666-16.9454437-3.6304527-24.5473369-2.9942574-4.8242696-6.7727129-9.5147835-11.8893077-12.2090796-22.3253568-11.5449574-49.096426,2.6685267-52.8140094,27.5037609h0Z" fill="#9b1c1f" />
+    </svg>
+  );
+}
+
 const team = [
   {
     name: "Raphaël Weuts",
@@ -208,9 +216,11 @@ export default function Home() {
 
             {/* Event 1 */}
             <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-3">
-                <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
-                <div className="absolute top-[22px] left-[4px] w-1 bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+              <div className="relative flex-shrink-0 w-5">
+                <div className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]" aria-hidden />
+                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
+                  <RingBullet />
+                </div>
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
@@ -226,9 +236,11 @@ export default function Home() {
 
             {/* Event 2 */}
             <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-3">
-                <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
-                <div className="absolute top-[22px] left-[4px] w-1 bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+              <div className="relative flex-shrink-0 w-5">
+                <div className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]" aria-hidden />
+                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
+                  <RingBullet />
+                </div>
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
@@ -246,9 +258,11 @@ export default function Home() {
 
             {/* Event 3 */}
             <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-3">
-                <div className="w-3 h-3 rounded-full bg-brand-red mt-[10px]" aria-hidden />
-                <div className="absolute top-[22px] left-[4px] w-1 bg-brand-red/20 h-[calc(100%+44px)]" aria-hidden />
+              <div className="relative flex-shrink-0 w-5">
+                <div className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]" aria-hidden />
+                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
+                  <RingBullet />
+                </div>
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
@@ -277,8 +291,8 @@ export default function Home() {
 
             {/* Event 4: no line below */}
             <div className="flex gap-8">
-              <div className="flex-shrink-0 w-3 mt-[10px]">
-                <div className="w-3 h-3 rounded-full bg-brand-red" aria-hidden />
+              <div className="relative flex-shrink-0 w-5 h-9 bg-brand-white flex items-center justify-center">
+                <RingBullet />
               </div>
               <div className="flex flex-col gap-6 min-w-0">
               <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
