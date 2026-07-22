@@ -10,7 +10,7 @@ const cormorant = Cormorant_Garamond({
 
 export const metadata: Metadata = {
   title: "Law for AI Safety",
-  description: "Law for AI Safety",
+  description: "Building the legal foundations for safe artificial intelligence.",
 };
 
 export default function RootLayout({
