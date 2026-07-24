@@ -88,7 +88,7 @@ const mechanisms = [
   },
   {
     title: "Dialogue",
-    body: "We advance dialogue with the European Union, the Council of Europe, and other key stakeholders through conferences, events, and targeted engagement.",
+    body: "We advance dialogue with the European Union, the Council of Europe, and other key stakeholders through conferences, events, and targeted engagement to explore and build understanding on the effectiveness of, and gaps in, our current legal frameworks in the context of advanced AI",
   },
 ];
 
