@@ -111,7 +111,7 @@ export default function Home() {
               Building the legal foundations for safe artificial intelligence.
             </h1>
             <Rule />
-            <p className="text-xl md:text-2xl font-light text-brand-navy/80 leading-relaxed max-w-xl">
+            <p className="text-2xl md:text-3xl font-light text-brand-navy/85 leading-relaxed max-w-xl">
               AI governance and AI law remain in their infancy. The time to build
               this capacity is now.
             </p>
@@ -130,18 +130,18 @@ export default function Home() {
             >
               Bringing together legal professionals to address the risks of advanced AI.
             </h2>
-            <p className="text-lg md:text-xl font-light text-brand-white/70 leading-relaxed max-w-2xl">
+            <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
               AI could erode democracy, destabilise the economy, be used to develop
               powerful weapons, facilitate large-scale cyberattacks, or even result in
               a loss of human control over increasingly capable systems.
             </p>
-            <p className="text-lg md:text-xl font-light text-brand-white/70 leading-relaxed max-w-2xl">
+            <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
               Increasing concentrations of power, capital, and technological capabilities
               in the hands of a small number of AI companies and states risk reducing
               the agency of individuals, civil society, and democratic institutions
               unless effective counterweights are developed.
             </p>
-            <p className="text-lg md:text-xl font-light text-brand-white/70 leading-relaxed max-w-2xl">
+            <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
               We aim to bring together legal professionals who are concerned about these
               risks and interested in using legal and administrative levers to address
               them, using these levers where they already exist, and researching and
@@ -159,7 +159,7 @@ export default function Home() {
                 sizes="(max-width: 768px) 100vw, 896px"
               />
             </div>
-            <p className="text-sm font-light text-brand-white/60">
+            <p className="text-lg font-light text-brand-white/85">
               Board member Didier Coeurnelle introducing Law for AI Safety&rsquo;s mission at the 2nd International Conference on Large-Scale AI Risks.
             </p>
           </div>
@@ -171,7 +171,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto flex flex-col gap-16">
           <div className="flex flex-col gap-4">
             <Rule />
-            <h2 className="text-4xl font-light text-brand-black leading-tight">
+            <h2 className="text-4xl md:text-5xl font-light text-brand-black leading-tight">
               How we work
             </h2>
           </div>
@@ -180,8 +180,8 @@ export default function Home() {
             {mechanisms.map((m) => (
               <div key={m.title} className="flex flex-col gap-5">
                 <Rule />
-                <h3 className="text-2xl font-light text-brand-black">{m.title}</h3>
-                <p className="text-base font-light text-brand-navy/70 leading-relaxed">
+                <h3 className="text-3xl font-light text-brand-black">{m.title}</h3>
+                <p className="text-lg font-light text-brand-navy/85 leading-relaxed">
                   {m.body}
                 </p>
               </div>
@@ -200,7 +200,7 @@ export default function Home() {
           >
             &ldquo;Strategic legal and administrative pressure, combined with effective public communication, can strengthen AI governance in Europe and contribute to higher international standards.&rdquo;
           </blockquote>
-          <p className="text-lg md:text-xl font-light text-brand-white/50 leading-relaxed max-w-2xl">
+          <p className="text-xl md:text-2xl font-light text-brand-white/85 leading-relaxed max-w-2xl">
             Through the Brussels effect, Europe can play a leading role in building a
             broader middle-power coalition for AI safety. The expertise, institutions,
             and networks built today will help determine whether increasingly powerful
@@ -214,7 +214,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto flex flex-col gap-16">
           <div className="flex flex-col gap-4">
             <Rule />
-            <h2 className="text-4xl font-light text-brand-black leading-tight">
+            <h2 className="text-4xl md:text-5xl font-light text-brand-black leading-tight">
               Our story
             </h2>
           </div>
@@ -231,10 +231,10 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
                   Team meets at the European Parliament
                 </h3>
-                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
                   Our founding team first met at the <em>Beyond the AI Act: Global Security &amp; the Control
                   Problem</em> conference at the European Parliament, hosted by PauseAI and MEP Ondřej
                   Kolář. Several members of our team were involved in organising the event.
@@ -251,10 +251,10 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
                   FOI requests drafted &amp; legal groundwork laid
                 </h3>
-                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
                   We drafted an initial Freedom of Information request related to the advanced risks
                   of AI, aimed at Member States, currently being finalised following review by the
                   Future of Life Institute team. We also conducted preliminary research into legal
@@ -273,10 +273,10 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
                   Building the network
                 </h3>
-                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
                   We established a relationship with <a href="https://pauseai.info" target="_blank" rel="noopener noreferrer" className="underline hover:text-brand-black">PauseAI</a> to channel volunteers with legal
                   backgrounds to our work. Through attending conferences, we connected with experts
                   including individuals involved with the EU AI Office and AI policy organisations,
@@ -285,7 +285,7 @@ export default function Home() {
                 <div className="pt-4">
                   <WipeButton
                     href={linkedin}
-                    className="inline-flex items-center gap-3 px-6 py-3 bg-brand-red text-brand-white text-sm font-light rounded-sm overflow-hidden"
+                    className="inline-flex items-center gap-3 px-6 py-3 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden"
                     hoverBg="rgba(255,255,255,0.15)"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -303,17 +303,17 @@ export default function Home() {
                 <RingBullet />
               </div>
               <div className="flex flex-col gap-6 min-w-0">
-              <h3 className="text-2xl font-light text-brand-black leading-snug max-w-xl">
+              <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
                 AI Act in Romania conference, European Parliament
               </h3>
               <div className="flex flex-col gap-4">
-                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
                   Raphaël Weuts, Karolina Gruzel, and Cristian Teodorescu participated in the{" "}
                   <em>AI Act in Romania: From Regulation to Implementation</em> conference at the
                   European Parliament in Brussels, hosted by Maria Grapini, Vice-Chair of the
                   Committee on the Internal Market and Consumer Protection.
                 </p>
-                <p className="text-base font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
                   Attendees included Victor Negrescu, Vice-President of the European Parliament;
                   Brando Benifei, former co-rapporteur on the EU AI Act; Martin Ulbrich, AI Policy
                   Officer at the European Commission; and representatives of Romanian industry.
@@ -347,7 +347,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto flex flex-col gap-12">
           <div className="flex flex-col gap-4">
             <Rule />
-            <h2 className="text-4xl font-light text-brand-white leading-tight">
+            <h2 className="text-4xl md:text-5xl font-light text-brand-white leading-tight">
               Founding team
             </h2>
           </div>
@@ -376,7 +376,7 @@ export default function Home() {
                         sizes="96px"
                       />
                     </div>
-                    <p className="text-xl font-light text-brand-white">{person.name}</p>
+                    <p className="text-2xl font-light text-brand-white">{person.name}</p>
                   </div>
                   <a
                     href={person.linkedin}
@@ -390,8 +390,8 @@ export default function Home() {
                     </svg>
                   </a>
                 </div>
-                <p className="text-sm font-light text-brand-white/80">{person.role}</p>
-                <p className="text-sm font-light text-brand-white/60 leading-relaxed mt-1">
+                <p className="text-lg font-light text-brand-white/90">{person.role}</p>
+                <p className="text-lg font-light text-brand-white/85 leading-relaxed mt-1">
                   {person.bio}
                 </p>
               </div>
@@ -410,7 +410,7 @@ export default function Home() {
           >
             Join us in shaping the legal future of AI
           </h2>
-          <p className="text-lg md:text-xl font-light text-brand-navy/70 leading-relaxed max-w-2xl">
+          <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
             Whether you are a lawyer, a policymaker, a researcher, or someone who
             cares about the long-term future of AI governance, there are ways to
             contribute to this work.
@@ -418,14 +418,14 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <WipeButton
               href="mailto:info@lawforaisafety.org"
-              className="px-8 py-4 border border-brand-black/30 text-brand-black text-base font-light rounded-sm overflow-hidden"
+              className="px-8 py-4 border border-brand-black/30 text-brand-black text-lg font-light rounded-sm overflow-hidden"
               hoverBg="rgba(27,51,76,0.07)"
             >
               Contact us
             </WipeButton>
             <WipeButton
               href={linkedin}
-              className="px-8 py-4 bg-brand-red text-brand-white text-base font-light rounded-sm overflow-hidden"
+              className="px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden"
               hoverBg="rgba(255,255,255,0.15)"
             >
               Follow our work
@@ -444,7 +444,7 @@ export default function Home() {
             height={48}
             className="w-36 brightness-0 invert opacity-40"
           />
-          <p className="text-sm font-light text-brand-white/50">
+          <p className="text-lg font-light text-brand-white/85">
             © {new Date().getFullYear()} Law for AI Safety. All rights reserved.
           </p>
         </div>
