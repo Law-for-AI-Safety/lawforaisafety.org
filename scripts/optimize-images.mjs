@@ -19,6 +19,14 @@ const WIDTH_OVERRIDES = {
   "conference-ai-act-3": 600,
   "conference-didier": 1792,
   "team-group": 1792,
+  "cristian-teodorescu": 192,
+  "didier-coeurnelle": 192,
+  "harry-turnbull": 192,
+  "julia-moncmanova": 192,
+  "karolina-gruzel": 192,
+  "katie-stewart": 192,
+  "raluca-spataru": 192,
+  "raphael-weuts": 192,
 };
 
 async function main() {

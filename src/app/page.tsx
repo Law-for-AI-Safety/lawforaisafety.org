@@ -23,49 +23,57 @@ const team = [
     name: "Raphaël Weuts",
     role: "Board Member",
     bio: "AI governance consultant. Author of On Accuracy of European AI Law. European representative in the Asia-Europe for AI Network AI Governance working group. Former visiting professor in AI at UC Leuven.",
-    linkedin: "https://www.linkedin.com/in/raphaelweuts/"
+    linkedin: "https://www.linkedin.com/in/raphaelweuts/",
+    photo: "/images/raphael-weuts.webp"
   },
   {
     name: "Karolina Gruzel",
     role: "Board Member",
     bio: "Educational background in European Law. Field-builder, Moral Ambition for AI. AI Policy Strategy Fellow, Successif. AI Policy and Research Communicator.",
-    linkedin: "https://www.linkedin.com/in/karolina-gruzel/"
+    linkedin: "https://www.linkedin.com/in/karolina-gruzel/",
+    photo: "/images/karolina-gruzel.webp"
   },
   {
     name: "Katie Stewart",
     role: "Board Member",
     bio: "Senior research manager and financial sector specialist. Former ops at the Future of Humanity Institute and research and project manager at RAND.",
-    linkedin: "https://www.linkedin.com/in/katie-stewart-uk/"
+    linkedin: "https://www.linkedin.com/in/katie-stewart-uk/",
+    photo: "/images/katie-stewart.webp"
   },
   {
     name: "Didier Coeurnelle",
     role: "Board Member",
     bio: "Lawyer. Co-chair of Healthy Life Extension Society. Board member for International Longevity Alliance. Advisor of Democracy Without Borders. Steering Committee member at the Global AI Governance Alliance.",
-    linkedin: "https://www.linkedin.com/in/didiercoeurnelle/"
+    linkedin: "https://www.linkedin.com/in/didiercoeurnelle/",
+    photo: "/images/didier-coeurnelle.webp"
   },
   {
     name: "Raluca Spataru",
     role: "Practising Lawyer",
     bio: "President of the Romanian chapter of PauseAI.",
-    linkedin: "https://www.linkedin.com/in/raluca-spataru-01a439302/"
+    linkedin: "https://www.linkedin.com/in/raluca-spataru-01a439302/",
+    photo: "/images/raluca-spataru.webp"
   },
   {
     name: "Cristian Teodorescu",
     role: "Managing Director, Neo Teo",
     bio: "Educational background in Human Rights Law. Former senior expert for the Romanian Government.",
-    linkedin: "https://www.linkedin.com/in/cryptoescu/"
+    linkedin: "https://www.linkedin.com/in/cryptoescu/",
+    photo: "/images/cristian-teodorescu.webp"
   },
   {
     name: "Julia Moncmanova",
     role: "Creative Designer",
     bio: "Consulting creative designer at AppTweak.",
-    linkedin: "https://www.linkedin.com/in/julia-moncmanova-22a314264/"
+    linkedin: "https://www.linkedin.com/in/julia-moncmanova-22a314264/",
+    photo: "/images/julia-moncmanova.webp"
   },
   {
     name: "Harry Turnbull",
     role: "Technologist",
     bio: "Senior software engineer. Operations team volunteer at PauseAI.",
-    linkedin: "https://www.linkedin.com/in/harry-turnbull/"
+    linkedin: "https://www.linkedin.com/in/harry-turnbull/",
+    photo: "/images/harry-turnbull.webp"
   },
 ];
 
@@ -358,7 +366,18 @@ export default function Home() {
             {team.map((person) => (
               <div key={person.name} className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-xl font-light text-brand-white">{person.name}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                      <Image
+                        src={person.photo}
+                        alt={`Portrait of ${person.name}`}
+                        fill
+                        className="object-cover"
+                        sizes="96px"
+                      />
+                    </div>
+                    <p className="text-xl font-light text-brand-white">{person.name}</p>
+                  </div>
                   <a
                     href={person.linkedin}
                     target="_blank"
