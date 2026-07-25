@@ -11,6 +11,12 @@
   --font-sans: var(--font-cormorant);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 body {
   background: var(--color-brand-white);
   color: var(--color-brand-black);
