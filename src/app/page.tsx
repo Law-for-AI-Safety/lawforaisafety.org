@@ -69,7 +69,7 @@ const team = [
   {
     name: "Raluca Spataru",
     role: "Legal Advisor",
-    bio: "President of the Romanian chapter of PauseAI. Romanian lawyer with 15 years' experience",
+    bio: "President of the Romanian chapter of PauseAI. Romanian lawyer with 15 years' experience.",
     linkedin: "https://www.linkedin.com/in/raluca-spataru-01a439302/",
     photo: "/images/raluca-spataru.webp",
   },
