@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Nav from "./Nav";
 import WipeButton from "./WipeButton";
+import WavyUnderline from "./WavyUnderline";
 
 function Rule() {
   return (
@@ -68,7 +69,7 @@ const team = [
   {
     name: "Raluca Spataru",
     role: "Legal Advisor",
-    bio: "President of the Romanian chapter of PauseAI.",
+    bio: "President of the Romanian chapter of PauseAI. Romanian lawyer with 15 years' experience",
     linkedin: "https://www.linkedin.com/in/raluca-spataru-01a439302/",
     photo: "/images/raluca-spataru.webp",
   },
@@ -125,14 +126,16 @@ export default function Home() {
               className="text-5xl md:text-7xl font-light text-brand-black leading-[1.05] tracking-tight"
               style={{ textWrap: "balance" }}
             >
-              Building the legal foundations for safe artificial intelligence
+              Bringing together legal professionals to address large-scale AI
+              risks and advance AI safety
             </h1>
             <div className="flex flex-col w-fit">
               <Rule />
             </div>
             <p className="text-2xl md:text-3xl font-light text-brand-navy/85 leading-relaxed max-w-xl">
-              AI governance and AI law remain in their infancy. The time to
-              build this capacity is now. We are on the side of Humanity.
+              Legal expertise is a critical gap in AI governance. Now is the
+              time to build the capacity needed to ensure increasingly powerful
+              AI systems remain accountable. <WavyUnderline>We are on the side of Humanity.</WavyUnderline>
             </p>
           </div>
         </div>
@@ -150,9 +153,7 @@ export default function Home() {
               className="text-4xl md:text-5xl font-light text-brand-white leading-tight max-w-2xl"
               style={{ textWrap: "balance" }}
             >
-              Legal expertise is a critical gap in AI governance. Now is the
-              time to build the capacity needed to ensure increasingly powerful
-              AI systems remain accountable
+              AI governance and AI law remain in their infancy. The time to build this capacity is now.
             </h2>
             <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
               AI could erode democracy, destabilise the economy, be used to
