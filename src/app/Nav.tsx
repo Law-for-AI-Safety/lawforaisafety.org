@@ -3,13 +3,7 @@
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
-const links = [
-  { href: "#mission", label: "Mission" },
-  { href: "#work", label: "Our Work" },
-  { href: "#our-story", label: "Our Story" },
-  { href: "#team", label: "Team" },
-  { href: "#contact", label: "Contact" },
-];
+export type NavLink = { href: string; label: string };
 
 function MenuIcon({ open }: { open: boolean }) {
   const bar = (closedTransform: string, openTransform: string, extra?: React.CSSProperties) => ({
@@ -42,7 +36,7 @@ function MenuIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function Nav() {
+export default function Nav({ links }: { links: NavLink[] }) {
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("");
   const [open, setOpen] = useState(false);
@@ -69,7 +63,7 @@ export default function Nav() {
     });
 
     return () => observers.forEach((o) => o.disconnect());
-  }, []);
+  }, [links]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
