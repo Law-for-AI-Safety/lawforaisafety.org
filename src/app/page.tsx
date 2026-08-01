@@ -1,7 +1,10 @@
 import Image from "next/image";
+import Markdown from "react-markdown";
+import type { Components } from "react-markdown";
 import Nav from "./Nav";
 import WipeButton from "./WipeButton";
 import WavyUnderline from "./WavyUnderline";
+import content from "../../content/home.json";
 
 function Rule() {
   return (
@@ -37,86 +40,37 @@ function LinkedInLogo() {
   );
 }
 
-const team = [
-  {
-    name: "Karolina Gruzel",
-    role: "Executive Director and Board Member",
-    bio: "Educational background in European Law. Field-builder, Moral Ambition for AI. AI Policy Strategy Fellow, Successif. AI Policy and Research Communicator.",
-    linkedin: "https://www.linkedin.com/in/karolina-gruzel/",
-    photo: "/images/karolina-gruzel.webp",
-  },
-  {
-    name: "Raphaël Weuts",
-    role: "Partnerships Lead and Board Member",
-    bio: "AI governance consultant. Author of On Accuracy of European AI Law. European representative in the Asia-Europe for AI Network AI Governance working group. Former visiting professor in AI at UC Leuven.",
-    linkedin: "https://www.linkedin.com/in/raphaelweuts/",
-    photo: "/images/raphael-weuts.webp",
-  },
-  {
-    name: "Katie Stewart",
-    role: "Operations Lead and Board Member",
-    bio: "Senior research manager and financial sector specialist. Former ops at the Future of Humanity Institute and research and project manager at RAND.",
-    linkedin: "https://www.linkedin.com/in/katie-stewart-uk/",
-    photo: "/images/katie-stewart.webp",
-  },
-  {
-    name: "Didier Coeurnelle",
-    role: "Advocacy Advisor and Board Member",
-    bio: "Lawyer. Co-chair of Healthy Life Extension Society. Board member for International Longevity Alliance. Advisor of Democracy Without Borders. Steering Committee member at the Global AI Governance Alliance.",
-    linkedin: "https://www.linkedin.com/in/didiercoeurnelle/",
-    photo: "/images/didier-coeurnelle.webp",
-  },
-  {
-    name: "Raluca Spataru",
-    role: "Legal Advisor",
-    bio: "President of the Romanian chapter of PauseAI. Romanian lawyer with 15 years' experience.",
-    linkedin: "https://www.linkedin.com/in/raluca-spataru-01a439302/",
-    photo: "/images/raluca-spataru.webp",
-  },
-  {
-    name: "Cristian Teodorescu",
-    role: "Council of Europe Advisor and Outreach Coordinator",
-    bio: "Educational background in Human Rights Law. Managing Director at Neo Teo. Former senior expert for the Romanian Government.",
-    linkedin: "https://www.linkedin.com/in/cryptoescu/",
-    photo: "/images/cristian-teodorescu.webp",
-  },
-  {
-    name: "Julia Moncmanova",
-    role: "Creative Designer",
-    bio: "Consulting creative designer at AppTweak.",
-    linkedin: "https://www.linkedin.com/in/julia-moncmanova-22a314264/",
-    photo: "/images/julia-moncmanova.webp",
-  },
-  {
-    name: "Harry Turnbull",
-    role: "Senior Engineer",
-    bio: "Operations team volunteer at PauseAI.",
-    linkedin: "https://www.linkedin.com/in/harry-turnbull/",
-    photo: "/images/harry-turnbull.webp",
-  },
-];
+const focalPositionClasses: Record<string, string> = {
+  center: "object-center",
+  top: "object-top",
+  bottom: "object-bottom",
+};
 
-const mechanisms = [
-  {
-    title: "Survey & Convene",
-    body: "We survey and convene people working at the intersection of law and AI, through meetups, hackathons, and events, to identify promising opportunities for impact, barriers to litigation, and favourable jurisdictions. We organise research projects and fellowships to develop knowledge and experts in this area, and strategically communicate relevant research to increase the likelihood of it being put into practice.",
-  },
-  {
-    title: "Transparency",
-    body: "We promote greater transparency in AI governance through initiatives such as Freedom of Information requests directed at selected Member States and European Union institutions. These are essential to promoting accountability and democratic oversight in AI governance.",
-  },
-  {
-    title: "Dialogue",
-    body: "We advance dialogue with the European Union, the Council of Europe, and other key stakeholders through conferences, events, and targeted engagement to explore and build understanding on the effectiveness of, and gaps in, our current legal frameworks in the context of advanced AI",
-  },
-];
-
-const linkedin = "https://www.linkedin.com/company/law-for-ai-safety/";
+// Hero body's markdown only ever uses ** for the wavy-underline emphasis
+// phrase (see public/admin/config.yml — toolbar restricted to "bold").
+const heroBodyComponents: Components = {
+  p: ({ children }) => <>{children}</>,
+  strong: ({ children }) => <WavyUnderline>{children}</WavyUnderline>,
+};
 
 export default function Home() {
+  const { hero, mission, work, quote, story, team, contact } = content;
+
+  const sections = [
+    { id: "mission", navLabel: mission?.navLabel },
+    { id: "work", navLabel: work?.navLabel },
+    { id: "our-story", navLabel: story?.navLabel },
+    { id: "team", navLabel: team?.navLabel },
+    { id: "contact", navLabel: contact?.navLabel },
+  ];
+
+  const navLinks = sections
+    .filter((s): s is { id: string; navLabel: string } => Boolean(s.navLabel))
+    .map((s) => ({ href: `#${s.id}`, label: s.navLabel }));
+
   return (
     <main className="flex flex-col font-sans">
-      <Nav />
+      <Nav links={navLinks} />
 
       {/* Hero */}
       <section className="bg-brand-white flex flex-col justify-center px-8 md:px-16 py-60 pb-30">
@@ -126,17 +80,14 @@ export default function Home() {
               className="text-5xl md:text-7xl font-light text-brand-black leading-[1.05] tracking-tight"
               style={{ textWrap: "balance" }}
             >
-              Bringing together legal professionals to address large-scale AI
-              risks and advance AI safety
+              {hero?.heading}
             </h1>
             <div className="flex flex-col w-fit">
               <Rule />
             </div>
-            <p className="text-2xl md:text-3xl font-light text-brand-navy/85 leading-relaxed max-w-xl">
-              Legal expertise is a critical gap in AI governance. Now is the
-              time to build the capacity needed to ensure increasingly powerful
-              AI systems remain accountable. <WavyUnderline>We are on the side of Humanity.</WavyUnderline>
-            </p>
+            <div className="text-2xl md:text-3xl font-light text-brand-navy/85 leading-relaxed max-w-xl">
+              <Markdown components={heroBodyComponents}>{hero?.body}</Markdown>
+            </div>
           </div>
         </div>
       </section>
@@ -153,44 +104,32 @@ export default function Home() {
               className="text-4xl md:text-5xl font-light text-brand-white leading-tight max-w-2xl"
               style={{ textWrap: "balance" }}
             >
-              AI governance and AI law remain in their infancy. The time to build this capacity is now.
+              {mission?.heading}
             </h2>
-            <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
-              AI could erode democracy, destabilise the economy, be used to
-              develop powerful weapons, facilitate large-scale cyberattacks, or
-              even result in a loss of human control over increasingly capable
-              systems.
-            </p>
-            <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
-              Increasing concentrations of power, capital, and technological
-              capabilities in the hands of a small number of AI companies and
-              states risk reducing the agency of individuals, civil society, and
-              democratic institutions unless effective counterweights are
-              developed.
-            </p>
-            <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
-              We aim to bring together legal professionals who are concerned
-              about these risks and interested in using legal and administrative
-              levers to address them, using these levers where they already
-              exist, and researching and advocating for reform where they are
-              outdated.
-            </p>
+            {mission?.body?.map((paragraph, i) => (
+              <p
+                key={i}
+                className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl"
+              >
+                {paragraph}
+              </p>
+            ))}
           </div>
 
           <div className="flex flex-col gap-3">
             <div className="relative w-full aspect-[4/3] md:aspect-[16/9] rounded-sm overflow-hidden">
-              <Image
-                src="/images/conference-didier.webp"
-                alt="Didier Coeurnelle introducing Law for AI Safety's mission at the 2nd International Conference on Large-Scale AI Risks"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 896px"
-              />
+              {mission?.photoSrc && (
+                <Image
+                  src={mission.photoSrc}
+                  alt={mission.photoAlt ?? ""}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 896px"
+                />
+              )}
             </div>
             <p className="text-lg font-light text-brand-white/85">
-              Board member Didier Coeurnelle introducing Law for AI
-              Safety&rsquo;s mission at the 2nd International Conference on
-              Large-Scale AI Risks.
+              {mission?.photoCaption}
             </p>
           </div>
         </div>
@@ -205,19 +144,19 @@ export default function Home() {
           <div className="flex flex-col gap-4">
             <Rule />
             <h2 className="text-4xl md:text-5xl font-light text-brand-black leading-tight">
-              How we work
+              {work?.heading}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            {mechanisms.map((m) => (
-              <div key={m.title} className="flex flex-col gap-5">
+            {work?.mechanisms?.map((m, i) => (
+              <div key={i} className="flex flex-col gap-5">
                 <Rule />
                 <h3 className="text-3xl font-light text-brand-black">
-                  {m.title}
+                  {m?.title}
                 </h3>
                 <p className="text-lg font-light text-brand-navy/85 leading-relaxed">
-                  {m.body}
+                  {m?.body}
                 </p>
               </div>
             ))}
@@ -233,16 +172,10 @@ export default function Home() {
             className="text-4xl md:text-6xl font-light text-brand-white leading-tight max-w-3xl"
             style={{ textWrap: "balance" }}
           >
-            &ldquo;Strategic legal and administrative pressure, combined with
-            effective public communication, can strengthen AI governance in
-            Europe and contribute to higher international standards.&rdquo;
+            &ldquo;{quote?.text}&rdquo;
           </blockquote>
           <p className="text-xl md:text-2xl font-light text-brand-white/85 leading-relaxed max-w-2xl">
-            Through the Brussels effect, Europe can play a leading role in
-            building a broader middle-power coalition for AI safety. The
-            expertise, institutions, and networks built today will help
-            determine whether increasingly powerful AI systems remain
-            accountable to democratic societies and the rule of law.
+            {quote?.body}
           </p>
         </div>
       </section>
@@ -256,187 +189,84 @@ export default function Home() {
           <div className="flex flex-col gap-4">
             <Rule />
             <h2 className="text-4xl md:text-5xl font-light text-brand-black leading-tight">
-              Our story
+              {story?.heading}
             </h2>
           </div>
 
           {/* Timeline: gap-14=56px; line h=calc(100%+44px) bridges gap to next dot */}
           <div className="flex flex-col gap-14">
-            {/* Event 1 */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5">
-                <div
-                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
-                  aria-hidden
-                />
-                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
-                  <RingBullet />
-                </div>
-              </div>
-              <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  Team meets at the European Parliament
-                </h3>
-                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                  Our founding team first met at the{" "}
-                  <em>
-                    Beyond the AI Act: Global Security &amp; the Control Problem
-                  </em>{" "}
-                  conference at the European Parliament, hosted by PauseAI and
-                  MEP Ondřej Kolář. Several members of our team were involved in
-                  organising the event.
-                </p>
-              </div>
-            </div>
-
-            {/* Event 2 */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5">
-                <div
-                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
-                  aria-hidden
-                />
-                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
-                  <RingBullet />
-                </div>
-              </div>
-              <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  FOI requests drafted &amp; legal groundwork laid
-                </h3>
-                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                  We drafted an initial Freedom of Information request related
-                  to the advanced risks of AI, aimed at Member States, currently
-                  being finalised following review by the Future of Life
-                  Institute team. We also conducted preliminary research into
-                  legal and administrative levers and barriers to action, and
-                  secured pro bono support from global law firm Dentons to
-                  assist with our registration in Brussels.
-                </p>
-              </div>
-            </div>
-
-            {/* Event 3 */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5">
-                <div
-                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
-                  aria-hidden
-                />
-                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
-                  <RingBullet />
-                </div>
-              </div>
-              <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  Building the network
-                </h3>
-                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                  We established a relationship with{" "}
-                  <a
-                    href="https://pauseai.info"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-brand-black"
+            {story?.events?.map((event, i) => {
+              const events = story.events ?? [];
+              const isLast = i === events.length - 1;
+              if (!event) return null;
+              return (
+                <div key={i} className="flex gap-8">
+                  <div
+                    className={
+                      isLast
+                        ? "relative flex-shrink-0 w-5 h-9 bg-brand-white flex items-center justify-center"
+                        : "relative flex-shrink-0 w-5"
+                    }
                   >
-                    PauseAI
-                  </a>{" "}
-                  to channel volunteers with legal backgrounds to our work.
-                  Through attending conferences, we connected with AI law and
-                  policy experts who have expressed willingness to collaborate
-                  with us on our upcoming projects.
-                </p>
-                <div className="pt-4">
-                  <WipeButton
-                    href={linkedin}
-                    className="inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden"
-                    hoverBg="rgba(255,255,255,0.15)"
-                  >
-                    <LinkedInLogo /> Connect on LinkedIn
-                  </WipeButton>
-                </div>
-              </div>
-            </div>
-
-            {/* Event 4: no line below */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5 h-9 bg-brand-white flex items-center justify-center">
-                <RingBullet />
-              </div>
-              <div className="flex flex-col gap-6 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  Implementing EU AI Act conference, European Parliament
-                </h3>
-                <div className="flex flex-col gap-4">
-                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    Raphaël Weuts, Karolina Gruzel, and Cristian Teodorescu
-                    participated in a conference on implementing the EU AI Act,
-                    held at the European Parliament in Brussels and hosted by
-                    Maria Grapini, Vice-Chair of the Committee on the Internal
-                    Market and Consumer Protection.
-                  </p>
-                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    Our team highlighted that safety and innovation should not
-                    be treated as opposing goals. Understanding AI risks and
-                    shortcomings can not only increase safety, but also improve
-                    the effectiveness of AI use. However, the case for AI safety
-                    extends beyond improving how individual organisations use
-                    these technologies. Large-scale AI risks can also threaten
-                    the stability of the economic, legal, and social systems on
-                    which companies and institutions depend.
-                  </p>
-                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    It is therefore in the interest of stakeholders across
-                    sectors to ensure adaptation of AI safety standards and
-                    encourage leaders to strengthen international coordination
-                    on AI safety, including through the development of a global
-                    treaty.{" "}
-                  </p>
-                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    The conference also provided a valuable opportunity to learn
-                    from fellow participants, including Victor Negrescu,
-                    Vice-President of the European Parliament; Brando Benifei,
-                    former co-rapporteur on the EU AI Act; Martin Ulbrich, AI
-                    Policy Officer at the European Commission; Carmen
-                    Socolovici, Head of Legal at the Romanian telecommunications
-                    regulator ANCOM; and Bruno Delepierre, Chief Regenerative
-                    Officer at Happonomy.{" "}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[
-                    {
-                      src: "/images/conference-ai-act-1.webp",
-                      alt: "Karolina Gruzel on the panel at AI Act in Romania conference",
-                      position: "object-center",
-                    },
-                    {
-                      src: "/images/conference-ai-act-2.webp",
-                      alt: "Raphaël Weuts on the panel at AI Act in Romania conference",
-                      position: "object-top",
-                    },
-                    {
-                      src: "/images/conference-ai-act-3.webp",
-                      alt: "Cristian Teodorescu on the panel at AI Act in Romania conference",
-                      position: "object-center",
-                    },
-                  ].map((img) => (
-                    <div
-                      key={img.src}
-                      className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
-                    >
-                      <Image
-                        src={img.src}
-                        alt={img.alt}
-                        fill
-                        className={`object-cover ${img.position}`}
-                        sizes="(max-width: 768px) 100vw, 298px"
+                    {!isLast && (
+                      <div
+                        className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
+                        aria-hidden
                       />
+                    )}
+                    <div
+                      className={
+                        isLast
+                          ? "contents"
+                          : "relative w-5 h-9 bg-brand-white flex items-center justify-center"
+                      }
+                    >
+                      <RingBullet />
                     </div>
-                  ))}
+                  </div>
+                  <div className="flex flex-col gap-3 min-w-0">
+                    <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                      {event.heading}
+                    </h3>
+                    <div className="flex flex-col gap-4 [&_p]:text-lg [&_p]:font-light [&_p]:text-brand-navy/85 [&_p]:leading-relaxed [&_p]:max-w-2xl [&_a]:underline [&_a:hover]:text-brand-black">
+                      <Markdown>{event.body}</Markdown>
+                    </div>
+                    {event.ctaLabel && event.ctaHref && (
+                      <div className="pt-4">
+                        <WipeButton
+                          href={event.ctaHref}
+                          className="inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden"
+                          hoverBg="rgba(255,255,255,0.15)"
+                        >
+                          <LinkedInLogo /> <span>{event.ctaLabel}</span>
+                        </WipeButton>
+                      </div>
+                    )}
+                    {event.images && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {event.images.map((img, imgI) => {
+                          if (!img?.src) return null;
+                          return (
+                            <div
+                              key={imgI}
+                              className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
+                            >
+                              <Image
+                                src={img.src}
+                                alt={img.alt ?? ""}
+                                fill
+                                className={`object-cover ${focalPositionClasses[img.position ?? "center"]}`}
+                                sizes="(max-width: 768px) 100vw, 298px"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -447,46 +277,53 @@ export default function Home() {
           <div className="flex flex-col gap-4">
             <Rule />
             <h2 className="text-4xl md:text-5xl font-light text-brand-white leading-tight">
-              Team
+              {team?.heading}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {team.map((person) => (
-              <div key={person.name} className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                      <Image
-                        src={person.photo}
-                        alt={`Portrait of ${person.name}`}
-                        fill
-                        className="object-cover"
-                        sizes="96px"
-                      />
+            {team?.members?.map((person, i) => {
+              if (!person) return null;
+              return (
+                <div key={i} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                        {person.photo && (
+                          <Image
+                            src={person.photo}
+                            alt={`Portrait of ${person.name}`}
+                            fill
+                            className="object-cover"
+                            sizes="96px"
+                          />
+                        )}
+                      </div>
+                      <p className="text-2xl font-light text-brand-white">
+                        {person.name}
+                      </p>
                     </div>
-                    <p className="text-2xl font-light text-brand-white">
-                      {person.name}
-                    </p>
+                    {person.linkedin && (
+                      <a
+                        href={person.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${person.name} on LinkedIn`}
+                        className="flex-shrink-0 text-brand-white/50 hover:text-brand-white transition-colors duration-200"
+                      >
+                        <LinkedInLogo />{" "}
+                      </a>
+                    )}
                   </div>
-                  <a
-                    href={person.linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`${person.name} on LinkedIn`}
-                    className="flex-shrink-0 text-brand-white/50 hover:text-brand-white transition-colors duration-200"
-                  >
-                    <LinkedInLogo />{" "}
-                  </a>
+                  <p className="text-lg font-light text-brand-white/90">
+                    {person.role}
+                  </p>
+                  <p className="text-lg font-light text-brand-white/85 leading-relaxed mt-1">
+                    {person.bio}
+                  </p>
                 </div>
-                <p className="text-lg font-light text-brand-white/90">
-                  {person.role}
-                </p>
-                <p className="text-lg font-light text-brand-white/85 leading-relaxed mt-1">
-                  {person.bio}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -502,23 +339,21 @@ export default function Home() {
             className="text-4xl md:text-5xl font-light text-brand-black leading-tight max-w-xl"
             style={{ textWrap: "balance" }}
           >
-            Join us in shaping the legal future of AI
+            {contact?.heading}
           </h2>
           <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-            Whether you are a lawyer, a policymaker, a researcher, or someone
-            who cares about the long-term future of AI governance, there are
-            ways to contribute to this work.
+            {contact?.body}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <WipeButton
-              href="mailto:info@lawforaisafety.org"
+              href={`mailto:${contact?.email}`}
               className="px-8 py-4 border border-brand-black/30 text-brand-black text-lg font-light rounded-sm overflow-hidden"
               hoverBg="rgba(27,51,76,0.07)"
             >
               Contact us
             </WipeButton>
             <WipeButton
-              href={linkedin}
+              href={contact?.linkedin ?? ""}
               className="inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden"
               hoverBg="rgba(255,255,255,0.15)"
             >
