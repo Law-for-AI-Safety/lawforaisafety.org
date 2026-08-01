@@ -1,7 +1,12 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Nav from "./Nav";
 import WipeButton from "./WipeButton";
 import WavyUnderline from "./WavyUnderline";
+import ContactErrorBanner from "./ContactErrorBanner";
+import ApplyToast from "./ApplyToast";
+import NewsletterForm from "./apply/NewsletterForm";
+import ApplyForm from "./apply/ApplyForm";
 
 function Rule() {
   return (
@@ -117,6 +122,10 @@ export default function Home() {
   return (
     <main className="flex flex-col font-sans">
       <Nav />
+
+      <Suspense fallback={null}>
+        <ApplyToast />
+      </Suspense>
 
       {/* Hero */}
       <section className="bg-brand-white flex flex-col justify-center px-8 md:px-16 py-60 pb-30">
@@ -525,6 +534,24 @@ export default function Home() {
               <LinkedInLogo />
               Follow our work on Linkedin
             </WipeButton>
+          </div>
+
+          <Suspense fallback={null}>
+            <ContactErrorBanner />
+          </Suspense>
+
+          <div className="flex flex-col gap-4 pt-12 border-t border-brand-black/10">
+            <h3 className="text-2xl md:text-3xl font-light text-brand-black">
+              Stay updated with our newsletter
+            </h3>
+            <NewsletterForm />
+          </div>
+
+          <div className="flex flex-col gap-4 pt-12 border-t border-brand-black/10">
+            <h3 className="text-2xl md:text-3xl font-light text-brand-black">
+              Work with us
+            </h3>
+            <ApplyForm />
           </div>
         </div>
       </section>
