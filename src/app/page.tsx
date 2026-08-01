@@ -4,6 +4,7 @@ import Nav from "./Nav";
 import WipeButton from "./WipeButton";
 import WavyUnderline from "./WavyUnderline";
 import ContactErrorBanner from "./ContactErrorBanner";
+import ApplyToast from "./ApplyToast";
 import NewsletterForm from "./apply/NewsletterForm";
 import ApplyForm from "./apply/ApplyForm";
 
@@ -121,6 +122,10 @@ export default function Home() {
   return (
     <main className="flex flex-col font-sans">
       <Nav />
+
+      <Suspense fallback={null}>
+        <ApplyToast />
+      </Suspense>
 
       {/* Hero */}
       <section className="bg-brand-white flex flex-col justify-center px-8 md:px-16 py-60 pb-30">

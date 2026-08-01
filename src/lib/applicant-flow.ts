@@ -204,7 +204,7 @@ export async function handleOAuthCallback(
       .where(eq(applications.id, existingPending.id));
     if (updated) await notifySlackBestEffort(updated, provider);
 
-    return "/apply/success";
+    return "/?applied=1#contact";
   }
 
   // Resubmission check 2: applicant was previously decided (peppered hash lookup, no PII retained).
@@ -217,7 +217,7 @@ export async function handleOAuthCallback(
   if (processed?.outcome === "approved") {
     if (draft.cvBlobKey) await deleteCv(draft.cvBlobKey);
     await db.delete(applications).where(eq(applications.id, draft.id));
-    return "/apply/success";
+    return "/?applied=1#contact";
   }
 
   let resultApplicationId = draft.id;
@@ -275,7 +275,7 @@ export async function handleOAuthCallback(
     .where(eq(applications.id, resultApplicationId));
   if (finalRow) await notifySlackBestEffort(finalRow, provider);
 
-  return "/apply/success";
+  return "/?applied=1#contact";
 }
 
 /**
@@ -361,7 +361,7 @@ export async function submitManualApplication(formData: FormData): Promise<strin
       .where(eq(applications.id, existingPending.id));
     if (updated) await notifySlackBestEffort(updated, "email");
 
-    return "/apply/success";
+    return "/?applied=1#contact";
   }
 
   // Resubmission check 2: applicant was previously decided (peppered hash lookup, no PII retained).
@@ -373,7 +373,7 @@ export async function submitManualApplication(formData: FormData): Promise<strin
 
   if (processed?.outcome === "approved") {
     if (cvBlobKey) await deleteCv(cvBlobKey);
-    return "/apply/success";
+    return "/?applied=1#contact";
   }
 
   let resultApplicationId: string = applicationId;
@@ -422,5 +422,5 @@ export async function submitManualApplication(formData: FormData): Promise<strin
     .where(eq(applications.id, resultApplicationId));
   if (finalRow) await notifySlackBestEffort(finalRow, "email");
 
-  return "/apply/success";
+  return "/?applied=1#contact";
 }

@@ -35,6 +35,10 @@ That's the only command needed — `predev` (`scripts/db-ensure.mjs`) handles st
 
 `npm run db:down` stops the container (data persists in a Docker volume). `npm run db:reset` wipes it and starts clean — use when migrations get out of sync. If you ever run `npm run db:migrate` directly (rather than through `npm run dev`), export `DATABASE_URL` in your shell first — unlike `predev`, the bare drizzle-kit command doesn't read `.env.local` itself.
 
+`npm run db:seed` inserts 9 sample pending applications into the admin queue — one for every combination of verification method (LinkedIn / Google / no-verification name+email) and credential type (LinkedIn URL / CV / position statement), so every badge and banner state in `/admin` is reachable without doing a real OAuth round trip. CV rows get a minimal placeholder PDF written to the local blob fallback so the PDF.js viewer has something to render. Re-running it is safe — same fixed IDs, old rows are deleted and replaced.
+
+CV uploads outside a real Netlify deploy (plain `next dev`, or this seed script) fall back to on-disk storage at `.local-blobs/` (gitignored) — see `src/lib/cv-storage.ts`.
+
 Requires Docker Desktop (or another Docker Compose–compatible runtime) running locally. Production uses Netlify DB (managed Postgres/Neon) instead — see the feature spec for provisioning.
 
 You'll also need real values for `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_ID`/`SECRET`, `RESEND_API_KEY`, `SLACK_WEBHOOK_URL`/`SLACK_BOT_TOKEN`, and the generated secrets (`SESSION_SECRET`, `EMAIL_HASH_SECRET`) — see `.env.example` for what each is for.

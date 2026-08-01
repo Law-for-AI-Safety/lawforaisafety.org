@@ -45,3 +45,6 @@ next-env.d.ts
 lighthouse-report.html
 # Playwright
 .playwright-mcp
+
+# Local CV storage fallback (Netlify Blobs stand-in when not linked to Netlify) — see src/lib/cv-storage.ts
+/.local-blobs/

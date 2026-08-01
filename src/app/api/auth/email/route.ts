@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
 
   if (looksLikeBot(formData)) {
-    return NextResponse.redirect(new URL("/apply/success", request.url), 303);
+    return NextResponse.redirect(new URL("/?applied=1#contact", request.url), 303);
   }
 
   try {

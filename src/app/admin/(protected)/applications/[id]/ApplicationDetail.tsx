@@ -30,6 +30,21 @@ type ApproveResult = {
   slackInviteUrl: string;
 };
 
+function DetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h2 className="mb-1 font-sans text-xl text-brand-black">{label}</h2>
+      {children}
+    </div>
+  );
+}
+
 export default function ApplicationDetail({
   application,
   priorRejection,
@@ -160,72 +175,75 @@ export default function ApplicationDetail({
         </div>
       )}
 
-      <div className="flex items-center gap-4">
-        {application.pictureUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={application.pictureUrl}
-            alt={application.name ?? "Applicant"}
-            className="h-20 w-20 rounded-full object-cover"
-          />
-        )}
-        <div>
-          <p className="text-brand-black">{application.email}</p>
-          {application.organisation && (
-            <p className="text-brand-black/70">{application.organisation}</p>
-          )}
-        </div>
-      </div>
+      {application.pictureUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={application.pictureUrl}
+          alt={application.name ?? "Applicant"}
+          className="h-20 w-20 rounded-full object-cover"
+        />
+      )}
+
+      <DetailField label="Email">
+        <p className="text-brand-black/80">{application.email}</p>
+      </DetailField>
+
+      {application.organisation && (
+        <DetailField label="Organisation / firm">
+          <p className="text-brand-black/80">{application.organisation}</p>
+        </DetailField>
+      )}
 
       {application.linkedinUrl && (
-        <p>
-          <a
-            href={application.linkedinUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="underline"
-          >
-            {application.linkedinUrl}
-          </a>{" "}
-          <span className="text-sm text-brand-black/60">
-            (self-reported, unverified)
-          </span>
-        </p>
+        <DetailField label="LinkedIn profile URL">
+          <p>
+            <a
+              href={application.linkedinUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand-black/80 underline"
+            >
+              {application.linkedinUrl}
+            </a>{" "}
+            <span className="text-sm text-brand-black/60">
+              (self-reported, unverified)
+            </span>
+          </p>
+        </DetailField>
       )}
 
       {application.hasCv && (
-        <div>
-          <h2 className="mb-2 font-sans text-xl text-brand-black">CV</h2>
+        <DetailField label="CV">
           <PdfViewer src={`/api/admin/applications/${application.id}/cv`} />
-        </div>
+        </DetailField>
       )}
 
       {application.positionStatement && (
-        <div>
-          <h2 className="mb-1 font-sans text-xl text-brand-black">
-            Position statement
-          </h2>
+        <DetailField label="Position statement">
           <p className="whitespace-pre-wrap text-brand-black/80">
             {application.positionStatement}
           </p>
-        </div>
+        </DetailField>
       )}
 
       {application.comments && (
-        <div>
-          <h2 className="mb-1 font-sans text-xl text-brand-black">Comments</h2>
+        <DetailField label="Comments">
           <p className="whitespace-pre-wrap text-brand-black/80">
             {application.comments}
           </p>
-        </div>
+        </DetailField>
       )}
 
-      <p className="text-brand-black/70">
-        Newsletter opt-in: {application.newsletterOptIn ? "Yes" : "No"}
-      </p>
+      <DetailField label="Newsletter opt-in">
+        <p className="text-brand-black/80">
+          {application.newsletterOptIn ? "Yes" : "No"}
+        </p>
+      </DetailField>
 
       <label className="flex flex-col gap-1">
-        <span>Reviewer notes (internal only)</span>
+        <span className="font-sans text-xl text-brand-black">
+          Reviewer notes (internal only)
+        </span>
         <span className="text-sm text-brand-black/60">
           Do not include names or other identifying details. Notes are
           retained after rejection.
