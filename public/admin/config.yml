@@ -1,0 +1,122 @@
+backend:
+  name: git-gateway
+  branch: main
+
+# Lets `npm run dev` edit content/home.json on disk with no auth at all,
+# via `decap-server` (see package.json). The `backend:` block above only
+# matters once this is deployed and accessed for real — see DECAP_CMS.md.
+local_backend: true
+
+media_folder: "public/images"
+public_folder: "/images"
+
+collections:
+  - name: "content"
+    label: "Homepage Content"
+    files:
+      - name: "home"
+        label: "Homepage"
+        file: "content/home.json"
+        fields:
+          - label: "Hero"
+            name: "hero"
+            widget: "object"
+            fields:
+              - { label: "Heading", name: "heading", widget: "text" }
+              - label: "Body"
+                name: "body"
+                widget: "markdown"
+                buttons: ["bold"]
+                hint: "Select a phrase and press Bold to apply the wavy-underline emphasis treatment."
+
+          - label: "Mission"
+            name: "mission"
+            widget: "object"
+            fields:
+              - { label: "Nav label", name: "navLabel", widget: "string" }
+              - { label: "Heading", name: "heading", widget: "text" }
+              - label: "Body paragraphs"
+                name: "body"
+                widget: "list"
+                field: { label: "Paragraph", name: "paragraph", widget: "text" }
+              - { label: "Photo", name: "photoSrc", widget: "image" }
+              - { label: "Photo alt text", name: "photoAlt", widget: "string" }
+              - { label: "Photo caption", name: "photoCaption", widget: "text" }
+
+          - label: "How We Work"
+            name: "work"
+            widget: "object"
+            fields:
+              - { label: "Nav label", name: "navLabel", widget: "string" }
+              - { label: "Heading", name: "heading", widget: "string" }
+              - label: "Mechanisms"
+                name: "mechanisms"
+                widget: "list"
+                summary: "{{title}}"
+                fields:
+                  - { label: "Title", name: "title", widget: "string" }
+                  - { label: "Body", name: "body", widget: "text" }
+
+          - label: "Brussels Effect Quote"
+            name: "quote"
+            widget: "object"
+            fields:
+              - { label: "Quote", name: "text", widget: "text" }
+              - { label: "Body", name: "body", widget: "text" }
+
+          - label: "Our Story"
+            name: "story"
+            widget: "object"
+            fields:
+              - { label: "Nav label", name: "navLabel", widget: "string" }
+              - { label: "Heading", name: "heading", widget: "string" }
+              - label: "Timeline events"
+                name: "events"
+                widget: "list"
+                summary: "{{heading}}"
+                fields:
+                  - { label: "Heading", name: "heading", widget: "string" }
+                  - label: "Body"
+                    name: "body"
+                    widget: "markdown"
+                    hint: "Supports bold, italic, and links."
+                  - { label: "Button label (optional)", name: "ctaLabel", widget: "string", required: false }
+                  - { label: "Button link (optional)", name: "ctaHref", widget: "string", required: false }
+                  - label: "Images (optional)"
+                    name: "images"
+                    widget: "list"
+                    required: false
+                    fields:
+                      - { label: "Image", name: "src", widget: "image" }
+                      - { label: "Alt text", name: "alt", widget: "string" }
+                      - label: "Focal position"
+                        name: "position"
+                        widget: "select"
+                        options: ["center", "top", "bottom"]
+
+          - label: "Team"
+            name: "team"
+            widget: "object"
+            fields:
+              - { label: "Nav label", name: "navLabel", widget: "string" }
+              - { label: "Heading", name: "heading", widget: "string" }
+              - label: "Team members"
+                name: "members"
+                widget: "list"
+                summary: "{{name}}"
+                fields:
+                  - { label: "Name", name: "name", widget: "string" }
+                  - { label: "Role", name: "role", widget: "string" }
+                  - { label: "Bio", name: "bio", widget: "text" }
+                  - { label: "LinkedIn URL", name: "linkedin", widget: "string" }
+                  - { label: "Photo", name: "photo", widget: "image" }
+
+          - label: "Contact"
+            name: "contact"
+            widget: "object"
+            fields:
+              - { label: "Nav label", name: "navLabel", widget: "string" }
+              - { label: "Heading", name: "heading", widget: "text" }
+              - { label: "Body", name: "body", widget: "text" }
+              - { label: "Contact email", name: "email", widget: "string" }
+              - { label: "LinkedIn URL", name: "linkedin", widget: "string" }
