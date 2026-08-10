@@ -8,8 +8,8 @@ export const size = {
 }
 
 export async function renderShareImage() {
-  const [teamData, logoData, fontData] = await Promise.all([
-    readFile(join(process.cwd(), 'src/app/og-assets/team-group.png'), 'base64'),
+  const [logomarkData, logoData, fontData] = await Promise.all([
+    readFile(join(process.cwd(), 'src/app/og-assets/logomark-white.png'), 'base64'),
     readFile(join(process.cwd(), 'src/app/og-assets/logo-white.png'), 'base64'),
     readFile(join(process.cwd(), 'src/app/og-assets/cormorant-garamond-subset.ttf')),
   ])
@@ -26,28 +26,17 @@ export async function renderShareImage() {
         }}
       >
         <img
-          src={`data:image/png;base64,${teamData}`}
-          width={size.width}
-          height={size.height}
+          src={`data:image/png;base64,${logomarkData}`}
+          width={730}
+          height={1000}
           style={{
             position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
+            top: -140,
+            right: -120,
+            opacity: 0.1,
+            objectFit: 'contain',
           }}
           alt=""
-        />
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            background:
-              'linear-gradient(180deg, rgba(155,28,31,0) 42%, rgba(155,28,31,1) 66%, rgba(155,28,31,1) 100%)',
-          }}
         />
         <div
           style={{
@@ -64,8 +53,8 @@ export async function renderShareImage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`data:image/png;base64,${logoData}`}
-            width={300}
-            height={139}
+            width={430}
+            height={199}
             style={{ objectFit: 'contain', flexShrink: 0 }}
             alt=""
           />
@@ -73,10 +62,10 @@ export async function renderShareImage() {
             style={{
               display: 'flex',
               fontFamily: 'Cormorant Garamond',
-              fontSize: 30,
+              fontSize: 43,
               lineHeight: 1.35,
               color: '#f3f0ec',
-              maxWidth: 460,
+              maxWidth: 560,
             }}
           >
             Building the legal foundations for safe artificial intelligence.
