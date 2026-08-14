@@ -4,8 +4,8 @@
 
 One page, two purposes, combinable:
 
-1. **Newsletter signup** — email only, no vetting beyond a real double opt-in confirm-click. Straight to Mailchimp (Phase 2) / held for backfill (Phase 1, see Implementation Phasing).
-2. **Apply to work with us** — legal professionals. Applicant authenticates via LinkedIn **or Google** (identity proof) — or, if they have neither, submits a bare name + email with **no identity proof at all**. Submits details, enters a manual review queue. On approval: subscribed to the mailing list via Mailchimp and invited to the Slack workspace.
+1. **Newsletter signup** — email only, no vetting beyond a real double opt-in confirm-click. Straight to Brevo (Phase 2) / held for backfill (Phase 1, see Implementation Phasing).
+2. **Apply to work with us** — legal professionals. Applicant authenticates via LinkedIn **or Google** (identity proof) — or, if they have neither, submits a bare name + email with **no identity proof at all**. Submits details, enters a manual review queue. On approval: subscribed to the mailing list via Brevo and invited to the Slack workspace.
 
 A visitor can do either or both in one pass — e.g. check "also subscribe me to the newsletter" while applying, without going through review twice.
 
@@ -46,8 +46,8 @@ If something goes wrong during the identity verification step (you accidentally 
 ### Newsletter only
 
 1. User enters email address, clicks **"Subscribe"** (form also carries a hidden honeypot field — see Abuse Protection below)
-2. `/api/newsletter` validates the honeypot is empty, then `POST`s to Mailchimp with `status: pending` (double opt-in — see Mailchimp dependency notes)
-   - **Phase 1 (no provider wired up yet)**: skip the provider call, insert a row into `newsletter_signups` instead (with a random `confirmation_token`, `confirmed_at = null`), and send a **real double opt-in confirm-link email via Resend** (already wired up for transactional email — see API Dependencies → Transactional Email). This isn't a placeholder courtesy notice — clicking the link is a genuine verification gate: `/api/newsletter/confirm?token=…` looks up the row by token, sets `confirmed_at = now()`, clears the token (single use). No token match → generic "invalid or already used" message, no enumeration signal. Phase 2 can keep this mechanism or hand the gate off to the provider's own DOI flow instead — either is fine, see Implementation Phasing.
+2. `/api/newsletter` validates the honeypot is empty, then calls Brevo's `POST /contacts/doubleOptinConfirmation` (double opt-in — see Brevo dependency notes)
+   - **Phase 1 (no provider wired up yet)**: skip the provider call, insert a row into `newsletter_signups` instead (with a random `confirmation_token`, `confirmed_at = null`), and send a **real double opt-in confirm-link email via Brevo's transactional API** (already wired up for transactional email — see API Dependencies → Transactional Email). This isn't a placeholder courtesy notice — clicking the link is a genuine verification gate: `/api/newsletter/confirm?token=…` looks up the row by token, sets `confirmed_at = now()`, clears the token (single use). No token match → generic "invalid or already used" message, no enumeration signal. Phase 2 can keep this mechanism or hand the gate off to the provider's own DOI flow instead — either is fine, see Implementation Phasing.
 3. Confirmation shown inline (no separate success page needed) — same message whether the honeypot caught a bot or not, since a bot doesn't need to be told it was caught. Message asks the user to check their inbox and click the confirm link.
 
 ### Apply to work with us (optionally + newsletter)
@@ -88,9 +88,9 @@ If something goes wrong during the identity verification step (you accidentally 
 7. Reviewer approves or rejects via admin interface or direct API call
    - Reviewer opens the submitted LinkedIn profile URL and checks the name/photo match the OAuth-verified `name`/`picture` — catches spoofed or mismatched profile links. No cryptographic tie between the submitted URL and the OAuth identity, so this manual check is the only safeguard.
 8. On approval:
-   - Mailchimp: subscribe applicant to mailing list, **if `newsletter_opt_in` was checked** (applying doesn't imply newsletter interest by default — keep it an explicit opt-in)
+   - Brevo: subscribe applicant to mailing list, **if `newsletter_opt_in` was checked** (applying doesn't imply newsletter interest by default — keep it an explicit opt-in)
    - Slack: on standard plans (the expected case), admin interface checks `users.list` for an existing match on the applicant's email, then surfaces it for the reviewer to manually invite via Slack's UI as part of the same approval action — see API Dependencies
-9. Applicant receives approval email (via Mailchimp automation or transactional email)
+9. Applicant receives approval email (Brevo transactional API)
    - If `newsletter_opt_in` was also checked, a **second, separate** email confirms the newsletter signup — distinct send from the approval email, same courtesy-notice content as the standalone newsletter path (see User-Facing Flow → Newsletter only, and Implementation Phasing for the Phase 1 stubbed version). Two things happened (approved to work with us; added to the list), two emails — don't merge into one.
 
 On approval or rejection: the application row is deleted and all PII purged immediately after the decision is recorded — including deletion of the associated CV blob from Netlify Blobs if one was uploaded. A row is inserted into `processed_applications` with the peppered email hash, outcome, timestamp, and (for rejections) the reviewer notes. See State Model.
@@ -101,7 +101,7 @@ On approval or rejection: the application row is deleted and all PII purged imme
 
 ## State Model
 
-Applications need to be stored between submission and review. Newsletter-only signups do **not** get a record here — they go straight to Mailchimp, which is its own source of truth for that list.
+Applications need to be stored between submission and review. Newsletter-only signups do **not** get a record here — they go straight to Brevo, which is its own source of truth for that list.
 
 Each application record holds:
 
@@ -119,8 +119,8 @@ Each application record holds:
 | `cv_blob_key` | Netlify Blobs key for uploaded CV/resume PDF. Nullable — only set if applicant uploaded a CV. Blob is deleted on approve/reject/draft cleanup. |
 | `position_statement` | From form (free text — applicant's description of their current role and relevance). Nullable — only required if neither `linkedin_url` nor `cv_blob_key` is provided. |
 | `comments` | From form (general comments field, always optional). Nullable. |
-| `newsletter_opt_in` | Boolean, from form checkbox — whether to also subscribe to Mailchimp on approval |
-| `mailchimp_sync_status` | `null` / `synced` / `failed` / `deferred` — set when the approval-time Mailchimp subscribe call runs, so a failure is visible in the admin UI (with a retry action) rather than silently vanishing. Stays `null` if `newsletter_opt_in` was never checked. `deferred` = Phase 1 state, no provider wired up yet — same retry-button UI as `failed` handles the backfill once Phase 2 lands (see Implementation Phasing) |
+| `newsletter_opt_in` | Boolean, from form checkbox — whether to also subscribe to Brevo on approval |
+| `newsletter_sync_status` | `null` / `synced` / `failed` / `deferred` — set when the approval-time Brevo subscribe call runs, so a failure is visible in the admin UI (with a retry action) rather than silently vanishing. Stays `null` if `newsletter_opt_in` was never checked. `deferred` = Phase 1 state, no provider wired up yet — same retry-button UI as `failed` handles the backfill once Phase 2 lands (see Implementation Phasing). **Not yet renamed in code** — the column/type is still `mailchimp_sync_status` in `src/drizzle/schema.ts` and the `0001_create_applications` migration below; this is the target name for the Phase 2 refactor, not the current column |
 | `state_token` | Random opaque token, set when the draft row is created, cleared once the OAuth callback consumes it. Used to safely round-trip the row through the OAuth redirect (see User-Facing Flow) — never expose the raw `id` in the OAuth `state` param |
 | `auth_error` | Text, nullable — set to the provider's error code (e.g. `access_denied`) if the callback receives an error instead of `code` (user cancelled/denied consent). Cleared on a successful retry. |
 | `status` | `draft` / `pending` / `approved` / `rejected` — `draft` = form saved, OAuth not yet completed (or abandoned). Both `approved` and `rejected` are transient: on decision the row is deleted and PII purged (including CV blob); a minimal record moves to `processed_applications` |
@@ -201,7 +201,7 @@ Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-sepa
   - If `prior_rejection_id` is set on this application: a prominent warning banner — "Previously rejected on [date]" — with the prior `reviewer_notes` from `processed_applications` displayed beneath it, so the reviewer has context before deciding
   - A multiline text field (textarea) for `reviewer_notes` — free-text, optional. Internal only, not shown to the applicant. Labelled with a nudge: *"Do not include names or other identifying details — notes are retained after rejection."* On rejection, notes are copied to `processed_applications`; on approval, discarded. Either way, the application row is deleted and all PII purged immediately after the decision is saved (including CV blob deletion from Netlify Blobs)
   - Approve / Reject buttons, calling the existing `/api/admin/approve/[id]` and `/api/admin/reject/[id]` routes — these set `reviewed_by` from the logged-in session, save whatever's in the `reviewer_notes` textarea, insert a `processed_applications` row, delete the CV blob if any, then delete the application row
-  - On approve: after the Mailchimp/dedup-check logic runs and before the application row is deleted, show the "Invite to Slack" button (copies email + opens Slack admin invites page — see Slack Option B). The email is no longer available after the row is deleted, so this must happen in the same response
+  - On approve: after the Brevo/dedup-check logic runs and before the application row is deleted, show the "Invite to Slack" button (copies email + opens Slack admin invites page — see Slack Option B). The email is no longer available after the row is deleted, so this must happen in the same response
 - Optional: a `/admin` filter/tab for `approved` / `rejected` history, useful for volume tracking (see Open Questions) but not required for v1
 
 **Multiple reviewers (up to 3–4, starting at 1)**: no claiming/locking mechanism for v1 — with this few reviewers, two people opening the same application at once is rare, not worth building UI for pre-emptively. The approve/reject routes should still be defensive about it though: check `status` is still `pending` at write time and no-op (or return a clear "already reviewed by X" error) rather than silently double-processing if two reviewers do collide on the same item.
@@ -294,6 +294,8 @@ CREATE UNIQUE INDEX applications_provider_id_pending_idx
   WHERE status = 'pending';
 ```
 
+**Note**: this migration (and the schema/code today) still name the column and enum `mailchimp_sync_status` — that predates the Brevo decision (see Mailout Provider Comparison). Per the append-only migration philosophy already used elsewhere in this doc (see the `0004` note below), the rename to `newsletter_sync_status` happens as a **new** migration when the Phase 2 Brevo work lands, not a hand-edit of this one.
+
 #### `0002_create_processed_applications`
 
 ```sql
@@ -363,17 +365,17 @@ No uniqueness constraint on `email` — a double-opt-in confirm/re-signup should
 
 ### Transactional Email
 
-Used for approval and rejection notifications to applicants. (Newsletter list management stays with Mailchimp; this is for one-off triggered emails only.)
+Used for approval and rejection notifications to applicants, plus the Phase 1 newsletter confirm-link/courtesy emails (see Implementation Phasing). One-off triggered emails, distinct from Brevo's list/bulk-send side (see Mailout Provider Comparison) — but now the **same provider** for both, not a separate one.
 
-**Confirmed: no Google Workspace — going with Resend.** Free tier (3,000 emails/month, 100/day) needs no card, comfortably covers the expected volume (handful per week). Provider SDK, not SMTP — single API call per send.
+**Superseded: was Resend, now Brevo.** The original call (see Questions for Stakeholder) was Resend, made before the mailout-provider decision existed. Once Brevo was picked for the mailing list (EU data residency, see below), consolidating transactional email onto it too was the natural follow-on: Brevo's transactional API is bundled into the same account/plan (no separate paid add-on, unlike Mailchimp/Mandrill — see Mailout Provider Comparison), so it's one fewer login/integration for a volume this low (a handful of emails/week). The usual reason to *keep* transactional and marketing email on separate providers — protecting transactional deliverability from bulk-send reputation damage — is a real pattern at scale, but not a meaningful risk at this project's volume.
 
-- Env var: `RESEND_API_KEY`
-- Domain verification (SPF/DKIM records) needed for deliverability from `lawforaisafety.org` — one-time DNS setup in the Resend dashboard
-- **Fallback options if needed later**: Brevo (300/day free SMTP relay — also already in play as the mailout provider, see below) or AWS SES ($0.10/1,000 emails, requires domain DNS verification)
+- Env var: `BREVO_API_KEY` (same key covers both transactional sends and the mailout API — see Brevo below)
+- Domain verification (SPF/DKIM records) needed for deliverability from `lawforaisafety.org` — one-time DNS setup in the Brevo dashboard
+- **Not yet applied in code** — `src/lib/email.ts` is still a working Resend integration as of this writing. This section documents the decision; the refactor to Brevo's transactional API is tracked as follow-up work, alongside the Phase 2 mailout wiring below.
 
 ### Mailout Provider Comparison
 
-Mailchimp is the provider assumed throughout this spec (see below), but here's a comparison against the other realistic options, researched against current (2026) pricing pages and API docs. All five turn out to support both operations this feature needs — a double-opt-in signup path (`/api/newsletter`) and a direct subscribe-with-custom-fields path (approval flow, no double opt-in needed since OAuth already proved email control) — just in different shapes. None are ruled out on capability; the API column below notes the shape so the adapter code can be scoped correctly, not as a pass/fail filter. **Free tier size is the only hard differentiator**, since that's a cost/limit, not something code can adapt around.
+Mailchimp was the provider originally assumed throughout this spec — since superseded by Brevo (see "Decided: Brevo" below). Kept here as the comparison baseline against the other realistic options, researched against current (2026) pricing pages and API docs. All five turn out to support both operations this feature needs — a double-opt-in signup path (`/api/newsletter`) and a direct subscribe-with-custom-fields path (approval flow, no double opt-in needed since OAuth already proved email control) — just in different shapes. None are ruled out on capability; the API column below notes the shape so the adapter code can be scoped correctly, not as a pass/fail filter. **Free tier size is the only hard differentiator**, since that's a cost/limit, not something code can adapt around.
 
 | Provider | HQ / data location | Free tier | Cheapest paid tier | Double opt-in shape | Direct subscribe + custom fields shape |
 |---|---|---|---|---|---|
@@ -383,16 +385,14 @@ Mailchimp is the provider assumed throughout this spec (see below), but here's a
 | **Kit** (ex-ConvertKit) | 🇺🇸 US | 10,000 subscribers, unlimited sends, full API — most generous free tier by far | Creator $33/mo (jumped from $15 in Sept 2025) | Property of the *form* a subscriber is added through (DOI on by default, "auto-confirm" toggle to bypass) — both opt-in styles means routing to two different forms instead of one param | Custom fields, capped at 140 field definitions |
 | **Buttondown** | 🇺🇸 US | 100 subscribers | Basic $9/mo (1,000 subscribers) | Default behavior on subscriber create — new subscribers land in `unactivated` state and get a confirmation email automatically | Same create endpoint, pass `type: regular` to skip DOI per-subscriber; `metadata` object for custom fields like the LinkedIn URL |
 
-**Updated recommendation: switch to Brevo.** This is an EU-focused project, so EU data residency is a hard preference, not just a nice-to-have — that rules out Mailchimp, Kit, and Buttondown regardless of how well they otherwise fit. Between the two EU options, **Brevo over MailerLite**: per-call double-opt-in endpoint (matches the "same call, different flag" shape the flow needs more closely than MailerLite's account-wide toggle), unlimited contacts on every paid tier (best fit for a list that may grow unpredictably), and cheaper entry pricing ($9/mo Starter vs MailerLite's ~$10/mo Growing Business, but Brevo's covers far more room before the next tier).
+**Decided: Brevo.** This is an EU-focused project, so EU data residency is a hard preference, not just a nice-to-have — that rules out Mailchimp, Kit, and Buttondown regardless of how well they otherwise fit. Between the two EU options, **Brevo over MailerLite**: per-call double-opt-in endpoint (matches the "same call, different flag" shape the flow needs more closely than MailerLite's account-wide toggle), unlimited contacts on every paid tier (best fit for a list that may grow unpredictably), cheaper entry pricing ($9/mo Starter vs MailerLite's ~$10/mo Growing Business, but Brevo's covers far more room before the next tier), and — the deciding factor once it came up — a bundled transactional email API, so it also replaces Resend for approval/rejection notices at no extra cost (see Transactional Email above), rather than running two providers for one low-volume app.
 
-**Knock-on effects — not yet applied, flagging before doing a full rewrite:** the rest of this spec is written specifically against Mailchimp's API shape and will need updating throughout, not just here:
-- **API Dependencies → Mailchimp** section: rewrite for Brevo's two-endpoint model (`POST /contacts/doubleOptinConfirmation` vs `POST /contacts`) instead of one endpoint with a `status` flag
-- **State Model / migrations**: `mailchimp_sync_status` enum and column name (`0001_create_applications` migration) — rename to something provider-neutral (e.g. `newsletter_sync_status`) or Brevo-specific
-- **Abuse Protection** section's Mailchimp-specific throttling note (cites Mailchimp's own bot-protection behavior) needs a Brevo equivalent check
-- Env vars throughout (`MAILCHIMP_API_KEY`, `MAILCHIMP_LIST_ID`) → Brevo equivalents (`BREVO_API_KEY`, list/folder ID)
-- Any other "Mailchimp" mentions (User-Facing Flow steps 2, 9, 82; Admin UI step 189) are naming references, not behavior changes — should still be swept for consistency
-
-Say the word and I'll do that pass now, or leave it flagged for later.
+This section, the Transactional Email section above, and the rest of this spec (rewritten below) reflect that decision. Rest of this doc has been swept for consistency — the knock-on-effects list that used to sit here is resolved:
+- **API Dependencies → Brevo** (was "Mailchimp"): rewritten below for Brevo's two-endpoint model
+- **State Model**: `mailchimp_sync_status` → `newsletter_sync_status`, target name for the Phase 2 code refactor (see note under the `0001` migration — not yet renamed in code)
+- **Abuse Protection**: Mailchimp-specific throttling citation removed (see below)
+- Env vars: `MAILCHIMP_API_KEY`/`MAILCHIMP_LIST_ID` → `BREVO_API_KEY` + a list/folder ID (exact param TBD against Brevo's API when this is implemented)
+- All other "Mailchimp" mentions throughout (User-Facing Flow, Admin UI, Route Structure) → Brevo
 
 #### How pricing scales with list growth
 
@@ -410,16 +410,16 @@ Approximate monthly cost at list-size checkpoints, at the plan tier that gives u
 
 **What this changes about the recommendation:** at the list sizes we'll actually hit in year one (low hundreds to low thousands), the gap between providers is small — MailerLite and Buttondown are cheapest at 1k, but neither fits the double-opt-in-alongside-direct-subscribe shape as cleanly as Mailchimp (see table above), so the savings would likely be eaten by adapter/workaround complexity. **Kit is the one to watch, but not for cost** — its list-price scaling is the steepest of the group (already $79/mo at 1,000 contacts, versus Mailchimp's free tier covering 250 and Essentials covering the next few thousand cheaply), so its earlier appeal (generous free tier) inverts once the list is big enough to need a paid plan at all. **Brevo is the one genuinely different shape**: because it charges for sends rather than list size, it's the best hedge against a large-but-quiet list (e.g. many subscribers, infrequent newsletter) — worth revisiting if list growth outpaces send frequency.
 
-### Mailchimp
+### Brevo
 
-- Mailchimp Marketing API
-- Env vars: `MAILCHIMP_API_KEY`, `MAILCHIMP_LIST_ID`
-- Two call sites:
-  - Newsletter-only path: `POST /lists/{list_id}/members` directly on form submit, status **`pending`** (double opt-in), not `subscribed` — see abuse protection note below
-  - Work-with-us path: same call, `status: subscribed` directly (no double opt-in needed — LinkedIn OAuth already proved control of the account/email, so a confirmation email would be redundant friction). Fired only on approval **and** only if `newsletter_opt_in` was checked. On failure, set `mailchimp_sync_status = 'failed'` on the application row rather than letting the approval silently succeed with no subscription (see State Model)
+- Brevo Contacts + Transactional Email APIs (see Transactional Email above — same account/key covers both)
+- Env vars: `BREVO_API_KEY`, plus a list/folder ID for the mailout side (exact param name TBD against Brevo's current API when implemented)
+- Two mailout call sites, unlike Mailchimp's single endpoint-with-a-status-flag shape — Brevo splits double opt-in and direct subscribe into separate endpoints:
+  - Newsletter-only path: `POST /contacts/doubleOptinConfirmation` on form submit — Brevo's own DOI flow, sends its own confirmation email
+  - Work-with-us path: `POST /contacts` directly (no double opt-in needed — LinkedIn OAuth already proved control of the account/email, so a confirmation email would be redundant friction). Fired only on approval **and** only if `newsletter_opt_in` was checked. On failure, set `newsletter_sync_status = 'failed'` on the application row rather than letting the approval silently succeed with no subscription (see State Model)
   - **Phase 1 (no provider wired up yet)**: neither call site fires. See Implementation Phasing.
-- Merge fields can store LinkedIn URL for reference (work-with-us path only — newsletter-only signups have no LinkedIn data)
-- **Abuse protection**: Mailchimp has built-in throttling against subscription bombing — a rate limit on adding one address across multiple lists in a short window, plus separate throttling against bot attacks on a single list; applies to single and double opt-in alike. Beyond that, double opt-in (used on the newsletter-only path above) is the real mitigation: a maliciously-submitted address receives a confirmation email but is never added unless it's clicked. This protects Mailchimp's list, not `/api/newsletter` itself — that route needs its own protection, since Mailchimp's protection only kicks in once a request reaches them. See Abuse Protection below. ([source](https://mailchimp.com/resources/how-to-protect-your-email-list-from-bots/))
+- Contact attributes can store LinkedIn URL for reference (work-with-us path only — newsletter-only signups have no LinkedIn data)
+- **Abuse protection**: double opt-in (used on the newsletter-only path above) is the real mitigation regardless of provider — a maliciously-submitted address receives a confirmation email but is never added unless it's clicked. This protects Brevo's list, not `/api/newsletter` itself — that route needs its own protection, since the provider's protection only kicks in once a request reaches them. See Abuse Protection below. (Unlike the old Mailchimp version of this section, no specific claim is made here about Brevo's own anti-bot throttling behavior — not independently verified; the honeypot/timing/rate-limit/Turnstile stack below doesn't depend on it either way.)
 
 ### Abuse Protection (`/api/newsletter`, `/api/auth/linkedin`, `/api/auth/google`, `/api/auth/email`)
 
@@ -430,7 +430,7 @@ Three layers. The honeypot/timing pair are free and catch unsophisticated bots; 
   - Server: `TURNSTILE_SECRET_KEY` (secret). `verifyTurnstile(formData, ip)` posts the token + remote IP to Cloudflare and fails closed — missing token, network error, or a non-`success` response are all treated as unverified, never as a silent pass.
   - Unlike the honeypot, a Turnstile failure is a real, user-recoverable error (expired token, flaky network) — surfaced to the applicant as an actual error message ("We couldn't verify you're not a robot, please try again"), not silently masked. It sits ahead of the honeypot check in each route specifically so a failed challenge short-circuits before any DB/file work happens.
   - Local dev: use Cloudflare's fixed always-pass test keys (documented in `.env.example`) instead of a real site — no Cloudflare account needed to develop against this locally.
-- **Honeypot field**: form includes an extra input invisible to humans (CSS-hidden, off-screen — not `type="hidden"`, since that's an obvious bot-skip pattern; a visually-hidden text input with a plausible name like `website` catches more bots). If it's non-empty on submit, silently drop the request — return the *same* success response as a real submission, don't do the actual Mailchimp/DB write. Never tell the caller it was flagged; that just teaches the bot to adapt.
+- **Honeypot field**: form includes an extra input invisible to humans (CSS-hidden, off-screen — not `type="hidden"`, since that's an obvious bot-skip pattern; a visually-hidden text input with a plausible name like `website` catches more bots). If it's non-empty on submit, silently drop the request — return the *same* success response as a real submission, don't do the actual Brevo/DB write. Never tell the caller it was flagged; that just teaches the bot to adapt.
   - **Caveat**: this repo may be public, so the field name/CSS is readable source, not a secret. A generic scraper bot that blindly fills every form field (most spam traffic) still gets caught. A bot specifically written against this site's source won't be — that's the gap Turnstile above closes, since it isn't defeated by reading the source.
   - **Timing check** (cheap, works even with public source): reject submissions faster than a plausible human fill time (e.g. under ~2 seconds from page load to submit, tracked via a timestamp hidden field or the honeypot's own render time). Behavioral, not secret-based — a bot can read the threshold in the source but still has to actually wait, which most scripted bots skip.
 - **Rate limiting**: Netlify Functions support code-based rate limiting — a `config` object exported directly from the function file (no `netlify.toml` entry needed, works on all plans). Apply to both `/api/newsletter` and `/api/auth/linkedin` (the draft-creation step), keyed by IP, generous enough not to block a real user retrying (e.g. a handful of requests per minute) but enough to blunt a scripted flood. ([source](https://docs.netlify.com/manage/security/secure-access-to-sites/rate-limiting/))
@@ -474,7 +474,7 @@ No public API invites a user by email on these tiers. **Recommended: manual admi
 
 ## Implementation Phasing
 
-Mailout provider (Mailchimp vs Brevo, see Mailout Provider Comparison) is still undecided. Rest of the feature doesn't depend on that decision, so build it in two phases.
+Mailout provider is decided (Brevo, see Mailout Provider Comparison) but not yet wired up in code. Rest of the feature doesn't depend on that wiring, so it's still built in two phases.
 
 ### Phase 1 — build now, provider-agnostic
 
@@ -482,18 +482,18 @@ Everything except the two newsletter-provider call sites:
 
 - Full apply flow: form, LinkedIn/Google OAuth (both applicant and admin), draft/pending/approved/rejected state machine, resubmission + reapplication logic
 - Admin UI: login, list view, detail view, approve/reject, CV upload + PDF.js viewer, Slack reviewer notification + manual "Invite to Slack" step
-- Resend transactional emails (approval/rejection)
+- Transactional emails (approval/rejection) — currently Resend in code, decided-but-not-yet-refactored to Brevo (see Transactional Email above)
 - Full DB schema (migrations `0001`–`0004`), abuse protection (honeypot, timing check, rate limiting, Cloudflare Turnstile)
 
 Two call sites are stubbed instead of wired to a real provider:
 
-1. **`/api/newsletter`** (standalone signup) — instead of `POST`ing to the provider, insert into the new `newsletter_signups` holding table (migration `0004`, see Migrations) with a `confirmation_token` and send a **real double opt-in confirm-link** via Resend (see User-Facing Flow → Newsletter only). Same honeypot/rate-limit protection applies. `confirmed_at` stays null until the link is clicked via `/api/newsletter/confirm`.
-2. **Approval-time subscribe** (`newsletter_opt_in` on an application) — skip the provider call, and set `mailchimp_sync_status = 'deferred'` for visibility in the approve response/logs. **Important**: the application row and its `email` field are deleted immediately after the decision (see State Model / Admin UI) — a status flag on a row that's about to be deleted can't be retried later, the email would already be gone. So the approve route must also **insert the applicant's email into `newsletter_signups`** (the same holding table as the standalone path, point 1) *before* the PII purge step. That insert, not the status flag, is what actually survives for Phase 2 backfill. Unlike the standalone path, this insert sets `confirmed_at` immediately (no token) — the email is already OAuth-verified, so a second click-to-confirm would be redundant friction (same reasoning the spec applies to skipping Mailchimp's own DOI on this path). The approve route also sends the applicant the **second, separate** newsletter courtesy notice via Resend at this point (no confirm link, since already confirmed) — distinct send from the approval email in step 9, both fired from the same approve request.
+1. **`/api/newsletter`** (standalone signup) — instead of `POST`ing to the provider, insert into the new `newsletter_signups` holding table (migration `0004`, see Migrations) with a `confirmation_token` and send a **real double opt-in confirm-link** via Brevo's transactional API (currently still Resend in code — see Transactional Email above; see also User-Facing Flow → Newsletter only). Same honeypot/rate-limit protection applies. `confirmed_at` stays null until the link is clicked via `/api/newsletter/confirm`.
+2. **Approval-time subscribe** (`newsletter_opt_in` on an application) — skip the provider call, and set `newsletter_sync_status = 'deferred'` for visibility in the approve response/logs. **Important**: the application row and its `email` field are deleted immediately after the decision (see State Model / Admin UI) — a status flag on a row that's about to be deleted can't be retried later, the email would already be gone. So the approve route must also **insert the applicant's email into `newsletter_signups`** (the same holding table as the standalone path, point 1) *before* the PII purge step. That insert, not the status flag, is what actually survives for Phase 2 backfill. Unlike the standalone path, this insert sets `confirmed_at` immediately (no token) — the email is already OAuth-verified, so a second click-to-confirm would be redundant friction (same reasoning the spec applies to skipping Brevo's own DOI on this path). The approve route also sends the applicant the **second, separate** newsletter courtesy notice via the transactional provider at this point (no confirm link, since already confirmed) — distinct send from the approval email in step 9, both fired from the same approve request.
 
-### Phase 2 — once Mailchimp/Brevo is decided and set up
+### Phase 2 — wire up Brevo
 
-- Implement the real provider call in both stubbed sites above, per whichever shape wins (see API Dependencies → Mailchimp or the Brevo two-endpoint model if that's the pick)
-- **Backfill `newsletter_signups`**: bulk-import rows **where `confirmed_at IS NOT NULL`** into the provider — this single table now covers both standalone newsletter-only signups (confirmed via the Phase 1 click-through) and approved applicants who opted in during Phase 1 (confirmed immediately, OAuth-verified), since both funnel into it before purge. Unconfirmed standalone rows just don't get imported — they were never verified, same as if the provider's own DOI had never been clicked. Exact import mechanics for confirmed rows depend on the provider's own rules (e.g. Mailchimp's bulk import can re-trigger opt-in confirmation per contact if you want a second layer; Brevo's `doubleOptinConfirmation` endpoint can be called per row, though it's redundant given ours already confirmed). Dedupe by email before import — no uniqueness constraint on the holding table. Once imported, either drop the table or leave it as an audit trail.
+- Implement the real Brevo calls in both stubbed sites above (see API Dependencies → Brevo for the two-endpoint model), and do the `src/lib/email.ts` refactor from Resend to Brevo's transactional API (see Transactional Email above)
+- **Backfill `newsletter_signups`**: bulk-import rows **where `confirmed_at IS NOT NULL`** into Brevo — this single table now covers both standalone newsletter-only signups (confirmed via the Phase 1 click-through) and approved applicants who opted in during Phase 1 (confirmed immediately, OAuth-verified), since both funnel into it before purge. Unconfirmed standalone rows just don't get imported — they were never verified, same as if Brevo's own DOI had never been clicked. Brevo's `doubleOptinConfirmation` endpoint can be called per row on import, though it's redundant given ours already confirmed — a plain contact-create call is simpler. Dedupe by email before import — no uniqueness constraint on the holding table. Once imported, either drop the table or leave it as an audit trail.
 - Remove the Phase 1 stub branches and the `newsletter_signups` table (and the now-unused `deferred` enum value, kept only for in-flight visibility during Phase 1) once nothing references them
 
 ---
@@ -516,7 +516,7 @@ Two call sites are stubbed instead of wired to a real provider:
     page.tsx              — Review one application: profile, org, CV, approve/reject (protected)
   /api
     /newsletter
-      route.ts            — Newsletter-only signup, POSTs to Mailchimp directly (Phase 2) /
+      route.ts            — Newsletter-only signup, POSTs to Brevo directly (Phase 2) /
                               inserts into newsletter_signups + sends confirm-link email (Phase 1)
     /newsletter/confirm
       route.ts            — Double opt-in confirm-link target (Phase 1's own DOI mechanism)
@@ -563,5 +563,5 @@ Two call sites are stubbed instead of wired to a real provider:
 
 - **Slack plan**: ~~Confirm~~ **Resolved** — no move to paid/Enterprise Grid planned. Building Option B (manual admin invite) as the permanent design, not a stopgap.
 - **Rejection email**: ~~Confirm~~ **Resolved** — send a polite rejection email. Build this (see User-Facing Flow step 8, Layman's Explanation).
-- **Google Workspace SMTP**: ~~Confirm~~ **Resolved** — no Google Workspace account. Using **Resend** (free tier — 3,000 emails/month, no card required) as the transactional email provider. See API Dependencies → Transactional Email.
+- **Google Workspace SMTP**: ~~Confirm~~ **Resolved** — no Google Workspace account. Originally decided on **Resend**; **superseded** by consolidating onto **Brevo** once it was picked as the mailout provider (see Mailout Provider Comparison and Transactional Email). Code refactor from Resend to Brevo not yet done.
 - **Privacy policy / data retention**: All applicant PII is purged immediately on decision (approved or rejected), including any uploaded CV. Only a peppered email hash is retained in `processed_applications`, with reviewer notes for rejections. Still need: a privacy notice on the form before launch (covering CV upload in particular), and a right-to-erasure process for the `processed_applications` hash record if a user requests deletion. These are stakeholder calls — flagging so they aren't missed.
