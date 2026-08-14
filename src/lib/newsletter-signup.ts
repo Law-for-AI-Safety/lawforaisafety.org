@@ -30,7 +30,7 @@ export async function recordNewsletterSignup(email: string): Promise<void> {
 /**
  * Approval-time `newsletter_opt_in` — the email is already OAuth-verified,
  * so a double opt-in click would be redundant friction (same reasoning the
- * spec applies to the real Mailchimp/Brevo call in Phase 2). Confirmed
+ * spec applies to the real Brevo mailout call in Phase 2). Confirmed
  * immediately; just a courtesy notice email, no link.
  */
 export async function recordVerifiedNewsletterOptIn(

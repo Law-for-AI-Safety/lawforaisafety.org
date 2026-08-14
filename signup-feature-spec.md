@@ -371,7 +371,7 @@ Used for approval and rejection notifications to applicants, plus the Phase 1 ne
 
 - Env var: `BREVO_API_KEY` (same key covers both transactional sends and the mailout API — see Brevo below)
 - Domain verification (SPF/DKIM records) needed for deliverability from `lawforaisafety.org` — one-time DNS setup in the Brevo dashboard
-- **Not yet applied in code** — `src/lib/email.ts` is still a working Resend integration as of this writing. This section documents the decision; the refactor to Brevo's transactional API is tracked as follow-up work, alongside the Phase 2 mailout wiring below.
+- **Applied in code** — `src/lib/email.ts` calls Brevo's `POST /v3/smtp/email` directly (`fetch`, no SDK dependency, matching the pattern already used for Turnstile verification). `resend` package removed. Sending is blocked until the sender/domain is verified in Brevo (see Brevo below) — DNS records for that go through Netlify's DNS API (nameservers already point there, no registrar access needed, see Database section for the same finding re: the DB work).
 
 ### Mailout Provider Comparison
 
@@ -482,17 +482,17 @@ Everything except the two newsletter-provider call sites:
 
 - Full apply flow: form, LinkedIn/Google OAuth (both applicant and admin), draft/pending/approved/rejected state machine, resubmission + reapplication logic
 - Admin UI: login, list view, detail view, approve/reject, CV upload + PDF.js viewer, Slack reviewer notification + manual "Invite to Slack" step
-- Transactional emails (approval/rejection) — currently Resend in code, decided-but-not-yet-refactored to Brevo (see Transactional Email above)
+- Transactional emails (approval/rejection) — Brevo transactional API (see Transactional Email above)
 - Full DB schema (migrations `0001`–`0004`), abuse protection (honeypot, timing check, rate limiting, Cloudflare Turnstile)
 
 Two call sites are stubbed instead of wired to a real provider:
 
-1. **`/api/newsletter`** (standalone signup) — instead of `POST`ing to the provider, insert into the new `newsletter_signups` holding table (migration `0004`, see Migrations) with a `confirmation_token` and send a **real double opt-in confirm-link** via Brevo's transactional API (currently still Resend in code — see Transactional Email above; see also User-Facing Flow → Newsletter only). Same honeypot/rate-limit protection applies. `confirmed_at` stays null until the link is clicked via `/api/newsletter/confirm`.
+1. **`/api/newsletter`** (standalone signup) — instead of `POST`ing to the provider, insert into the new `newsletter_signups` holding table (migration `0004`, see Migrations) with a `confirmation_token` and send a **real double opt-in confirm-link** via Brevo's transactional API (see Transactional Email above; see also User-Facing Flow → Newsletter only). Same honeypot/rate-limit protection applies. `confirmed_at` stays null until the link is clicked via `/api/newsletter/confirm`.
 2. **Approval-time subscribe** (`newsletter_opt_in` on an application) — skip the provider call, and set `newsletter_sync_status = 'deferred'` for visibility in the approve response/logs. **Important**: the application row and its `email` field are deleted immediately after the decision (see State Model / Admin UI) — a status flag on a row that's about to be deleted can't be retried later, the email would already be gone. So the approve route must also **insert the applicant's email into `newsletter_signups`** (the same holding table as the standalone path, point 1) *before* the PII purge step. That insert, not the status flag, is what actually survives for Phase 2 backfill. Unlike the standalone path, this insert sets `confirmed_at` immediately (no token) — the email is already OAuth-verified, so a second click-to-confirm would be redundant friction (same reasoning the spec applies to skipping Brevo's own DOI on this path). The approve route also sends the applicant the **second, separate** newsletter courtesy notice via the transactional provider at this point (no confirm link, since already confirmed) — distinct send from the approval email in step 9, both fired from the same approve request.
 
 ### Phase 2 — wire up Brevo
 
-- Implement the real Brevo calls in both stubbed sites above (see API Dependencies → Brevo for the two-endpoint model), and do the `src/lib/email.ts` refactor from Resend to Brevo's transactional API (see Transactional Email above)
+- Implement the real Brevo Contacts calls in both stubbed sites above (see API Dependencies → Brevo for the two-endpoint model) — `src/lib/email.ts`'s transactional side is already done (see Transactional Email above), this is just the mailing-list half
 - **Backfill `newsletter_signups`**: bulk-import rows **where `confirmed_at IS NOT NULL`** into Brevo — this single table now covers both standalone newsletter-only signups (confirmed via the Phase 1 click-through) and approved applicants who opted in during Phase 1 (confirmed immediately, OAuth-verified), since both funnel into it before purge. Unconfirmed standalone rows just don't get imported — they were never verified, same as if Brevo's own DOI had never been clicked. Brevo's `doubleOptinConfirmation` endpoint can be called per row on import, though it's redundant given ours already confirmed — a plain contact-create call is simpler. Dedupe by email before import — no uniqueness constraint on the holding table. Once imported, either drop the table or leave it as an audit trail.
 - Remove the Phase 1 stub branches and the `newsletter_signups` table (and the now-unused `deferred` enum value, kept only for in-flight visibility during Phase 1) once nothing references them
 
@@ -563,5 +563,5 @@ Two call sites are stubbed instead of wired to a real provider:
 
 - **Slack plan**: ~~Confirm~~ **Resolved** — no move to paid/Enterprise Grid planned. Building Option B (manual admin invite) as the permanent design, not a stopgap.
 - **Rejection email**: ~~Confirm~~ **Resolved** — send a polite rejection email. Build this (see User-Facing Flow step 8, Layman's Explanation).
-- **Google Workspace SMTP**: ~~Confirm~~ **Resolved** — no Google Workspace account. Originally decided on **Resend**; **superseded** by consolidating onto **Brevo** once it was picked as the mailout provider (see Mailout Provider Comparison and Transactional Email). Code refactor from Resend to Brevo not yet done.
+- **Google Workspace SMTP**: ~~Confirm~~ **Resolved** — no Google Workspace account. Originally decided on **Resend**; **superseded** by consolidating onto **Brevo** once it was picked as the mailout provider (see Mailout Provider Comparison and Transactional Email). `src/lib/email.ts` now on Brevo — sending itself is still blocked until the Brevo sender/domain verification completes (see Brevo).
 - **Privacy policy / data retention**: All applicant PII is purged immediately on decision (approved or rejected), including any uploaded CV. Only a peppered email hash is retained in `processed_applications`, with reviewer notes for rejections. Still need: a privacy notice on the form before launch (covering CV upload in particular), and a right-to-erasure process for the `processed_applications` hash record if a user requests deletion. These are stakeholder calls — flagging so they aren't missed.

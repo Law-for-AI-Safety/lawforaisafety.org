@@ -1,35 +1,35 @@
-import { Resend } from "resend";
+const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 
-let client: Resend | null = null;
-
-function getClient(): Resend {
-  if (!client) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      throw new Error("Missing required env var: RESEND_API_KEY");
-    }
-    client = new Resend(apiKey);
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}`);
   }
-  return client;
-}
-
-function getFromAddress(): string {
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!from) {
-    throw new Error("Missing required env var: RESEND_FROM_EMAIL");
-  }
-  return from;
+  return value;
 }
 
 async function send(to: string, subject: string, html: string): Promise<void> {
-  const { error } = await getClient().emails.send({
-    from: getFromAddress(),
-    to,
-    subject,
-    html,
+  const res = await fetch(BREVO_SEND_URL, {
+    method: "POST",
+    headers: {
+      "api-key": requireEnv("BREVO_API_KEY"),
+      "Content-Type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: {
+        email: requireEnv("BREVO_FROM_EMAIL"),
+        name: process.env.BREVO_FROM_NAME || "Law for AI Safety",
+      },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
   });
-  if (error) {
-    throw new Error(`Resend send failed: ${error.message}`);
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Brevo send failed: ${res.status} ${body}`);
   }
 }
 
@@ -55,8 +55,8 @@ export async function sendApplicationRejectedEmail(to: string): Promise<void> {
 /**
  * Real double opt-in — standalone `/api/newsletter` signups aren't otherwise
  * verified, so this is the actual confirmation gate (Phase 1 builds this
- * ourselves via Resend + a token; Phase 2 can hand it off to the mailout
- * provider's own DOI mechanism instead, see Implementation Phasing).
+ * ourselves via Brevo's transactional API + a token; Phase 2 can hand it off
+ * to Brevo's own DOI mechanism instead, see Implementation Phasing).
  */
 export async function sendNewsletterConfirmationEmail(
   to: string,
