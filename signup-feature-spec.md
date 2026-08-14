@@ -210,13 +210,13 @@ Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-sepa
 
 ## Database
 
-Deploy on **Netlify DB** (managed Postgres, powered by Neon) and **Netlify Blobs** (for CV uploads). Both are first-party to Netlify — no separate accounts needed, provisioned via Netlify dashboard or CLI.
+Deploy on **Netlify Database** (managed Postgres, powered by Neon) and **Netlify Blobs** (for CV uploads). Both are first-party to Netlify — no separate accounts needed.
 
-```
-netlify db:create
-```
+**Update, post-spec**: the `netlify db:create` CLI command referenced below no longer exists — Netlify's DB product moved to an install-and-deploy model. Provisioning is now: add the `@netlify/database` package as a dependency, then deploy — Netlify auto-provisions a Neon-backed Postgres on that deploy and injects the connection string as `NETLIFY_DB_URL` (not `DATABASE_URL`). `src/lib/db.ts` and `drizzle.config.ts` both read `process.env.DATABASE_URL ?? process.env.NETLIFY_DB_URL`, so local dev (which sets `DATABASE_URL` via the Docker Postgres container) is unaffected, and production/previews pick up `NETLIFY_DB_URL` automatically with nothing to configure in the Netlify UI.
 
-Connection string injected automatically as `DATABASE_URL` environment variable.
+Considered and rejected: a standalone Neon account, fully independent of Netlify. More portable in principle (Netlify DB is Neon underneath either way), but costs a second login/dashboard for a portability benefit that doesn't actually materialize on exit — the connection string Netlify hands back is a plain Postgres/Neon endpoint, so `pg_dump`/`pg_restore` to any other host works the same regardless of which path was taken. Not worth the extra account for this project's size.
+
+Netlify's own migration system (`netlify database migrations ...`, auto-applied from `netlify/database/migrations` on every deploy) is **not** used here — it's opt-in and only activates for files in that specific directory. This project keeps Drizzle Kit exactly as described below, migrations committed under `src/drizzle/migrations/`, applied manually — no conflict, no rework.
 
 ### Blob storage (CV uploads)
 

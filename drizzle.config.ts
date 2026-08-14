@@ -8,6 +8,9 @@ export default {
   out: "./src/drizzle/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgres://placeholder/placeholder",
+    url:
+      process.env.DATABASE_URL ??
+      process.env.NETLIFY_DB_URL ??
+      "postgres://placeholder/placeholder",
   },
 } satisfies Config;

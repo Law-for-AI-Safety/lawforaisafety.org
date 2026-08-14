@@ -48,3 +48,6 @@ lighthouse-report.html
 
 # Local CV storage fallback (Netlify Blobs stand-in when not linked to Netlify) — see src/lib/cv-storage.ts
 /.local-blobs/
+
+# Local Netlify folder
+.netlify
