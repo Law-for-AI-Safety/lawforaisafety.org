@@ -9,7 +9,7 @@ export async function GET(request: Request) {
 
   if (!token) {
     return NextResponse.redirect(
-      new URL("/?newsletter=invalid#contact", request.url),
+      new URL("/newsletter/invalid", request.url),
       303,
     );
   }
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
   return NextResponse.redirect(
     new URL(
-      row ? "/?newsletter=confirmed#contact" : "/?newsletter=invalid#contact",
+      row ? "/newsletter/confirmed" : "/newsletter/invalid",
       request.url,
     ),
     303,

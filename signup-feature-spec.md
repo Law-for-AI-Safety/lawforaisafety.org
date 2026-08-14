@@ -47,7 +47,7 @@ If something goes wrong during the identity verification step (you accidentally 
 
 1. User enters email address, clicks **"Subscribe"** (form also carries a hidden honeypot field — see Abuse Protection below)
 2. `/api/newsletter` validates the honeypot is empty, then calls Brevo's `POST /contacts/doubleOptinConfirmation` (double opt-in — see Brevo dependency notes)
-   - **Phase 1 (no provider wired up yet)**: skip the provider call, insert a row into `newsletter_signups` instead (with a random `confirmation_token`, `confirmed_at = null`), and send a **real double opt-in confirm-link email via Brevo's transactional API** (already wired up for transactional email — see API Dependencies → Transactional Email). This isn't a placeholder courtesy notice — clicking the link is a genuine verification gate: `/api/newsletter/confirm?token=…` looks up the row by token, sets `confirmed_at = now()`, clears the token (single use). No token match → generic "invalid or already used" message, no enumeration signal. Phase 2 can keep this mechanism or hand the gate off to the provider's own DOI flow instead — either is fine, see Implementation Phasing.
+   - **Phase 1 (no provider wired up yet)**: skip the provider call, insert a row into `newsletter_signups` instead (with a random `confirmation_token`, `confirmed_at = null`), and send a **real double opt-in confirm-link email via Brevo's transactional API** (already wired up for transactional email — see API Dependencies → Transactional Email). This isn't a placeholder courtesy notice — clicking the link is a genuine verification gate: `/api/newsletter/confirm?token=…` looks up the row by token, sets `confirmed_at = now()`, clears the token (single use), then redirects to a dedicated `/newsletter/confirmed` page (a standalone page, not an inline homepage banner — see Route Structure). No token match → redirect to `/newsletter/invalid` instead, generic "isn't valid or has already been used" message, no enumeration signal. Phase 2 can keep this mechanism or hand the gate off to the provider's own DOI flow instead — either is fine, see Implementation Phasing.
 3. Confirmation shown inline (no separate success page needed) — same message whether the honeypot caught a bot or not, since a bot doesn't need to be told it was caught. Message asks the user to check their inbox and click the confirm link.
 
 ### Apply to work with us (optionally + newsletter)
@@ -508,6 +508,10 @@ Two call sites are stubbed instead of wired to a real provider:
     page.tsx              — Confirmation screen (application path)
   /apply/retry
     page.tsx              — OAuth-error retry landing (mint fresh state_token, switch provider)
+  /newsletter/confirmed
+    page.tsx              — Landing page after a successful double opt-in confirm-link click
+  /newsletter/invalid
+    page.tsx              — Landing page when the confirm-link token is missing/already used
   /admin/login
     page.tsx              — "Log in with LinkedIn" button (admin OAuth entry point)
   /admin
@@ -519,7 +523,8 @@ Two call sites are stubbed instead of wired to a real provider:
       route.ts            — Newsletter-only signup, POSTs to Brevo directly (Phase 2) /
                               inserts into newsletter_signups + sends confirm-link email (Phase 1)
     /newsletter/confirm
-      route.ts            — Double opt-in confirm-link target (Phase 1's own DOI mechanism)
+      route.ts            — Double opt-in confirm-link target (Phase 1's own DOI mechanism);
+                              redirects to /newsletter/confirmed or /newsletter/invalid
     /auth/linkedin
       route.ts            — Initiate LinkedIn OAuth (applicant flow)
     /auth/linkedin/callback

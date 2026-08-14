@@ -27,17 +27,19 @@ export default function RootLayout({
     <html lang="en" className={`${cormorant.variable} h-full`}>
       <body className="min-h-full flex flex-col">
         {/*
-          Redirects back from the apply/newsletter flows land on /#contact —
-          smooth-scroll (globals.css) also applies to that initial fragment
-          jump on page load, which reads as a jarring slow-motion scroll.
-          Force an instant jump for that landing, then restore smooth
-          scrolling for normal in-page nav-link clicks afterwards.
+          Redirects back from the apply flow land on /#contact — smooth-scroll
+          (globals.css) also applies to that initial fragment jump on page
+          load, which reads as a jarring slow-motion scroll. Force an instant
+          jump for that landing, then restore smooth scrolling for normal
+          in-page nav-link clicks afterwards. (Newsletter confirm/invalid used
+          to land here too via a `newsletter` param, but those now go to their
+          own dedicated pages — see /newsletter/confirmed, /newsletter/invalid.)
         */}
         <Script id="redirect-scroll-fix" strategy="beforeInteractive">
           {`
             (function () {
               var params = new URLSearchParams(window.location.search);
-              if (params.has("applied") || params.has("error") || params.has("newsletter")) {
+              if (params.has("applied") || params.has("error")) {
                 document.documentElement.style.scrollBehavior = "auto";
                 window.addEventListener("load", function () {
                   setTimeout(function () {
