@@ -421,15 +421,20 @@ Approximate monthly cost at list-size checkpoints, at the plan tier that gives u
 - Merge fields can store LinkedIn URL for reference (work-with-us path only — newsletter-only signups have no LinkedIn data)
 - **Abuse protection**: Mailchimp has built-in throttling against subscription bombing — a rate limit on adding one address across multiple lists in a short window, plus separate throttling against bot attacks on a single list; applies to single and double opt-in alike. Beyond that, double opt-in (used on the newsletter-only path above) is the real mitigation: a maliciously-submitted address receives a confirmation email but is never added unless it's clicked. This protects Mailchimp's list, not `/api/newsletter` itself — that route needs its own protection, since Mailchimp's protection only kicks in once a request reaches them. See Abuse Protection below. ([source](https://mailchimp.com/resources/how-to-protect-your-email-list-from-bots/))
 
-### Abuse Protection (`/api/newsletter`, `/api/auth/linkedin`)
+### Abuse Protection (`/api/newsletter`, `/api/auth/linkedin`, `/api/auth/google`, `/api/auth/email`)
 
-Two layers, both cheap — no external service, no DB table needed.
+Three layers. The honeypot/timing pair are free and catch unsophisticated bots; Turnstile is the layer that stops a scripted bot written specifically against this site (the honeypot's known weakness, see caveat below, since this repo is public and the field name/CSS is readable source).
 
+- **Cloudflare Turnstile** (primary layer against targeted bots): a managed challenge widget rendered on both forms (`TurnstileWidget.tsx`), verified server-side on every submit via Cloudflare's `siteverify` endpoint (`src/lib/turnstile.ts`) before any other processing runs. Free, no card required, no CAPTCHA-solving UX for most visitors (Cloudflare's managed mode only shows an interactive challenge when its own risk signals warrant it).
+  - Client: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (public, safe to ship in the bundle). The widget auto-injects a hidden `cf-turnstile-response` input into its container once solved — no extra submit-handler wiring needed, it just rides along with the rest of the form fields.
+  - Server: `TURNSTILE_SECRET_KEY` (secret). `verifyTurnstile(formData, ip)` posts the token + remote IP to Cloudflare and fails closed — missing token, network error, or a non-`success` response are all treated as unverified, never as a silent pass.
+  - Unlike the honeypot, a Turnstile failure is a real, user-recoverable error (expired token, flaky network) — surfaced to the applicant as an actual error message ("We couldn't verify you're not a robot, please try again"), not silently masked. It sits ahead of the honeypot check in each route specifically so a failed challenge short-circuits before any DB/file work happens.
+  - Local dev: use Cloudflare's fixed always-pass test keys (documented in `.env.example`) instead of a real site — no Cloudflare account needed to develop against this locally.
 - **Honeypot field**: form includes an extra input invisible to humans (CSS-hidden, off-screen — not `type="hidden"`, since that's an obvious bot-skip pattern; a visually-hidden text input with a plausible name like `website` catches more bots). If it's non-empty on submit, silently drop the request — return the *same* success response as a real submission, don't do the actual Mailchimp/DB write. Never tell the caller it was flagged; that just teaches the bot to adapt.
-  - **Caveat**: this repo may be public, so the field name/CSS is readable source, not a secret. A generic scraper bot that blindly fills every form field (most spam traffic) still gets caught. A bot specifically written against this site's source won't be. Rate limiting below doesn't depend on source secrecy, so it still holds even if the honeypot is bypassed.
+  - **Caveat**: this repo may be public, so the field name/CSS is readable source, not a secret. A generic scraper bot that blindly fills every form field (most spam traffic) still gets caught. A bot specifically written against this site's source won't be — that's the gap Turnstile above closes, since it isn't defeated by reading the source.
   - **Timing check** (cheap, works even with public source): reject submissions faster than a plausible human fill time (e.g. under ~2 seconds from page load to submit, tracked via a timestamp hidden field or the honeypot's own render time). Behavioral, not secret-based — a bot can read the threshold in the source but still has to actually wait, which most scripted bots skip.
 - **Rate limiting**: Netlify Functions support code-based rate limiting — a `config` object exported directly from the function file (no `netlify.toml` entry needed, works on all plans). Apply to both `/api/newsletter` and `/api/auth/linkedin` (the draft-creation step), keyed by IP, generous enough not to block a real user retrying (e.g. a handful of requests per minute) but enough to blunt a scripted flood. ([source](https://docs.netlify.com/manage/security/secure-access-to-sites/rate-limiting/))
-- Same two layers apply to `/api/auth/linkedin` and `/api/auth/google` (draft creation) as to `/api/newsletter` — all are unauthenticated, form-triggered writes reachable before any identity is established.
+- All three layers apply to `/api/auth/linkedin`, `/api/auth/google` (draft creation), and `/api/auth/email` (the no-verification fallback) exactly as to `/api/newsletter` — all are unauthenticated, form-triggered writes reachable before any identity is established.
 
 ### Slack
 
@@ -478,7 +483,7 @@ Everything except the two newsletter-provider call sites:
 - Full apply flow: form, LinkedIn/Google OAuth (both applicant and admin), draft/pending/approved/rejected state machine, resubmission + reapplication logic
 - Admin UI: login, list view, detail view, approve/reject, CV upload + PDF.js viewer, Slack reviewer notification + manual "Invite to Slack" step
 - Resend transactional emails (approval/rejection)
-- Full DB schema (migrations `0001`–`0004`), abuse protection (honeypot, timing check, rate limiting)
+- Full DB schema (migrations `0001`–`0004`), abuse protection (honeypot, timing check, rate limiting, Cloudflare Turnstile)
 
 Two call sites are stubbed instead of wired to a real provider:
 
@@ -544,7 +549,7 @@ Two call sites are stubbed instead of wired to a real provider:
       route.ts            — Reject application, sets reviewed_by, deletes CV blob (protected)
 ```
 
-`/admin/*` pages and `/api/admin/*` routes (other than `/admin/auth/*`) are protected by the session cookie set at login — see Admin UI → Authentication. Env vars: `SESSION_SECRET` (signs/verifies the session cookie), `ADMIN_EMAILS` (comma-separated whitelist of permitted LinkedIn emails).
+`/admin/*` pages and `/api/admin/*` routes (other than `/admin/auth/*`) are protected by the session cookie set at login — see Admin UI → Authentication. Env vars: `SESSION_SECRET` (signs/verifies the session cookie), `ADMIN_EMAILS` (comma-separated whitelist of permitted LinkedIn emails), `NEXT_PUBLIC_TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` (Cloudflare Turnstile — see Abuse Protection).
 
 ---
 

@@ -7,6 +7,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Provide at least one of: LinkedIn profile URL, CV upload, or a position statement.",
   invalid: "That verification link isn't valid. Please try again below.",
   expired: "That verification attempt expired. Please try again below.",
+  verification: "We couldn't verify you're not a robot. Please try again below.",
 };
 
 const NEWSLETTER_MESSAGES: Record<string, string> = {

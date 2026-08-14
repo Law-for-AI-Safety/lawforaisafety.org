@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { looksLikeBot } from "@/lib/abuse-protection";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { submitManualApplication, ValidationError } from "@/lib/applicant-flow";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
@@ -14,6 +15,13 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
+
+  if (!(await verifyTurnstile(formData, ip))) {
+    return NextResponse.redirect(
+      new URL("/?error=verification#contact", request.url),
+      303,
+    );
+  }
 
   if (looksLikeBot(formData)) {
     return NextResponse.redirect(new URL("/?applied=1#contact", request.url), 303);

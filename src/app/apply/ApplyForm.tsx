@@ -8,6 +8,7 @@ import {
 import WipeSubmitButton from "../WipeSubmitButton";
 import Checkbox from "./Checkbox";
 import CvFileField from "./CvFileField";
+import TurnstileWidget from "./TurnstileWidget";
 import { FIELD_CLASSES, HELPER_TEXT_CLASSES, LABEL_CLASSES } from "./field-styles";
 
 type VerifyTab = "linkedin" | "google" | "email";
@@ -247,6 +248,8 @@ export default function ApplyForm() {
           </div>
         )}
       </div>
+
+      <TurnstileWidget />
 
       {error && <p className="text-lg text-brand-red">{error}</p>}
     </form>

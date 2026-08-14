@@ -6,10 +6,12 @@ import {
   HONEYPOT_FIELD_NAME,
 } from "@/lib/abuse-protection";
 import WipeSubmitButton from "../WipeSubmitButton";
+import TurnstileWidget from "./TurnstileWidget";
 import { FIELD_CLASSES } from "./field-styles";
 
 export default function NewsletterForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle");
+  const [error, setError] = useState<string | null>(null);
   const [renderedAt] = useState(() => Date.now());
 
   if (status === "done") {
@@ -22,16 +24,30 @@ export default function NewsletterForm() {
 
   return (
     <form
-      className="flex flex-col gap-3 sm:flex-row sm:items-start"
+      className="flex flex-col gap-3"
       onSubmit={async (event) => {
         event.preventDefault();
         setStatus("submitting");
+        setError(null);
         const formData = new FormData(event.currentTarget);
         try {
-          await fetch("/api/newsletter", { method: "POST", body: formData });
-        } finally {
-          setStatus("done");
+          const res = await fetch("/api/newsletter", { method: "POST", body: formData });
+          if (!res.ok) {
+            setStatus("idle");
+            const body = await res.json().catch(() => null);
+            setError(
+              body?.error === "Verification failed"
+                ? "We couldn't verify you're not a robot. Please try again."
+                : "Something went wrong. Please try again.",
+            );
+            return;
+          }
+        } catch {
+          setStatus("idle");
+          setError("Something went wrong. Please try again.");
+          return;
         }
+        setStatus("done");
       }}
     >
       <div
@@ -51,21 +67,27 @@ export default function NewsletterForm() {
       </div>
       <input type="hidden" name={FORM_RENDERED_AT_FIELD_NAME} value={renderedAt} readOnly />
 
-      <input
-        type="email"
-        name="email"
-        required
-        placeholder="you@example.com"
-        className={`flex-1 text-brand-black ${FIELD_CLASSES}`}
-      />
-      <WipeSubmitButton
-        type="submit"
-        disabled={status === "submitting"}
-        className="bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden disabled:opacity-60"
-        hoverBg="rgba(255,255,255,0.15)"
-      >
-        {status === "submitting" ? "Subscribing…" : "Subscribe"}
-      </WipeSubmitButton>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <input
+          type="email"
+          name="email"
+          required
+          placeholder="you@example.com"
+          className={`flex-1 text-brand-black ${FIELD_CLASSES}`}
+        />
+        <WipeSubmitButton
+          type="submit"
+          disabled={status === "submitting"}
+          className="bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden disabled:opacity-60"
+          hoverBg="rgba(255,255,255,0.15)"
+        >
+          {status === "submitting" ? "Subscribing…" : "Subscribe"}
+        </WipeSubmitButton>
+      </div>
+
+      <TurnstileWidget />
+
+      {error && <p className="text-lg text-brand-red">{error}</p>}
     </form>
   );
 }

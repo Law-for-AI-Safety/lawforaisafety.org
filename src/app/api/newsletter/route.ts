@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { looksLikeBot } from "@/lib/abuse-protection";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordNewsletterSignup } from "@/lib/newsletter-signup";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 // Same success response whether the honeypot caught a bot or not — a bot
 // doesn't need to be told it was caught.
@@ -18,6 +19,10 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
+
+  if (!(await verifyTurnstile(formData, ip))) {
+    return NextResponse.json({ error: "Verification failed" }, { status: 400 });
+  }
 
   if (looksLikeBot(formData)) {
     return NextResponse.json(SUCCESS_RESPONSE);
