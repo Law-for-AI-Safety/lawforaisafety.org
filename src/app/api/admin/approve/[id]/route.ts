@@ -3,6 +3,7 @@ import { getAdminSession } from "@/lib/session";
 import {
   AlreadyReviewedError,
   NotFoundError,
+  NotificationFailedError,
   approveApplication,
 } from "@/lib/admin-flow";
 
@@ -29,6 +30,9 @@ export async function POST(
         { error: "This application has already been reviewed" },
         { status: 409 },
       );
+    }
+    if (err instanceof NotificationFailedError) {
+      return NextResponse.json({ error: err.message }, { status: 502 });
     }
     throw err;
   }

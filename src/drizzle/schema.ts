@@ -22,6 +22,15 @@ export const mailchimpSyncStatus = pgEnum("mailchimp_sync_status", [
   "deferred",
 ]);
 
+// Approval/rejection notification email outcome. A row stays present (not
+// purged) with status = approved/rejected + notificationStatus = 'failed'
+// until a retry succeeds — see admin-flow.ts. 'sent' is transient: the row
+// is deleted immediately after, so it's rarely observed at rest.
+export const notificationStatus = pgEnum("notification_status", [
+  "sent",
+  "failed",
+]);
+
 // "email" = no OAuth at all — applicant just typed a name + email. Weakest
 // possible signal, no identity proof behind it. See Manual Review / Admin UI.
 export const authProvider = pgEnum("auth_provider", [
@@ -81,6 +90,11 @@ export const applications = pgTable(
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedBy: text("reviewed_by"),
     reviewerNotes: text("reviewer_notes"),
+
+    // Set when a decision (approve/reject) is made; 'failed' means the
+    // applicant hasn't been notified yet — row is kept around (not purged)
+    // so the admin can retry. Null while status = pending/draft.
+    notificationStatus: notificationStatus("notification_status"),
 
     priorRejectionId: uuid("prior_rejection_id").references(
       () => processedApplications.id,

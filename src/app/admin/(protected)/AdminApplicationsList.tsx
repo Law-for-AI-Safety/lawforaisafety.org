@@ -9,6 +9,7 @@ type ListedApplication = {
   organisation: string | null;
   authProvider: "linkedin" | "google" | "email";
   createdAtLabel: string;
+  needsNotificationRetry: boolean;
 };
 
 export default function AdminApplicationsList({
@@ -41,6 +42,11 @@ export default function AdminApplicationsList({
               }`}
             >
               <div className="min-w-0">
+                {application.needsNotificationRetry && (
+                  <p className="truncate text-sm font-semibold text-brand-red">
+                    Notification failed — retry
+                  </p>
+                )}
                 <p className="truncate text-brand-black">
                   {application.name ?? "Unnamed applicant"}
                 </p>

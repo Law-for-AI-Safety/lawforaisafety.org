@@ -128,6 +128,7 @@ Each application record holds:
 | `reviewed_by` | Text, nullable — OAuth-verified email of the reviewer who made the call (no FK; admin identity comes from the session cookie, not a DB table) |
 | `reviewer_notes` | Optional, nullable. On rejection, copied to `processed_applications` before this row is deleted. On approval, discarded (no ongoing need to retain reasoning) |
 | `prior_rejection_id` | UUID FK → `processed_applications.id`, nullable — set when a reapplicant is detected at OAuth callback time, so the detail view can surface the prior rejection date and notes |
+| `notification_status` | `null` / `sent` / `failed` — set when the approval/rejection notification email (see API Dependencies → Transactional Email) is attempted. `failed` means the applicant hasn't actually been told yet: the row is deliberately **not** purged in that case (status still flips to `approved`/`rejected`, but `processed_applications` insert + CV delete + row delete are all deferred) until a retry succeeds — see Admin UI. `sent` is transient, since the row is deleted immediately after; in practice only `failed` is ever observed at rest. Migration `0003` |
 
 There is no `admin_users` table. Admin identity is established via LinkedIn OAuth at login time and carried in the session cookie. The permitted admin list lives in the `ADMIN_EMAILS` env var.
 
@@ -189,7 +190,7 @@ Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-sepa
 
 ### Pages
 
-- **List view** (`/admin`): all applications with `status = pending`, **oldest first** — surfaces whoever's been waiting longest, rather than newest-first burying older applications below a wall of recent ones. Shows name, organisation, submitted date, and an **auth provider badge** (`LinkedIn` / `Google`) at a glance. Row is lightweight (a handful of fields), so a plain unpaginated list holds up fine even as volume grows — pagination isn't worth building until it's a demonstrated problem, not preemptively.
+- **List view** (`/admin`): all applications with `status = pending`, **plus** already-decided ones stuck on `notification_status = 'failed'` (see below) — both **oldest first** in one list, not separate sections. Surfaces whoever's been waiting longest, rather than newest-first burying older applications below a wall of recent ones. Shows name, organisation, submitted date, and an **auth provider badge** (`LinkedIn` / `Google`) at a glance; a stuck row additionally gets a red "Notification failed — retry" label. Row is lightweight (a handful of fields), so a plain unpaginated list holds up fine even as volume grows — pagination isn't worth building until it's a demonstrated problem, not preemptively.
 - **Detail view** (`/admin/applications/[id]`): everything the reviewer needs for one decision on one screen —
   - **Auth provider badge** — prominent `LinkedIn` or `Google` label. For Google-authed applications, an additional notice: *"Verified via Google — no LinkedIn OAuth. Apply extra scrutiny to identity signals below."* For `auth_provider = 'email'`, the badge instead reads `Unverified` (red, not navy) with a stronger banner: *"No identity verification at all — name and email are entirely self-reported, not tied to any real account. Treat as unverified until independently confirmed; apply maximum scrutiny to the credentials below."*
   - OAuth-verified `name`, `email`, `picture_url` (rendered as an image, for the name/photo cross-check)
@@ -202,6 +203,7 @@ Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-sepa
   - A multiline text field (textarea) for `reviewer_notes` — free-text, optional. Internal only, not shown to the applicant. Labelled with a nudge: *"Do not include names or other identifying details — notes are retained after rejection."* On rejection, notes are copied to `processed_applications`; on approval, discarded. Either way, the application row is deleted and all PII purged immediately after the decision is saved (including CV blob deletion from Netlify Blobs)
   - Approve / Reject buttons, calling the existing `/api/admin/approve/[id]` and `/api/admin/reject/[id]` routes — these set `reviewed_by` from the logged-in session, save whatever's in the `reviewer_notes` textarea, insert a `processed_applications` row, delete the CV blob if any, then delete the application row
   - On approve: after the Brevo/dedup-check logic runs and before the application row is deleted, show the "Invite to Slack" button (copies email + opens Slack admin invites page — see Slack Option B). The email is no longer available after the row is deleted, so this must happen in the same response
+  - **Notification-failed retry**: if `notification_status = 'failed'` (decision already recorded, applicant not yet told, row not purged — see State Model), the detail view shows a banner explaining that and stays reachable directly (the `status = pending` gate that would otherwise 404 this page is relaxed for this case). Only the relevant button shows — Approve-retry hides Reject and vice versa, since the decision itself isn't being re-litigated, just the notification. Its label changes to "Retry approval/rejection email"; clicking it hits the *same* `/api/admin/approve or reject/[id]` route, which detects the row is already decided-but-unnotified and retries the notification + purge instead of re-claiming a pending row. For a reject-retry, the reviewer-notes textarea is disabled — the notes that get retained are the ones saved with the original decision, not whatever's typed on a later retry visit.
 - Optional: a `/admin` filter/tab for `approved` / `rejected` history, useful for volume tracking (see Open Questions) but not required for v1
 
 **Multiple reviewers (up to 3–4, starting at 1)**: no claiming/locking mechanism for v1 — with this few reviewers, two people opening the same application at once is rare, not worth building UI for pre-emptively. The approve/reject routes should still be defensive about it though: check `status` is still `pending` at write time and no-op (or return a clear "already reviewed by X" error) rather than silently double-processing if two reviewers do collide on the same item.
@@ -338,6 +340,15 @@ CREATE TABLE newsletter_signups (
 Added in a later migration, not part of the original `0004`: `confirmation_token`/`confirmed_at` — the real double opt-in mechanism described in User-Facing Flow → Newsletter only (a design refinement made after `0004` first shipped, not re-numbered here since the migration history is append-only).
 
 No uniqueness constraint on `email` — a double-opt-in confirm/re-signup should overwrite intent, not error; dedupe at Phase 2 import time instead.
+
+#### `0005_add_notification_status` (generated as `src/drizzle/migrations/0003_yummy_odin.sql`)
+
+Added after a real bug surfaced: `admin-flow.ts` originally flipped an application's `status` to `approved`/`rejected` *before* attempting the notification email, with no way to recover if that email failed — the row would vanish from the pending list (which only ever queried `status = pending`) without completing, un-retriable, PII never purged either. See State Model → `notification_status` and Admin UI below for the fix.
+
+```sql
+CREATE TYPE notification_status AS ENUM ('sent', 'failed');
+ALTER TABLE applications ADD COLUMN notification_status notification_status;
+```
 
 ---
 

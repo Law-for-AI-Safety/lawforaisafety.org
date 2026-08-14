@@ -16,7 +16,11 @@ export default async function AdminApplicationDetailPage({
     .from(applications)
     .where(eq(applications.id, id));
 
-  if (!application || application.status !== "pending") {
+  const isRetriable =
+    (application?.status === "approved" || application?.status === "rejected") &&
+    application?.notificationStatus === "failed";
+
+  if (!application || (application.status !== "pending" && !isRetriable)) {
     notFound();
   }
 
@@ -47,6 +51,9 @@ export default async function AdminApplicationDetailPage({
         positionStatement: application.positionStatement,
         comments: application.comments,
         newsletterOptIn: application.newsletterOptIn,
+        failedNotification: isRetriable
+          ? (application.status as "approved" | "rejected")
+          : null,
       }}
       priorRejection={
         priorRejection

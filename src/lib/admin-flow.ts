@@ -12,6 +12,9 @@ import { isAlreadyInSlackWorkspace } from "@/lib/slack";
 
 export class AlreadyReviewedError extends Error {}
 export class NotFoundError extends Error {}
+export class NotificationFailedError extends Error {}
+
+type ApplicationRow = typeof applications.$inferSelect;
 
 function requireSlackWorkspaceUrl(): string {
   const url = process.env.SLACK_WORKSPACE_URL;
@@ -21,29 +24,43 @@ function requireSlackWorkspaceUrl(): string {
 
 /**
  * Claim the row for this decision, defensively: if two reviewers collide on
- * the same pending application, only the first conditional update wins — the
- * second gets AlreadyReviewedError instead of silently double-processing.
+ * the same pending application, only the first conditional update wins.
+ * Returns null (not an error) if no pending row matched — the caller
+ * decides what that means, since it's ambiguous from here alone (could be a
+ * retriable failed-notification row, or genuinely already handled).
  */
-async function claimPendingApplication(
+async function tryClaimPendingApplication(
   id: string,
   status: "approved" | "rejected",
   reviewedBy: string,
   reviewerNotes: string | null,
-) {
+): Promise<ApplicationRow | null> {
   const [row] = await db
     .update(applications)
     .set({ status, reviewedAt: new Date(), reviewedBy, reviewerNotes })
     .where(and(eq(applications.id, id), eq(applications.status, "pending")))
     .returning();
+  return row ?? null;
+}
 
-  if (row) return row;
-
+/**
+ * Row wasn't pending, so this is either a retry of a decision whose
+ * notification email failed last time (actionable), or the row's already
+ * been fully processed or doesn't exist (not actionable).
+ */
+async function getRetriableApplication(
+  id: string,
+  status: "approved" | "rejected",
+): Promise<ApplicationRow> {
   const [existing] = await db
     .select()
     .from(applications)
     .where(eq(applications.id, id));
   if (!existing) throw new NotFoundError();
-  throw new AlreadyReviewedError();
+  if (existing.status !== status || existing.notificationStatus !== "failed") {
+    throw new AlreadyReviewedError();
+  }
+  return existing;
 }
 
 /**
@@ -69,6 +86,29 @@ async function upsertProcessedApplication(row: {
     });
 }
 
+async function markNotificationFailed(id: string): Promise<never> {
+  await db
+    .update(applications)
+    .set({ notificationStatus: "failed" })
+    .where(eq(applications.id, id));
+  throw new NotificationFailedError(
+    "Decision saved, but the notification email failed to send. Try again to retry sending it.",
+  );
+}
+
+async function purgeApplication(
+  row: ApplicationRow,
+  outcome: "approved" | "rejected",
+): Promise<void> {
+  await upsertProcessedApplication({
+    emailHash: hashEmail(row.email!),
+    outcome,
+    reviewerNotes: outcome === "rejected" ? row.reviewerNotes : null, // discarded on approval, per spec
+  });
+  if (row.cvBlobKey) await deleteCv(row.cvBlobKey);
+  await db.delete(applications).where(eq(applications.id, row.id));
+}
+
 export async function approveApplication(
   id: string,
   reviewedBy: string,
@@ -81,33 +121,27 @@ export async function approveApplication(
   // Fail fast on missing config before any mutation runs.
   const slackWorkspaceUrl = requireSlackWorkspaceUrl();
 
-  const row = await claimPendingApplication(id, "approved", reviewedBy, null);
-  if (!row.email) throw new Error("Approved application missing verified email");
-
-  if (row.newsletterOptIn) {
-    await recordVerifiedNewsletterOptIn(row.email);
+  let row = await tryClaimPendingApplication(id, "approved", reviewedBy, null);
+  if (row) {
+    if (!row.email) throw new Error("Approved application missing verified email");
+    if (row.newsletterOptIn) await recordVerifiedNewsletterOptIn(row.email);
+  } else {
+    row = await getRetriableApplication(id, "approved");
   }
 
-  const alreadyInSlack = await isAlreadyInSlackWorkspace(row.email);
+  const alreadyInSlack = await isAlreadyInSlackWorkspace(row.email!);
 
-  await sendApplicationApprovedEmail(row.email);
+  try {
+    await sendApplicationApprovedEmail(row.email!);
+  } catch {
+    await markNotificationFailed(id);
+  }
 
-  await upsertProcessedApplication({
-    emailHash: hashEmail(row.email),
-    outcome: "approved",
-    reviewerNotes: null, // discarded on approval, per spec
-  });
-
-  if (row.cvBlobKey) await deleteCv(row.cvBlobKey);
-
-  const email = row.email;
-  const name = row.name;
-
-  await db.delete(applications).where(eq(applications.id, id));
+  await purgeApplication(row, "approved");
 
   return {
-    email,
-    name,
+    email: row.email!,
+    name: row.name,
     alreadyInSlack,
     slackInviteUrl: `${slackWorkspaceUrl}/admin/invites`,
   };
@@ -118,18 +152,17 @@ export async function rejectApplication(
   reviewedBy: string,
   reviewerNotes: string | null,
 ): Promise<void> {
-  const row = await claimPendingApplication(id, "rejected", reviewedBy, reviewerNotes);
+  let row = await tryClaimPendingApplication(id, "rejected", reviewedBy, reviewerNotes);
+  if (!row) {
+    row = await getRetriableApplication(id, "rejected");
+  }
   if (!row.email) throw new Error("Rejected application missing verified email");
 
-  await sendApplicationRejectedEmail(row.email);
+  try {
+    await sendApplicationRejectedEmail(row.email);
+  } catch {
+    await markNotificationFailed(id);
+  }
 
-  await upsertProcessedApplication({
-    emailHash: hashEmail(row.email),
-    outcome: "rejected",
-    reviewerNotes,
-  });
-
-  if (row.cvBlobKey) await deleteCv(row.cvBlobKey);
-
-  await db.delete(applications).where(eq(applications.id, id));
+  await purgeApplication(row, "rejected");
 }

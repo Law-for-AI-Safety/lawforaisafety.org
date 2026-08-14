@@ -16,6 +16,10 @@ type Application = {
   positionStatement: string | null;
   comments: string | null;
   newsletterOptIn: boolean;
+  // Set when a decision was already made but the notification email failed
+  // to send — the row is kept around (not purged) so this can be retried.
+  // Which value it holds also says which action is retriable.
+  failedNotification: "approved" | "rejected" | null;
 };
 
 type PriorRejection = {
@@ -161,6 +165,24 @@ export default function ApplicationDetail({
         </p>
       )}
 
+      {application.failedNotification && (
+        <div className="border border-brand-red bg-brand-red/10 px-4 py-3">
+          <p className="text-brand-red">
+            This application was already{" "}
+            {application.failedNotification === "approved"
+              ? "approved"
+              : "rejected"}
+            , but the notification email failed to send — the applicant
+            hasn&apos;t been told yet, so nothing&apos;s been deleted.
+          </p>
+          <p className="mt-1 text-brand-black/80">
+            {application.failedNotification === "approved"
+              ? "Click Approve again to retry sending the approval email."
+              : "Click Reject again to retry sending the rejection email."}
+          </p>
+        </div>
+      )}
+
       {priorRejection && (
         <div className="border border-brand-red bg-brand-red/10 px-4 py-3">
           <p className="text-brand-red">
@@ -245,36 +267,46 @@ export default function ApplicationDetail({
           Reviewer notes (internal only)
         </span>
         <span className="text-sm text-brand-black/60">
-          Do not include names or other identifying details. Notes are
-          retained after rejection.
+          {application.failedNotification === "rejected"
+            ? "Retrying the notification email reuses the notes saved with the original decision — editing here won't change them."
+            : "Do not include names or other identifying details. Notes are retained after rejection."}
         </span>
         <textarea
           value={reviewerNotes}
           onChange={(event) => setReviewerNotes(event.target.value)}
           rows={4}
-          className="border border-brand-black/30 bg-brand-white px-3 py-2"
+          disabled={application.failedNotification === "rejected"}
+          className="border border-brand-black/30 bg-brand-white px-3 py-2 disabled:opacity-60"
         />
       </label>
 
       {error && <p className="text-brand-red">{error}</p>}
 
       <div className="flex gap-3">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={handleApprove}
-          className="bg-brand-navy px-5 py-2 text-brand-white disabled:opacity-60"
-        >
-          Approve
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={handleReject}
-          className="border border-brand-red px-5 py-2 text-brand-red disabled:opacity-60"
-        >
-          Reject
-        </button>
+        {application.failedNotification !== "rejected" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleApprove}
+            className="bg-brand-navy px-5 py-2 text-brand-white disabled:opacity-60"
+          >
+            {application.failedNotification === "approved"
+              ? "Retry approval email"
+              : "Approve"}
+          </button>
+        )}
+        {application.failedNotification !== "approved" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleReject}
+            className="border border-brand-red px-5 py-2 text-brand-red disabled:opacity-60"
+          >
+            {application.failedNotification === "rejected"
+              ? "Retry rejection email"
+              : "Reject"}
+          </button>
+        )}
       </div>
     </main>
   );
