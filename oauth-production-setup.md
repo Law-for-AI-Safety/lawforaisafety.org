@@ -21,6 +21,8 @@ Three URLs need to be registered in total — two on the LinkedIn app (it's shar
    - `https://lawforaisafety.org/api/admin/auth/linkedin/callback`
 4. Save. LinkedIn allows multiple redirect URLs on one app — no need for a second app registration, and the existing `localhost:3001` ones can stay alongside these for continued local dev.
 
+DONE
+
 ## Google Cloud Console
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) → select the project this app's OAuth client lives in
