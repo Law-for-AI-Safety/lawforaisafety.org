@@ -199,12 +199,8 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>To protect the site against spam and automated abuse</li>
           <li>
-            To notify our internal review team that a new application needs
-            attention
-          </li>
-          <li>
-            If approved, to invite you to our Slack workspace and (if opted in)
-            add you to our mailing list
+            If approved, to invite you to our Slack workspace and, if you
+            opted in, add you to our mailing list
           </li>
         </ul>
       </section>
@@ -262,14 +258,14 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong>Brevo:</strong> sends transactional emails (application
             outcome, newsletter confirmation) and manages our newsletter mailing
-            list. Brevo hosts data on EU infrastructure.
+            list. Brevo hosts data on EU infrastructure. You can unsubscribe
+            from the newsletter at any time using the unsubscribe link in any
+            newsletter email.
           </li>
           <li>
-            <strong>Slack:</strong> when you apply, your name, organisation,
-            and verification method are posted to a private internal channel to
-            notify reviewers. If approved, a reviewer manually invites you to
-            our Slack workspace, first checking whether you&apos;re already a
-            member.
+            <strong>Slack:</strong> if your application is approved, a reviewer
+            invites you to our Slack workspace, first checking whether
+            you&apos;re already a member.
           </li>
           <li>
             <strong>Netlify:</strong> our hosting provider. Application data is
