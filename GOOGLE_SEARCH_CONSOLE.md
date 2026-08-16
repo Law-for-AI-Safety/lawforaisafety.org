@@ -39,3 +39,50 @@ Once `src/app/sitemap.ts` is deployed, it's served at `https://lawforaisafety.or
 - Check **Coverage/Pages** report after a few days to confirm the homepage is indexed, no errors.
 - Check **Performance** report after ~1-2 weeks for impressions/clicks/query data.
 - Re-submit the sitemap whenever new indexable pages are added.
+
+---
+
+# Bing Webmaster Tools setup
+
+Covers Bing directly, plus feeds DuckDuckGo and Yahoo (both use Bing's index).
+
+## 1. Add the property
+
+1. Go to <https://www.bing.com/webmasters>
+2. Sign in with a Microsoft account.
+3. Easiest path: **Import from Google Search Console** — one click, pulls in the verified property and sitemap from the GSC setup above, no code changes needed. Pick this if GSC is already verified.
+4. Manual alternative (if not importing): **Add a site** → enter `https://lawforaisafety.org` → verify via one of:
+   - **XML file** — upload a `BingSiteAuth.xml` file to `public/`, or
+   - **Meta tag** — Bing gives you `<meta name="msvalidate.01" content="...">`. Add the `content` value to `src/app/layout.tsx`:
+
+     ```ts
+     export const metadata: Metadata = {
+       // ...existing fields
+       verification: {
+         google: "...",
+         other: {
+           "msvalidate.01": "PASTE_VALUE_HERE",
+         },
+       },
+     };
+     ```
+
+   - **DNS CNAME** — add a record at your DNS provider (covers the whole domain).
+
+## 2. Submit the sitemap
+
+1. In Bing Webmaster Tools, left sidebar → **Sitemaps**
+2. Enter `https://lawforaisafety.org/sitemap.xml` → **Submit**
+
+(Skipped automatically if you imported from GSC — it carries the sitemap over.)
+
+## 3. Request indexing
+
+1. Left sidebar → **URL Inspection** (or **Submit URLs**)
+2. Enter `https://lawforaisafety.org` → submit
+3. Bing also has a **URL Submission API quota** (daily limit) if you add more pages later — not needed for a single homepage.
+
+## 4. Ongoing
+
+- Check **Site Explorer** / **Reports & Data** after a few days for crawl/index status.
+- Re-submit the sitemap whenever new indexable pages are added.
