@@ -31,10 +31,12 @@ DONE
 4. Add: `https://lawforaisafety.org/api/auth/google/callback`
 5. Save. Same as LinkedIn — the existing `localhost:3001` entry can stay for local dev, this just adds the production one alongside it.
 
+DONE
+
 ---
 
 ## Verifying it worked
 
 Once both are saved (LinkedIn is usually instant; Google can take a few minutes to propagate), the check is simple: go through the apply flow on the live production site and click "Verify with LinkedIn" / "Verify with Google" — a correctly registered redirect lands on the provider's real login/consent screen. A `redirect_uri_mismatch` error (Google) or a generic LinkedIn error page means the URL registered doesn't exactly match — check for a trailing slash, `http` vs `https`, or a typo, since these providers require an exact string match, not a pattern.
 
-This document only covers the provider-side redirect URL registration. It does **not** cover getting the actual credentials into Netlify — `NEXT_PUBLIC_SITE_URL`, `LINKEDIN_CLIENT_ID`/`LINKEDIN_CLIENT_SECRET`, and `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` all need to be set there too (see `.env.example`) before any of this works on the deployed site, regardless of what's registered on LinkedIn/Google's side. As of writing, none of those are set in Netlify's production or deploy-preview environments — only `ADMIN_EMAILS`, `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_LIST_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, and `TURNSTILE_SECRET_KEY` are. `SESSION_SECRET` and `EMAIL_HASH_SECRET` are also missing — both required for the admin session and reapplication-hash logic respectively.
+**Status: done.** Both LinkedIn redirect URLs and the Google one are registered (see `netlify-env-vars-setup.md` for the companion Netlify env var setup, also done — `NEXT_PUBLIC_SITE_URL`, `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_ID`/`SECRET`, `SESSION_SECRET`, `EMAIL_HASH_SECRET` are all present with correct per-context scoping, confirmed directly against Netlify).
