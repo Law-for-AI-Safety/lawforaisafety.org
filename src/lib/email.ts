@@ -8,6 +8,17 @@ function requireEnv(name: string): string {
   return value;
 }
 
+// Duplicated from lib/session.ts rather than imported — that module pulls
+// in next/headers, which only works inside Next's server request context
+// and would break plain-Node usage of this file (test scripts, etc).
+function isAdminEmail(email: string): boolean {
+  const allowed = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(email.toLowerCase());
+}
+
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://lawforaisafety.org";
 }
@@ -35,7 +46,31 @@ function wrapEmailHtml(bodyHtml: string): string {
 </div>`;
 }
 
+/**
+ * Outside production (Netlify's own CONTEXT var — unset locally, or
+ * "deploy-preview"/"branch-deploy"/"dev" on Netlify), real sends are
+ * restricted to admin addresses only. Brevo has no sandbox key that fakes
+ * delivery, so without this a preview deploy exercising the apply/approve
+ * flow would send real mail to whatever address was used to test it.
+ */
+function sendAllowed(to: string): boolean {
+  return process.env.CONTEXT === "production" || isAdminEmail(to);
+}
+
 async function send(to: string, subject: string, bodyHtml: string): Promise<void> {
+  if (!sendAllowed(to)) {
+    console.log(
+      `[email] Skipping send to ${to} outside production (not in ADMIN_EMAILS): "${subject}"`,
+    );
+    return;
+  }
+
+  // Marks the send visibly as non-production, on top of it already only
+  // ever reaching an admin inbox (see sendAllowed) — so a test send is
+  // never mistaken for a real notification while scanning an inbox.
+  const isProduction = process.env.CONTEXT === "production";
+  const finalSubject = isProduction ? subject : `[TESTING] ${subject}`;
+
   const res = await fetch(BREVO_SEND_URL, {
     method: "POST",
     headers: {
@@ -49,7 +84,7 @@ async function send(to: string, subject: string, bodyHtml: string): Promise<void
         name: process.env.BREVO_FROM_NAME || "Law for AI Safety",
       },
       to: [{ email: to }],
-      subject,
+      subject: finalSubject,
       htmlContent: wrapEmailHtml(bodyHtml),
     }),
   });
@@ -60,18 +95,24 @@ async function send(to: string, subject: string, bodyHtml: string): Promise<void
   }
 }
 
-function approvedEmail() {
+/** First word of a full name, for a natural-reading greeting — falls back to no greeting at all if there's no name. */
+function greeting(name: string | null): string {
+  const firstName = name?.trim().split(/\s+/)[0];
+  return firstName ? `<p style="margin:0 0 16px;">Hi ${firstName},</p>` : "";
+}
+
+function approvedEmail(name: string | null) {
   return {
     subject: "Your application to Law for AI Safety has been approved",
-    bodyHtml: `<p style="margin:0 0 16px;">Good news. Your application to work with Law for AI Safety has been approved.</p>
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Good news. Your application to work with Law for AI Safety has been approved.</p>
      <p style="margin:0;">We'll be in touch shortly with next steps.</p>`,
   };
 }
 
-function rejectedEmail() {
+function rejectedEmail(name: string | null) {
   return {
     subject: "Update on your Law for AI Safety application",
-    bodyHtml: `<p style="margin:0 0 16px;">Thank you for your interest in working with Law for AI Safety.</p>
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Thank you for your interest in working with Law for AI Safety.</p>
      <p style="margin:0 0 16px;">After review, we're not able to move forward with your application at this time.</p>
      <p style="margin:0;">We appreciate you taking the time to apply, and wish you the best.</p>`,
   };
@@ -105,13 +146,19 @@ function newsletterSignupReceivedEmail() {
   };
 }
 
-export async function sendApplicationApprovedEmail(to: string): Promise<void> {
-  const { subject, bodyHtml } = approvedEmail();
+export async function sendApplicationApprovedEmail(
+  to: string,
+  name: string | null,
+): Promise<void> {
+  const { subject, bodyHtml } = approvedEmail(name);
   await send(to, subject, bodyHtml);
 }
 
-export async function sendApplicationRejectedEmail(to: string): Promise<void> {
-  const { subject, bodyHtml } = rejectedEmail();
+export async function sendApplicationRejectedEmail(
+  to: string,
+  name: string | null,
+): Promise<void> {
+  const { subject, bodyHtml } = rejectedEmail(name);
   await send(to, subject, bodyHtml);
 }
 
@@ -137,8 +184,8 @@ export async function sendNewsletterSignupReceivedEmail(
  */
 export function getEmailPreviews(): { label: string; subject: string; html: string }[] {
   const templates = [
-    { label: "Application approved", ...approvedEmail() },
-    { label: "Application rejected", ...rejectedEmail() },
+    { label: "Application approved", ...approvedEmail("Alex Applicant") },
+    { label: "Application rejected", ...rejectedEmail("Alex Applicant") },
     {
       label: "Newsletter confirmation",
       ...newsletterConfirmationEmail(

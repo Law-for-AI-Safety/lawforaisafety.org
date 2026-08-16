@@ -132,7 +132,7 @@ export async function approveApplication(
   const alreadyInSlack = await isAlreadyInSlackWorkspace(row.email!);
 
   try {
-    await sendApplicationApprovedEmail(row.email!);
+    await sendApplicationApprovedEmail(row.email!, row.name);
   } catch {
     await markNotificationFailed(id);
   }
@@ -159,7 +159,7 @@ export async function rejectApplication(
   if (!row.email) throw new Error("Rejected application missing verified email");
 
   try {
-    await sendApplicationRejectedEmail(row.email);
+    await sendApplicationRejectedEmail(row.email, row.name);
   } catch {
     await markNotificationFailed(id);
   }

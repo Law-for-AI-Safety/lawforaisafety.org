@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsletterSignups } from "@/drizzle/schema";
+import { subscribeToBrevoList } from "@/lib/brevo-contacts";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -24,6 +25,18 @@ export async function GET(request: Request) {
       ),
     )
     .returning();
+
+  if (row) {
+    try {
+      await subscribeToBrevoList(row.email);
+      await db
+        .update(newsletterSignups)
+        .set({ synced: true })
+        .where(eq(newsletterSignups.id, row.id));
+    } catch (err) {
+      console.error(`Brevo subscribe failed for ${row.email}:`, err);
+    }
+  }
 
   return NextResponse.redirect(
     new URL(

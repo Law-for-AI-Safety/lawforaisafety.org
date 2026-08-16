@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsletterSignups } from "@/drizzle/schema";
 import {
   sendNewsletterConfirmationEmail,
   sendNewsletterSignupReceivedEmail,
 } from "@/lib/email";
+import { subscribeToBrevoList } from "@/lib/brevo-contacts";
 
 function requireSiteUrl(): string {
   const url = process.env.NEXT_PUBLIC_SITE_URL;
@@ -15,9 +17,9 @@ function requireSiteUrl(): string {
 /**
  * Standalone `/api/newsletter` signup — email isn't otherwise verified, so
  * this is a real double opt-in: a token + confirm link, not just a courtesy
- * notice. Row lands in `newsletter_signups` unconfirmed until the link is
- * clicked; Phase 2 backfill only imports confirmed rows (see Implementation
- * Phasing in the feature spec).
+ * notice. Row lands in `newsletter_signups` unconfirmed; the actual Brevo
+ * subscribe happens on confirm-link click (see /api/newsletter/confirm),
+ * not here.
  */
 export async function recordNewsletterSignup(email: string): Promise<void> {
   const confirmationToken = randomUUID();
@@ -29,15 +31,30 @@ export async function recordNewsletterSignup(email: string): Promise<void> {
 
 /**
  * Approval-time `newsletter_opt_in` — the email is already OAuth-verified,
- * so a double opt-in click would be redundant friction (same reasoning the
- * spec applies to the real Brevo mailout call in Phase 2). Confirmed
- * immediately; just a courtesy notice email, no link.
+ * so a double opt-in click would be redundant friction. Subscribed to Brevo
+ * immediately. `newsletter_signups` is still recorded as a local audit
+ * trail; `synced` reflects whether the Brevo call actually succeeded — a
+ * failure here doesn't block the courtesy email or the approval itself,
+ * it's logged and left for manual follow-up (no admin-facing retry UI for
+ * this one, unlike the approve/reject notification-retry flow).
  */
 export async function recordVerifiedNewsletterOptIn(
   email: string,
 ): Promise<void> {
-  await db
+  const [row] = await db
     .insert(newsletterSignups)
-    .values({ email, confirmedAt: new Date() });
+    .values({ email, confirmedAt: new Date() })
+    .returning({ id: newsletterSignups.id });
+
+  try {
+    await subscribeToBrevoList(email);
+    await db
+      .update(newsletterSignups)
+      .set({ synced: true })
+      .where(eq(newsletterSignups.id, row.id));
+  } catch (err) {
+    console.error(`Brevo subscribe failed for ${email}:`, err);
+  }
+
   await sendNewsletterSignupReceivedEmail(email);
 }
