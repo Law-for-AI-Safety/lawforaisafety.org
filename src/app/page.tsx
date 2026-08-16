@@ -89,7 +89,7 @@ const team = [
   },
   {
     name: "Harry Turnbull",
-    role: "Senior Engineer",
+    role: "Senior Software Engineer",
     bio: "Operations team volunteer at PauseAI.",
     linkedin: "https://www.linkedin.com/in/harry-turnbull/",
     photo: "/images/harry-turnbull.webp",
@@ -358,10 +358,16 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Event 4: no line below */}
+            {/* Event 4 */}
             <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5 h-9 bg-brand-white flex items-center justify-center">
-                <RingBullet />
+              <div className="relative flex-shrink-0 w-5">
+                <div
+                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
+                  aria-hidden
+                />
+                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
+                  <RingBullet />
+                </div>
               </div>
               <div className="flex flex-col gap-6 min-w-0">
                 <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
@@ -431,6 +437,46 @@ export default function Home() {
                         fill
                         className={`object-cover ${img.position}`}
                         sizes="(max-width: 768px) 100vw, 298px"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Event 5: no line below */}
+            <div className="flex gap-8">
+              <div className="relative flex-shrink-0 w-5 h-9 bg-brand-white flex items-center justify-center">
+                <RingBullet />
+              </div>
+              <div className="flex flex-col gap-3 min-w-0">
+                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+Grant Award and Talk at Unlocking the Potential of Women in AI Safety
+                </h3>
+                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+Our co-founder and Executive Director, Karolina Gruzel, was selected to take part in the fully funded Unlocking the Potential of Women in AI Safety programme, where she further developed her leadership skills and built new connections for our organisation. During the event, Karolina also received the exciting news that we had been awarded a grant to fund our workstream submitting Freedom of Information requests on catastrophic and existential AI risks to EU Member States. She shared the news with fellow participants while giving a talk introducing our organisation and its work.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    {
+                      src: "/images/women-in-ai-safety-group.webp",
+                      alt: "Group photo of participants at the Unlocking the Potential of Women in AI Safety programme",
+                    },
+                    {
+                      src: "/images/karolina-at-seminar.webp",
+                      alt: "Karolina Gruzel giving a talk at the Unlocking the Potential of Women in AI Safety seminar",
+                    },
+                  ].map((img) => (
+                    <div
+                      key={img.src}
+                      className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
+                    >
+                      <Image
+                        src={img.src}
+                        alt={img.alt}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 448px"
                       />
                     </div>
                   ))}
