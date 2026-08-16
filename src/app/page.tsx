@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import Nav from "./Nav";
+import Footer from "./Footer";
 import WipeButton from "./WipeButton";
 import WavyUnderline from "./WavyUnderline";
 import ContactErrorBanner from "./ContactErrorBanner";
@@ -556,21 +557,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-brand-black px-8 md:px-16 py-12">
-        <div className="max-w-4xl mx-auto flex flex-row justify-between items-center gap-6">
-          <Image
-            src="/logo.svg"
-            alt="Law for AI Safety"
-            width={160}
-            height={48}
-            className="w-36 brightness-0 invert opacity-40"
-          />
-          <p className="text-lg font-light text-brand-white/85">
-            © {new Date().getFullYear()} Law for AI Safety. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

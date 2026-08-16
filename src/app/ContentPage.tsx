@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Nav from "./Nav";
+import Footer from "./Footer";
 
 /**
  * Shared shell for standalone (non-homepage) content pages — success/error
@@ -31,6 +32,7 @@ export default function ContentPage({
           {children}
         </div>
       </main>
+      <Footer />
     </>
   );
 }
