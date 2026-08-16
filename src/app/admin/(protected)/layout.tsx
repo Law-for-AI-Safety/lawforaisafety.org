@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { and, asc, eq, or } from "drizzle-orm";
 import { getAdminSession } from "@/lib/session";
@@ -47,11 +48,16 @@ export default async function ProtectedAdminLayout({
     <div className="flex h-dvh flex-col">
       <header className="flex items-center justify-between border-b border-brand-black/10 px-4 py-4">
         <span className="text-brand-black/70">Signed in as {session.email}</span>
-        <form action="/api/admin/logout" method="post">
-          <button type="submit" className="underline">
-            Log out
-          </button>
-        </form>
+        <div className="flex items-center gap-4">
+          <Link href="/admin/email-preview" className="underline">
+            Email preview
+          </Link>
+          <form action="/api/admin/logout" method="post">
+            <button type="submit" className="underline">
+              Log out
+            </button>
+          </form>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
