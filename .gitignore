@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -44,3 +45,10 @@ next-env.d.ts
 lighthouse-report.html
 # Playwright
 .playwright-mcp
+
+# Local CV storage fallback (Netlify Blobs stand-in when not linked to Netlify) — see src/lib/cv-storage.ts
+/.local-blobs/
+
+# Local Netlify folder
+.netlify
+.vscode/settings.json
