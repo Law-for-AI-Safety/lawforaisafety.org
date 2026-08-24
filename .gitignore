@@ -44,3 +44,4 @@ next-env.d.ts
 lighthouse-report.html
 # Playwright
 .playwright-mcp
+scripts/.linkedin-session.json
