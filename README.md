@@ -43,7 +43,13 @@ Current records and their purpose:
 - **A** (apex + `www`) — point to Netlify's edge network; this is what serves the site. `www` redirects to the apex domain (Netlify domain alias), it's not a separate site.
 - **TXT** (`brevo-code:...`) — ownership verification for Brevo (email/marketing platform), unrelated to hosting.
 - **MX** (`smtp.google.com`) — email for this domain routes to Google Workspace/Gmail.
+- **TXT** (SPF, `v=spf1 include:_spf.google.com ~all`) — authorizes Google's servers to send mail as this domain.
+- **TXT** (`google._domainkey`) — DKIM key authenticating outbound mail sent from Google Workspace.
+- **CNAME** (`brevo1._domainkey`, `brevo2._domainkey`) — DKIM delegation authenticating outbound mail sent via Brevo.
+- **TXT** (`_dmarc`, `p=quarantine`) — DMARC policy; reports go to `web@lawforaisafety.org` and Brevo.
 - No **CAA** — no certificate authority restriction; Netlify auto-provisions TLS.
+
+`lawforaisafety.org` was originally a secondary domain under the Workspace account `lawforsafeai.org`; it's now converted to a **domain alias**, so every mailbox has a matching `@lawforaisafety.org` address, set as default send-as via a one-off GAM script (not checked into this repo).
 
 ## Learn More
 
