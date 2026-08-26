@@ -34,6 +34,17 @@ Full-res originals live in `design/images-src/` (not the shipped assets). To add
 
 This resizes and converts each source image to WebP (q80) into `public/images/`, which is what's committed and shipped. The script skips files that are already up to date.
 
+## DNS
+
+Domain registrar is GoDaddy, but DNS records are managed by Netlify, not the registrar (confirmed by NS records pointing to `nsone.net`, Netlify's DNS provider). Make DNS changes in Netlify's dashboard, not GoDaddy.
+
+Current records and their purpose:
+
+- **A** (apex + `www`) — point to Netlify's edge network; this is what serves the site. `www` redirects to the apex domain (Netlify domain alias), it's not a separate site.
+- **TXT** (`brevo-code:...`) — ownership verification for Brevo (email/marketing platform), unrelated to hosting.
+- **MX** (`smtp.google.com`) — email for this domain routes to Google Workspace/Gmail.
+- No **CAA** — no certificate authority restriction; Netlify auto-provisions TLS.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
