@@ -49,6 +49,9 @@ export default async function ProtectedAdminLayout({
       <header className="flex items-center justify-between border-b border-brand-black/10 px-4 py-4">
         <span className="text-brand-black/70">Signed in as {session.email}</span>
         <div className="flex items-center gap-4">
+          <Link href="/admin/erasure" className="underline">
+            Erasure requests
+          </Link>
           <Link href="/admin/email-preview" className="underline">
             Email preview
           </Link>
