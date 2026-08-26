@@ -44,3 +44,6 @@ next-env.d.ts
 lighthouse-report.html
 # Playwright
 .playwright-mcp
+
+# VSCode settings
+.vscode/settings.json
