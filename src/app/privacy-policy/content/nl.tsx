@@ -365,31 +365,28 @@ const nl: PolicyContent = {
             </li>
           </ul>
           <p className={P}>
-            De verwerkers die wij gebruiken, elk voor het genoemde doel:
+            De soorten verwerkers die wij gebruiken, elk voor het genoemde doel:
           </p>
           <ul className={UL}>
             <li>
-              Cloudflare, voor Turnstile, onze botcontrole, die op beide
-              formulieren wordt gebruikt.
+              Een aanbieder van botbescherming, om te controleren of inzendingen
+              op onze formulieren niet geautomatiseerd zijn.
             </li>
             <li>
-              Brevo, dat transactionele e-mails verstuurt (uitkomst van de
-              aanmelding, bevestiging van de nieuwsbrief) en onze verzendlijst
-              beheert. Brevo is een Frans bedrijf; een deel van zijn eigen
-              subverwerkers bevindt zich buiten de {d.dataProtectionArea}, zoals
-              hieronder beschreven bij internationale doorgifte. U kunt zich op
-              elk moment uitschrijven via de uitschrijflink in elke nieuwsbrief.
+              Een e-mailaanbieder, om transactionele e-mails te versturen
+              (uitkomst van uw aanmelding, bevestiging van de nieuwsbrief) en
+              onze verzendlijst te beheren. U kunt zich op elk moment
+              uitschrijven via de uitschrijflink in elke nieuwsbrief.
             </li>
             <li>
-              Slack: als uw aanmelding wordt goedgekeurd, nodigt een beoordelaar
-              u uit voor onze Slack-werkruimte, waarbij eerst wordt
-              gecontroleerd of u al lid bent.
+              Een aanbieder van teamcommunicatie, die de werkruimte host waarvoor
+              u wordt uitgenodigd als uw aanmelding wordt goedgekeurd. Vóór de
+              uitnodiging controleert een beoordelaar of u al lid bent.
             </li>
             <li>
-              Netlify, onze hostingprovider. Aanmeldingsgegevens worden
-              opgeslagen in een door Netlify beheerde Postgres-database;
-              geüploade cv&apos;s worden opgeslagen in Netlify
-              Blobs-objectopslag.
+              Een hostingaanbieder, die deze site draait, aanmeldingsgegevens in
+              een beheerde database bewaart en geüploade cv&apos;s in
+              afgeschermde objectopslag houdt.
             </li>
           </ul>
           <div className={NOTE}>
@@ -477,24 +474,23 @@ const nl: PolicyContent = {
       body: (
         <>
           <p className={P}>
-            Een aantal van onze verwerkers is gevestigd in de Verenigde Staten,
-            en Brevo maakt, hoewel het een Frans bedrijf is, gebruik van
-            subverwerkers buiten de {d.dataProtectionArea}. Elke doorgifte is
-            gedekt door een wettelijke waarborg:
+            Een aantal van onze verwerkers bevindt zich buiten de{" "}
+            {d.dataProtectionArea}, en onze e-mailaanbieder maakt gebruik van
+            subverwerkers die daarbuiten liggen. Elke doorgifte is gedekt door
+            een wettelijke waarborg:
           </p>
           <ul className={UL}>
             <li>
-              Cloudflare, Netlify en Slack zijn gecertificeerd onder het EU-US
-              Data Privacy Framework, en vallen terug op de
-              modelcontractbepalingen van de Europese Commissie als die
-              certificering niet langer geldt.
+              Onze aanbieders van botbescherming, hosting en teamcommunicatie
+              zijn gecertificeerd onder het EU-US Data Privacy Framework, en
+              vallen terug op de modelcontractbepalingen van de Europese
+              Commissie als die certificering niet langer geldt.
             </li>
             <li>
-              Brevo neemt de modelcontractbepalingen op in zijn
+              Onze e-mailaanbieder neemt de modelcontractbepalingen op in zijn
               verwerkersovereenkomst voor doorgifte aan subverwerkers buiten de{" "}
-              {d.dataProtectionArea}. De eigen servers van Brevo staan in de EU;
-              de doorgifte komt voort uit een klein aantal van zijn
-              leveranciers, op dit moment onder meer in de Verenigde Staten.
+              {d.dataProtectionArea}. De eigen servers staan daarbinnen; de
+              doorgifte komt voort uit een klein aantal van zijn leveranciers.
             </li>
           </ul>
           <p className={P}>

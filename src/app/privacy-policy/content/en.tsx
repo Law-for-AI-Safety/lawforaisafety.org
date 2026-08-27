@@ -383,31 +383,29 @@ const en: PolicyContent = {
             </li>
           </ul>
           <p className={P}>
-            The processors we use, each for the specific purpose described:
+            The kinds of processor we use, each for the specific purpose
+            described:
           </p>
           <ul className={UL}>
             <li>
-              Cloudflare, for Turnstile, our bot-verification widget, used on
-              both forms.
+              A bot-protection provider, to check that submissions to our forms
+              are not automated.
             </li>
             <li>
-              Brevo, which sends transactional emails (application outcome,
-              newsletter confirmation) and manages our newsletter mailing list.
-              Brevo is a French company; some of its own sub-processors are
-              outside the {d.dataProtectionArea}, as described under
-              international data transfers below. You can unsubscribe from the
-              newsletter at any time using the unsubscribe link in any
-              newsletter email.
+              An email provider, to send transactional emails (your application
+              outcome, newsletter confirmation) and to manage our newsletter
+              mailing list. You can unsubscribe from the newsletter at any time
+              using the unsubscribe link in any newsletter email.
             </li>
             <li>
-              Slack: if your application is approved, a reviewer invites you to
-              our Slack workspace, first checking whether you&apos;re already a
-              member.
+              A team messaging provider, which hosts the workspace you are
+              invited to if your application is approved. Before inviting you,
+              a reviewer checks whether you are already a member.
             </li>
             <li>
-              Netlify, our hosting provider. Application data is stored in a
-              Netlify-managed Postgres database; uploaded CVs are stored in
-              Netlify Blobs object storage.
+              A hosting provider, which runs this site, holds application data
+              in a managed database, and keeps uploaded CVs in private object
+              storage.
             </li>
           </ul>
           <div className={NOTE}>
@@ -494,24 +492,22 @@ const en: PolicyContent = {
       body: (
         <>
           <p className={P}>
-            Some of our processors are based in the United States, and Brevo,
-            though a French company, uses sub-processors outside the{" "}
-            {d.dataProtectionArea}. Every such transfer is covered by a legal
-            safeguard:
+            Some of our processors are outside the {d.dataProtectionArea}, and
+            our email provider uses sub-processors that are. Every such
+            transfer is covered by a legal safeguard:
           </p>
           <ul className={UL}>
             <li>
-              Cloudflare, Netlify, and Slack are certified under the EU-US Data
-              Privacy Framework, and each falls back on the European
-              Commission&apos;s Standard Contractual Clauses if that
-              certification ceases to apply.
+              Our bot-protection, hosting, and team messaging providers are
+              certified under the EU-US Data Privacy Framework, and each falls
+              back on the European Commission&apos;s Standard Contractual
+              Clauses if that certification ceases to apply.
             </li>
             <li>
-              Brevo builds the Standard Contractual Clauses into its data
-              processing agreement for transfers to its sub-processors outside
-              the {d.dataProtectionArea}. Its own servers are in the EU;
-              the transfers arise from a handful of its suppliers, currently
-              including ones in the United States.
+              Our email provider builds the Standard Contractual Clauses into
+              its data processing agreement for transfers to its sub-processors
+              outside the {d.dataProtectionArea}. Its own servers are within
+              it; the transfers arise from a handful of its suppliers.
             </li>
           </ul>
           <p className={P}>
