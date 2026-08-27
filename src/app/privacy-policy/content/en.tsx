@@ -153,6 +153,14 @@ const en: PolicyContent = {
               </li>
             </ul>
             <p className={P}>
+              If you use LinkedIn or Google, you sign in on their site rather
+              than ours, and they confirm those details back to us. They act as
+              controllers of your data in their own right, under their own
+              privacy policies, rather than on our instructions. We never send
+              them your application, but signing in does tell them you have
+              used your account here.
+            </p>
+            <p className={P}>
               Alongside identity verification, the application form collects:
             </p>
             <ul className={UL}>
@@ -408,81 +416,64 @@ const en: PolicyContent = {
               storage.
             </li>
           </ul>
-          <div className={NOTE}>
-            <p>
-              [Counsel: the list above is confirmed complete. The processing
-              agreement that applies to each, as published on 27 August 2026:
-            </p>
-            <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-              <li>
-                Cloudflare: Data Processing Addendum at
-                cloudflare.com/cloudflare-customer-dpa, v6.4 of 3 April 2026,
-                incorporated by reference into the Self-Serve Subscription
-                Agreement. All eight Article 28(3) limbs present: 3.1(a)
-                instructions, 3.1(d) confidentiality, 3.1(c) and Annex 2
-                security, 4 sub-processors (30 days&apos; notice, right to
-                object at 4.4), 3.1(g)-(h) data subject requests, 3.1(j)
-                assistance with Articles 32 to 36, 3.1(i) deletion or return, 5
-                audit.
-              </li>
-              <li>
-                Netlify: Data Processing Agreement at
-                netlify.com/pdf/netlify-dpa.pdf, last updated 9 June 2026,
-                incorporated by reference into Netlify&apos;s terms. Its
-                Article 28(3) content sits at sections 4.1 (documented
-                instructions), 4.1(d) (confidentiality), 7 (security), 6
-                (sub-processors, general authorisation with 30 days&apos;
-                notice and a right to object), 5 (assistance with data subject
-                requests), 9 (DPIA assistance), 12 (return and deletion), and 8
-                (audit).
-              </li>
-              <li>
-                Brevo: Annex 2 to the General Terms and Conditions, version of
-                15 May 2024. All eight limbs present: 3.1(iii) instructions,
-                3.1(iv)-(v) confidentiality and training, 5.1-5.2 and Schedule
-                2 security, 6 sub-processors (10 business days&apos; notice,
-                right to object), 4.2-4.4 data subject requests, 9 assistance
-                with Articles 32 to 36 and 5.3 breach notice within 72 hours,
-                8.1 destruction or anonymisation within 100 days of the end, 10
-                audit. Two things to note: clause 3.2(vi) forbids us putting
-                special-category data into Customer Data, and Schedule 1 puts
-                Brevo&apos;s servers in the EU with US exposure via Cloudflare
-                and Zendesk.
-              </li>
-              <li>
-                Slack: slack.com/terms-of-service/data-processing. Not
-                automatic. Slack asks an authorised person to execute it
-                through a form, so accepting the Customer Terms of Service
-                alone leaves no Article 28 agreement in place. It needs
-                signing. An invited person does accept Slack&apos;s own user
-                terms, but that governs their relationship with Slack and does
-                not displace ours: members join as authorised users of our
-                workspace, not as customers of Slack in their own right, so we
-                remain controller of the workspace content and Slack remains
-                our processor. The disclosure also happens before they agree to
-                anything, at the point a reviewer puts their email into Slack
-                to send the invitation.
-              </li>
-            </ul>
-            <p className="mt-2">
-              Confirm each meets Article 28(3) and file the version accepted.]
-            </p>
-          </div>
+          {/*
+            Processor agreements, as published on 27 August 2026. The list of
+            processors above is confirmed complete.
 
-          <div className={SUBSECTION}>
-            <h3 className={H3}>Signing in with LinkedIn or Google</h3>
-            <p className={P}>
-              LinkedIn and Google are not on the list above, because we
-              don&apos;t send them your data. If you choose one of those
-              sign-in options, you authenticate on their site, not ours: we
-              never see your password, and your application is never sent to
-              them. They confirm your name, email address, and profile photo
-              back to us. In doing so they act as controllers of your data in
-              their own right, under their own privacy policies, rather than as
-              processors acting on our instructions. By signing in, you do tell
-              them that you have used your account here.
-            </p>
-          </div>
+              Cloudflare  Data Processing Addendum,
+                          cloudflare.com/cloudflare-customer-dpa, v6.4 of
+                          3 April 2026, incorporated by reference into the
+                          Self-Serve Subscription Agreement. All eight Article
+                          28(3) limbs present: 3.1(a) instructions, 3.1(d)
+                          confidentiality, 3.1(c) and Annex 2 security, 4
+                          sub-processors (30 days' notice, objection at 4.4),
+                          3.1(g)-(h) data subject requests, 3.1(j) Articles 32
+                          to 36, 3.1(i) deletion or return, 5 audit.
+
+              Netlify     Data Processing Agreement,
+                          netlify.com/pdf/netlify-dpa.pdf, last updated
+                          9 June 2026, incorporated by reference into
+                          Netlify's terms. Article 28(3) at 4.1 instructions,
+                          4.1(d) confidentiality, 7 security, 6 sub-processors
+                          (30 days' notice and a right to object), 5 data
+                          subject requests, 9 DPIA assistance, 12 return and
+                          deletion, 8 audit.
+
+              Brevo       Annex 2 to the General Terms and Conditions, version
+                          of 15 May 2024. Article 28(3) at 3.1(iii)
+                          instructions, 3.1(iv)-(v) confidentiality and
+                          training, 5.1-5.2 and Schedule 2 security, 6
+                          sub-processors (10 business days' notice, objection),
+                          4.2-4.4 data subject requests, 9 Articles 32 to 36
+                          and 5.3 breach notice within 72 hours, 8.1
+                          destruction or anonymisation within 100 days, 10
+                          audit. Note clause 3.2(vi) forbids us putting
+                          special-category data into Customer Data, and
+                          Schedule 1 puts Brevo's servers in the EU with
+                          non-EEA exposure via its own suppliers.
+
+              Slack       slack.com/terms-of-service/data-processing. NOT
+                          automatic and NOT YET IN PLACE. Slack asks an
+                          authorised person to execute it through a form, so
+                          accepting the Customer Terms of Service alone leaves
+                          no Article 28 agreement covering the workspace. This
+                          needs signing.
+
+            An invited member does accept Slack's own user terms, but that
+            governs their relationship with Slack and does not displace ours:
+            members join as authorised users of our workspace rather than as
+            Slack customers, so we remain controller of the workspace content.
+            The disclosure also happens before they agree to anything, when a
+            reviewer puts their email into Slack to send the invitation.
+
+            File the version of each agreement accepted; all four revise them.
+          */}
+          {/*
+            The sign-in providers are deliberately absent from this section.
+            They are separate controllers rather than processors, and nothing
+            is disclosed to them, so they are not recipients of your data. What
+            they do supply is described under what data we collect.
+          */}
         </>
       ),
     },
@@ -510,10 +501,6 @@ const en: PolicyContent = {
               it; the transfers arise from a handful of its suppliers.
             </li>
           </ul>
-          <p className={P}>
-            LinkedIn and Google are not listed here, because we don&apos;t send
-            them your data at all.
-          </p>
           {/*
             Mechanisms read off each provider's own published terms on
             26 August 2026:

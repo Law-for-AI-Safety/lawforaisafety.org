@@ -152,6 +152,14 @@ const nl: PolicyContent = {
               </li>
             </ul>
             <p className={P}>
+              Gebruikt u LinkedIn of Google, dan logt u in op hun site en niet
+              op de onze, en bevestigen zij die gegevens aan ons. Zij treden
+              daarbij op als zelfstandig verwerkingsverantwoordelijke voor uw
+              gegevens, onder hun eigen privacybeleid, en niet in onze opdracht.
+              Wij sturen hun nooit uw aanmelding, maar door in te loggen laat u
+              hun wel weten dat u uw account hier heeft gebruikt.
+            </p>
+            <p className={P}>
               Naast de identiteitsverificatie verzamelt het aanmeldformulier:
             </p>
             <ul className={UL}>
@@ -389,82 +397,16 @@ const nl: PolicyContent = {
               afgeschermde objectopslag houdt.
             </li>
           </ul>
-          <div className={NOTE}>
-            <p>
-              [Counsel: the list above is confirmed complete. The processing
-              agreement that applies to each, as published on 27 August 2026:
-            </p>
-            <ul className="list-disc pl-5 flex flex-col gap-1 mt-2">
-              <li>
-                Cloudflare: Data Processing Addendum at
-                cloudflare.com/cloudflare-customer-dpa, v6.4 of 3 April 2026,
-                incorporated by reference into the Self-Serve Subscription
-                Agreement. All eight Article 28(3) limbs present: 3.1(a)
-                instructions, 3.1(d) confidentiality, 3.1(c) and Annex 2
-                security, 4 sub-processors (30 days&apos; notice, right to
-                object at 4.4), 3.1(g)-(h) data subject requests, 3.1(j)
-                assistance with Articles 32 to 36, 3.1(i) deletion or return, 5
-                audit.
-              </li>
-              <li>
-                Netlify: Data Processing Agreement at
-                netlify.com/pdf/netlify-dpa.pdf, last updated 9 June 2026,
-                incorporated by reference into Netlify&apos;s terms. Its
-                Article 28(3) content sits at sections 4.1 (documented
-                instructions), 4.1(d) (confidentiality), 7 (security), 6
-                (sub-processors, general authorisation with 30 days&apos;
-                notice and a right to object), 5 (assistance with data subject
-                requests), 9 (DPIA assistance), 12 (return and deletion), and 8
-                (audit).
-              </li>
-              <li>
-                Brevo: Annex 2 to the General Terms and Conditions, version of
-                15 May 2024. All eight limbs present: 3.1(iii) instructions,
-                3.1(iv)-(v) confidentiality and training, 5.1-5.2 and Schedule
-                2 security, 6 sub-processors (10 business days&apos; notice,
-                right to object), 4.2-4.4 data subject requests, 9 assistance
-                with Articles 32 to 36 and 5.3 breach notice within 72 hours,
-                8.1 destruction or anonymisation within 100 days of the end, 10
-                audit. Two things to note: clause 3.2(vi) forbids us putting
-                special-category data into Customer Data, and Schedule 1 puts
-                Brevo&apos;s servers in the EU with US exposure via Cloudflare
-                and Zendesk.
-              </li>
-              <li>
-                Slack: slack.com/terms-of-service/data-processing. Not
-                automatic. Slack asks an authorised person to execute it
-                through a form, so accepting the Customer Terms of Service
-                alone leaves no Article 28 agreement in place. It needs
-                signing. An invited person does accept Slack&apos;s own user
-                terms, but that governs their relationship with Slack and does
-                not displace ours: members join as authorised users of our
-                workspace, not as customers of Slack in their own right, so we
-                remain controller of the workspace content and Slack remains
-                our processor. The disclosure also happens before they agree to
-                anything, at the point a reviewer puts their email into Slack
-                to send the invitation.
-              </li>
-            </ul>
-            <p className="mt-2">
-              Confirm each meets Article 28(3) and file the version accepted.]
-            </p>
-          </div>
-
-          <div className={SUBSECTION}>
-            <h3 className={H3}>Inloggen met LinkedIn of Google</h3>
-            <p className={P}>
-              LinkedIn en Google staan niet in de lijst hierboven, omdat wij hun
-              geen gegevens van u sturen. Kiest u voor een van die
-              inlogopties, dan logt u in op hun site, niet op de onze: wij zien
-              uw wachtwoord nooit en uw aanmelding wordt nooit naar hen
-              verstuurd. Zij bevestigen uw naam, e-mailadres en profielfoto aan
-              ons. Daarbij treden zij op als zelfstandig
-              verwerkingsverantwoordelijke voor uw gegevens, onder hun eigen
-              privacybeleid, en niet als verwerker die in onze opdracht handelt.
-              Door in te loggen laat u hun wel weten dat u uw account hier heeft
-              gebruikt.
-            </p>
-          </div>
+          {/*
+            Processor agreements verified 27 August 2026, with the Article
+            28(3) mapping for each. Slack's is NOT in place: it must be
+            executed through a form rather than arriving with the Customer
+            Terms. See the fuller note in en.tsx.
+          */}
+          {/*
+            The sign-in providers are deliberately absent from this section.
+            See the note in en.tsx.
+          */}
         </>
       ),
     },
@@ -493,10 +435,6 @@ const nl: PolicyContent = {
               doorgifte komt voort uit een klein aantal van zijn leveranciers.
             </li>
           </ul>
-          <p className={P}>
-            LinkedIn en Google staan hier niet vermeld, omdat wij hun helemaal
-            geen gegevens van u sturen.
-          </p>
           {/*
             Transfer mechanisms verified 26 August 2026, and LinkedIn and
             Google are treated as separate controllers rather than processors.
