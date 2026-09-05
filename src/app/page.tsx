@@ -69,7 +69,7 @@ const team = [
   {
     name: "Raluca Spataru",
     role: "Legal Advisor",
-    bio: "President of the Romanian chapter of PauseAI. Romanian lawyer with 15 years' experience.",
+    bio: "Romanian lawyer with 15 years' experience.",
     linkedin: "https://www.linkedin.com/in/raluca-spataru-01a439302/",
     photo: "/images/raluca-spataru.webp",
   },
@@ -90,7 +90,7 @@ const team = [
   {
     name: "Harry Turnbull",
     role: "Senior Software Engineer",
-    bio: "Operations team volunteer at PauseAI.",
+    bio: "LGND Online Services Ltd. Operations volunteer for LAIS.",
     linkedin: "https://www.linkedin.com/in/harry-turnbull/",
     photo: "/images/harry-turnbull.webp",
   },
@@ -135,7 +135,8 @@ export default function Home() {
             <p className="text-2xl md:text-3xl font-light text-brand-navy/85 leading-relaxed max-w-xl">
               Legal expertise is a critical gap in AI governance. Now is the
               time to build the capacity needed to ensure increasingly powerful
-              AI systems remain accountable. <WavyUnderline>We are on the side of Humanity.</WavyUnderline>
+              AI systems remain accountable.{" "}
+              <WavyUnderline>We are on the side of Humanity.</WavyUnderline>
             </p>
           </div>
         </div>
@@ -153,7 +154,8 @@ export default function Home() {
               className="text-4xl md:text-5xl font-light text-brand-white leading-tight max-w-2xl"
               style={{ textWrap: "balance" }}
             >
-              AI governance and AI law remain in their infancy. The time to build this capacity is now.
+              AI governance and AI law remain in their infancy. The time to
+              build this capacity is now.
             </h2>
             <p className="text-xl md:text-2xl font-light text-brand-white/90 leading-relaxed max-w-2xl">
               AI could erode democracy, destabilise the economy, be used to
@@ -282,9 +284,9 @@ export default function Home() {
                   <em>
                     Beyond the AI Act: Global Security &amp; the Control Problem
                   </em>{" "}
-                  conference at the European Parliament, hosted by PauseAI and
-                  MEP Ondřej Kolář. Several members of our team were involved in
-                  organising the event.
+                  conference at the European Parliament, hosted by MEP Ondřej
+                  Kolář. Several members of our team were involved in organising
+                  the event.
                 </p>
               </div>
             </div>
@@ -451,10 +453,20 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-Grant Award and Talk at Unlocking the Potential of Women in AI Safety
+                  Grant Award and Talk at Unlocking the Potential of Women in AI
+                  Safety
                 </h3>
                 <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-Our co-founder and Executive Director, Karolina Gruzel, was selected to take part in the fully funded Unlocking the Potential of Women in AI Safety programme, where she further developed her leadership skills and built new connections for our organisation. During the event, Karolina also received the exciting news that we had been awarded a grant to fund our workstream submitting Freedom of Information requests on catastrophic and existential AI risks to EU Member States. She shared the news with fellow participants while giving a talk introducing our organisation and its work.
+                  Our co-founder and Executive Director, Karolina Gruzel, was
+                  selected to take part in the fully funded Unlocking the
+                  Potential of Women in AI Safety programme, where she further
+                  developed her leadership skills and built new connections for
+                  our organisation. During the event, Karolina also received the
+                  exciting news that we had been awarded a grant to fund our
+                  workstream submitting Freedom of Information requests on
+                  catastrophic and existential AI risks to EU Member States. She
+                  shared the news with fellow participants while giving a talk
+                  introducing our organisation and its work.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
