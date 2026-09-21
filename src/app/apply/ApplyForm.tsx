@@ -124,6 +124,7 @@ export default function ApplyForm() {
               ref={linkedinUrlRef}
               type="url"
               name="linkedinUrl"
+              maxLength={300}
               placeholder="https://www.linkedin.com/in/…"
               className={FIELD_CLASSES}
             />
@@ -141,13 +142,14 @@ export default function ApplyForm() {
           <div className="flex flex-col gap-5">
             <label className="flex flex-col gap-2">
               <span className={LABEL_CLASSES}>Organisation / firm</span>
-              <input type="text" name="organisation" className={FIELD_CLASSES} />
+              <input type="text" name="organisation" maxLength={200} className={FIELD_CLASSES} />
             </label>
             <label className="flex flex-col gap-2">
               <span className={LABEL_CLASSES}>Position statement</span>
               <textarea
                 ref={positionStatementRef}
                 name="positionStatement"
+                maxLength={5000}
                 rows={4}
                 placeholder="Describe your current role and why you're relevant"
                 className={FIELD_CLASSES}
@@ -162,6 +164,7 @@ export default function ApplyForm() {
           <span className={LABEL_CLASSES}>Comments</span>
           <textarea
             name="comments"
+            maxLength={5000}
             rows={3}
             placeholder="Anything else you'd like us to know"
             className={FIELD_CLASSES}
@@ -231,11 +234,11 @@ export default function ApplyForm() {
           <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-2">
               <span className={LABEL_CLASSES}>Full name</span>
-              <input ref={nameRef} type="text" name="name" className={FIELD_CLASSES} />
+              <input ref={nameRef} type="text" name="name" maxLength={200} className={FIELD_CLASSES} />
             </label>
             <label className="flex flex-col gap-2">
               <span className={LABEL_CLASSES}>Email address</span>
-              <input ref={emailRef} type="email" name="email" className={FIELD_CLASSES} />
+              <input ref={emailRef} type="email" name="email" maxLength={320} className={FIELD_CLASSES} />
             </label>
             <WipeSubmitButton
               type="submit"

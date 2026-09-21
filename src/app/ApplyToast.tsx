@@ -3,13 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const AUTO_DISMISS_MS = 6000;
+const AUTO_DISMISS_MS = 10000;
 
 export default function ApplyToast() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const applied = searchParams.get("applied") === "1";
+  // "1": application is with reviewers. "confirm": email-only path, parked
+  // until the applicant uses the link we just emailed them.
+  const appliedParam = searchParams.get("applied");
+  const applied = appliedParam === "1" || appliedParam === "confirm";
   const [visible, setVisible] = useState(applied);
+  const [message] = useState(
+    appliedParam === "confirm"
+      ? "Almost done. Check your email and use the link we sent to submit your application."
+      : "We'll review your application and be in touch.",
+  );
 
   useEffect(() => {
     if (!applied) return;
@@ -29,7 +37,7 @@ export default function ApplyToast() {
       role="status"
       className="fixed inset-x-4 bottom-6 z-50 mx-auto flex max-w-md items-start justify-between gap-4 rounded-sm border border-brand-navy bg-brand-black px-5 py-4 text-lg text-brand-white shadow-lg sm:inset-x-auto sm:right-6"
     >
-      <p>We&apos;ll review your application and be in touch.</p>
+      <p>{message}</p>
       <button
         type="button"
         onClick={() => setVisible(false)}

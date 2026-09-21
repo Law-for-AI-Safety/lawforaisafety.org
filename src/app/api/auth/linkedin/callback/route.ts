@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { handleOAuthCallback } from "@/lib/applicant-flow";
 import { signupClosedRedirect } from "@/lib/feature-flags";
+import {
+  clearOAuthStateCookie,
+  oauthStateCookieMatches,
+} from "@/lib/oauth-state-cookie";
 
 export async function GET(request: Request) {
   const closed = await signupClosedRedirect(request);
@@ -13,15 +17,24 @@ export async function GET(request: Request) {
     throw new Error("Missing required env var: NEXT_PUBLIC_SITE_URL");
   }
 
+  const state = searchParams.get("state");
+
   const redirectTo = await handleOAuthCallback(
     "linkedin",
     {
       code: searchParams.get("code"),
       error: searchParams.get("error"),
-      state: searchParams.get("state"),
+      state,
+      stateMatchesCookie: await oauthStateCookieMatches("applicant", state),
     },
     `${siteUrl}/api/auth/linkedin/callback`,
   );
+
+  // The retry page needs the cookie to prove it's still the same browser;
+  // every other outcome is the end of this flow.
+  if (!redirectTo.startsWith("/apply/retry")) {
+    await clearOAuthStateCookie("applicant");
+  }
 
   return NextResponse.redirect(new URL(redirectTo, request.url), 303);
 }

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   if (closed) return closed;
 
   const ip = getClientIp(request);
-  const { allowed } = checkRateLimit(`newsletter:${ip}`, {
+  const { allowed } = await checkRateLimit("newsletter", ip, {
     limit: 5,
     windowMs: 60_000,
   });
