@@ -51,4 +51,6 @@ lighthouse-report.html
 
 # Local Netlify folder
 .netlify
+
+# VSCode settings
 .vscode/settings.json
