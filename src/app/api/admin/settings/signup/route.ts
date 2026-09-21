@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireTechAdmin } from "@/lib/admin-guard";
 import { setSignupEnabled } from "@/lib/feature-flags";
 import { recordAdminAction } from "@/lib/audit-log";
+import { seeOther } from "@/lib/redirect";
 
 /**
  * Turns public signup (newsletter + apply) on or off, behind the admin session.
@@ -31,5 +32,7 @@ export async function POST(request: Request) {
   );
 
   revalidatePath("/");
-  return NextResponse.redirect(new URL("/admin/settings", request.url), 303);
+  // The query param is what lets the settings page confirm the change —
+  // without it the only feedback is one word flipping between ON and OFF.
+  return seeOther(`/admin/settings?signup=${enabled === "true" ? "on" : "off"}`);
 }

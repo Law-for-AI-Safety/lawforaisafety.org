@@ -6,8 +6,7 @@ const isDev = process.env.NODE_ENV === "development";
 // pages are static. 'unsafe-inline' for scripts is the cost of that (Next's
 // own inline bootstrap + the JSON-LD blocks need it) — what this policy still
 // buys is that script can only *load* from us or Turnstile, the page can't be
-// framed, forms can only post to us (or on, via redirect, to the two OAuth
-// providers), and nothing can be embedded as a plugin.
+// framed, forms can only post to us, and nothing can be embedded as a plugin.
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
@@ -21,9 +20,10 @@ const contentSecurityPolicy = [
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
-  // Browsers apply form-action to the redirect chain too: the apply form
-  // posts to us and is then redirected to the provider's sign-in page.
-  "form-action 'self' https://www.linkedin.com https://accounts.google.com",
+  // 'self' only. Chrome applies form-action to every hop of a form post's
+  // redirect chain, so the apply routes never redirect a post off-site: they
+  // answer with a page that navigates to the provider (src/lib/oauth-handoff.ts).
+  "form-action 'self'",
   "frame-ancestors 'none'",
   ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");

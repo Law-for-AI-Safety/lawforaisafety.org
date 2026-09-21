@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import { handleOAuthCallback } from "@/lib/applicant-flow";
 import { signupClosedRedirect } from "@/lib/feature-flags";
 import {
   clearOAuthStateCookie,
   oauthStateCookieMatches,
 } from "@/lib/oauth-state-cookie";
+import { seeOther } from "@/lib/redirect";
 
 export async function GET(request: Request) {
-  const closed = await signupClosedRedirect(request);
+  const closed = await signupClosedRedirect();
   if (closed) return closed;
 
   const { searchParams } = new URL(request.url);
@@ -36,5 +36,5 @@ export async function GET(request: Request) {
     await clearOAuthStateCookie("applicant");
   }
 
-  return NextResponse.redirect(new URL(redirectTo, request.url), 303);
+  return seeOther(redirectTo);
 }

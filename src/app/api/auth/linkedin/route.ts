@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server";
 import { looksLikeBot } from "@/lib/abuse-protection";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createApplicationDraft, ValidationError } from "@/lib/applicant-flow";
+import { oauthHandoffResponse } from "@/lib/oauth-handoff";
 import { setOAuthStateCookie } from "@/lib/oauth-state-cookie";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { signupClosedRedirect } from "@/lib/feature-flags";
+import { seeOther } from "@/lib/redirect";
 
 export async function POST(request: Request) {
-  const closed = await signupClosedRedirect(request);
+  const closed = await signupClosedRedirect();
   if (closed) return closed;
 
   const ip = getClientIp(request);
@@ -16,20 +17,19 @@ export async function POST(request: Request) {
     windowMs: 60_000,
   });
   if (!allowed) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    // This route is reached by a browser form post, so a JSON body would be
+    // shown to the visitor as a raw page. Send them back with a message instead.
+    return seeOther("/?error=ratelimit#contact");
   }
 
   const formData = await request.formData();
 
   if (!(await verifyTurnstile(formData, ip))) {
-    return NextResponse.redirect(
-      new URL("/?error=verification#contact", request.url),
-      303,
-    );
+    return seeOther("/?error=verification#contact");
   }
 
   if (looksLikeBot(formData)) {
-    return NextResponse.redirect(new URL("/?applied=1#contact", request.url), 303);
+    return seeOther("/?applied=1#contact");
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -47,13 +47,10 @@ export async function POST(request: Request) {
     // Ties the sign-in to this browser — the callback refuses a `state` that
     // didn't start here.
     await setOAuthStateCookie("applicant", state);
-    return NextResponse.redirect(authorizeUrl, 303);
+    return oauthHandoffResponse(authorizeUrl, "LinkedIn");
   } catch (err) {
     if (err instanceof ValidationError) {
-      return NextResponse.redirect(
-        new URL(`/?error=${err.code}#contact`, request.url),
-        303,
-      );
+      return seeOther(`/?error=${err.code}#contact`);
     }
     throw err;
   }
