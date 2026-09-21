@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { and, asc, eq, or } from "drizzle-orm";
-import { getAdminSession } from "@/lib/session";
+import { getAdminSession, isTechAdminEmail } from "@/lib/session";
 import { db } from "@/lib/db";
 import { applications } from "@/drizzle/schema";
 import AdminApplicationsList from "./AdminApplicationsList";
@@ -49,12 +49,19 @@ export default async function ProtectedAdminLayout({
       <header className="flex items-center justify-between border-b border-brand-black/10 px-4 py-4">
         <span className="text-brand-black/70">Signed in as {session.email}</span>
         <div className="flex items-center gap-4">
-          <Link href="/admin/settings" className="underline">
-            Settings
-          </Link>
-          <Link href="/admin/erasure" className="underline">
-            Erasure requests
-          </Link>
+          {isTechAdminEmail(session.email) && (
+            <>
+              <Link href="/admin/settings" className="underline">
+                Settings
+              </Link>
+              <Link href="/admin/erasure" className="underline">
+                Erasure requests
+              </Link>
+              <Link href="/admin/audit" className="underline">
+                Audit log
+              </Link>
+            </>
+          )}
           <Link href="/admin/email-preview" className="underline">
             Email preview
           </Link>

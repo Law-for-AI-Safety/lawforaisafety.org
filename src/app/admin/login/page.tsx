@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "LAIS - Login",
+  robots: { index: false, follow: false },
+};
+
 const ERROR_MESSAGES: Record<string, string> = {
   invalid: "That login link isn't valid. Please try again.",
   denied: "LinkedIn login was cancelled.",

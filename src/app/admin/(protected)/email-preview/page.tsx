@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { getEmailPreviews } from "@/lib/email";
+
+export const metadata: Metadata = {
+  title: "LAIS - Email preview",
+  robots: { index: false, follow: false },
+};
 
 export default function EmailPreviewPage() {
   const previews = getEmailPreviews();

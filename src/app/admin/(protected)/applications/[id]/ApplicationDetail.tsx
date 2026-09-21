@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PdfViewer from "./PdfViewer";
+import ReviewerChecklist, {
+  REVIEWER_CHECKS,
+  type ReviewerCheckId,
+} from "./ReviewerChecklist";
 
 type Application = {
   id: string;
@@ -61,6 +65,21 @@ export default function ApplicationDetail({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [approveResult, setApproveResult] = useState<ApproveResult | null>(null);
+  const [checked, setChecked] = useState<ReadonlySet<ReviewerCheckId>>(new Set());
+
+  // A retry of a failed approval email isn't a fresh decision — the checks
+  // were done when it was first approved.
+  const isApprovalRetry = application.failedNotification === "approved";
+  const allChecked = checked.size === REVIEWER_CHECKS.length;
+
+  function toggleCheck(id: ReviewerCheckId) {
+    setChecked((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function handleApprove() {
     setBusy(true);
@@ -107,6 +126,13 @@ export default function ApplicationDetail({
         </p>
 
         {!approveResult.alreadyInSlack ? (
+          <>
+            <p className="border border-brand-navy bg-brand-navy/5 px-4 py-3 text-brand-navy">
+              Invite <strong>{approveResult.email}</strong> and no other
+              address, whatever the application asked for. That address is the
+              only thing about this person that was confirmed. The button
+              copies it for you.
+            </p>
           <button
             type="button"
             className="w-fit bg-brand-navy px-5 py-2 text-brand-white"
@@ -117,6 +143,7 @@ export default function ApplicationDetail({
           >
             Invite to Slack (copies email)
           </button>
+          </>
         ) : (
           <p className="text-brand-black/60">
             Already a member of the Slack workspace. No invite needed.
@@ -144,10 +171,20 @@ export default function ApplicationDetail({
           }`}
         >
           {application.authProvider === "email"
-            ? "Unverified"
+            ? "Email only"
             : application.authProvider}
         </span>
       </div>
+
+      {application.authProvider === "linkedin" && (
+        <p className="border border-brand-navy bg-brand-navy/5 px-4 py-3 text-brand-navy">
+          Signed in with LinkedIn. That confirms they control a LinkedIn
+          account with this name and email. It does not confirm they own the
+          profile linked below: that URL is typed by the applicant, and anyone
+          can open a new LinkedIn account in someone else&apos;s name. Check
+          the two match.
+        </p>
+      )}
 
       {application.authProvider === "google" && (
         <p className="border border-brand-navy bg-brand-navy/5 px-4 py-3 text-brand-navy">
@@ -158,10 +195,10 @@ export default function ApplicationDetail({
 
       {application.authProvider === "email" && (
         <p className="border border-brand-red bg-brand-red/10 px-4 py-3 text-brand-red">
-          No identity verification at all. Name and email are entirely
-          self-reported, not tied to any real account. Treat as unverified
-          until independently confirmed; apply maximum scrutiny to the
-          credentials below.
+          No identity verification. They confirmed they can read mail at
+          this address, and nothing else: the name is whatever they typed.
+          Treat as unverified until independently confirmed; apply maximum
+          scrutiny to the credentials below.
         </p>
       )}
 
@@ -280,13 +317,21 @@ export default function ApplicationDetail({
         />
       </label>
 
+      {!isApprovalRetry && application.failedNotification !== "rejected" && (
+        <ReviewerChecklist
+          checked={checked}
+          onToggle={toggleCheck}
+          disabled={busy}
+        />
+      )}
+
       {error && <p className="text-brand-red">{error}</p>}
 
       <div className="flex gap-3">
         {application.failedNotification !== "rejected" && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || (!isApprovalRetry && !allChecked)}
             onClick={handleApprove}
             className="bg-brand-navy px-5 py-2 text-brand-white disabled:opacity-60"
           >

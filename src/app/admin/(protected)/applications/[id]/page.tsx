@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { applications, processedApplications } from "@/drizzle/schema";
 import ApplicationDetail from "./ApplicationDetail";
+
+export const metadata: Metadata = {
+  title: "LAIS - Application",
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminApplicationDetailPage({
   params,

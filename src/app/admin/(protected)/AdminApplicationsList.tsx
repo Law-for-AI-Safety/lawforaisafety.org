@@ -63,7 +63,7 @@ export default function AdminApplicationsList({
                   }`}
                 >
                   {application.authProvider === "email"
-                    ? "Unverified"
+                    ? "Email only"
                     : application.authProvider}
                 </span>
                 <span className="text-sm text-brand-black/60">
