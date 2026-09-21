@@ -54,3 +54,9 @@ lighthouse-report.html
 
 # VSCode settings
 .vscode/settings.json
+
+# Personal outreach notes about named individuals — never belongs in a public repo
+/x-accounts.csv
+
+# Open security findings — this repo is public, keep unfixed vulnerabilities out of it
+/security-audit.md
