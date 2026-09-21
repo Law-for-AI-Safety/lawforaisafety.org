@@ -28,8 +28,8 @@ itself.
 | #   | Operation                                        | Data                                                                                                                                                                                                   |
 | --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1   | Assessing applications to join the network       | Name and email (provider-verified via LinkedIn or Google, or self-reported); organisation; LinkedIn URL; CV (PDF, max 5 MB); position statement; comments; profile photo where a provider supplies one |
-| 2   | Recognising repeat applications after a decision | One-way HMAC of the email address, the outcome, and reviewer notes on rejections only                                                                                                                  |
-| 3   | Preventing automated and abusive submissions     | IP address, used transiently and never stored; signals collected by Cloudflare Turnstile                                                                                                               |
+| 2   | Recognising repeat applications after a decision | One-way HMAC of the email address, the outcome, reviewer notes on rejections only, and an internal audit entry (which reviewer decided, when) linked to the same HMAC                                                                                                                  |
+| 3   | Preventing automated and abusive submissions     | IP address, never stored as such (a keyed one-way hash is kept for up to an hour to count requests); signals collected by Cloudflare Turnstile; a strictly necessary sign-in cookie holding a random value                                                                                                               |
 
 ---
 
@@ -87,8 +87,12 @@ profiling within Article 22.
 
 **Safeguards already in place.**
 
-- An application abandoned before identity verification, and any CV uploaded
-  with it, is deleted automatically after 24 hours.
+- An application abandoned before sign-in or email confirmation, and any CV
+  uploaded with it, is deleted automatically after 24 hours.
+- On the name-and-email route, nothing reaches a reviewer (or alters an
+  existing application) until the applicant confirms from a link sent to the
+  address, so a person cannot be applied for, or have their application
+  overwritten, by someone who merely knows their email.
 - On a decision, the entire record is deleted immediately once the applicant
   has been notified. Only operation 2 below survives.
 - CVs are validated server-side, kept in private object storage, never publicly
@@ -179,12 +183,17 @@ form.
 **Reasonable expectations.** High. Bot protection on a public form is
 universal, and Turnstile is visible on the page.
 
-**Nature and impact.** The IP address is used transiently for rate limiting and
-passed to Turnstile; it is never written to our database. Turnstile's own
+**Nature and impact.** The IP address is passed to Turnstile and used for rate
+limiting. The address itself is never written to our database: request
+counters are keyed by an HMAC of it and deleted within an hour. A sign-in
+cookie holding a random value (no personal data, one hour) ties a LinkedIn or
+Google sign-in to the browser that started it, which prevents one person's
+application being attached to another's verified identity. Turnstile's own
 signals are governed by Cloudflare's privacy policy. Impact on a legitimate
 applicant is effectively nil — at worst, a challenge to complete.
 
-**Safeguards.** No storage of the IP; Turnstile chosen over alternatives that
+**Safeguards.** No storage of the raw IP, hashed counters deleted within an
+hour; Turnstile chosen over alternatives that
 profile users more heavily; disclosed in the privacy policy.
 
 **Conclusion.** Not overridden, comfortably.

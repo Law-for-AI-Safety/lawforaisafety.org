@@ -228,7 +228,7 @@ You verify your identity through one of three routes, and we collect different d
 
 - LinkedIn sign-in: we receive your name, email address, and profile photo directly from LinkedIn once you confirm on their site. We never see your password. This data is provider-verified.
 - Google sign-in: as above, with your name, email address, and profile photo coming directly from Google.
-- Name and email only, with no identity verification: if you don't use LinkedIn or Google, you can type your name and email directly. This data is entirely self-reported and unverified. We have no proof it's accurate, and our reviewers are told to treat it that way.
+- Name and email only, with no identity verification: if you don't use LinkedIn or Google, you can type your name and email directly. We email a link to that address, and your application is only submitted once you open the link and confirm. That shows you can read mail at the address and nothing more. Your name is self-reported and unverified. We have no proof it's accurate, and our reviewers are told to treat it that way.
 
 If you use LinkedIn or Google, you sign in on their site rather than ours, and they confirm those details back to us. They act as controllers of your data in their own right, under their own privacy policies, rather than on our instructions. We never send them your application, but signing in does tell them you have used your account here.
 
@@ -249,14 +249,14 @@ Just your email address, plus the confirmation status and timestamp of your doub
 
 ### Technical and anti-abuse data
 
-- Your IP address, used transiently for rate-limiting and passed to Cloudflare Turnstile (see below) to verify you're not a bot. It is not stored in our database.
+- Your IP address, used for rate-limiting and passed to Cloudflare Turnstile (see below) to verify you're not a bot. We never store the address itself. To count requests we keep a keyed one-way hash of it for up to an hour, then delete it.
 - Signals collected by Cloudflare Turnstile as part of its bot challenge, governed by Cloudflare's own privacy policy.
 
 ---
 
 ## 3. CVs and application materials
 
-If you upload a CV, it is validated server-side before storage and kept in private object storage. It is never publicly accessible. Reviewers view it through a sandboxed, in-browser viewer rather than downloading it. Your CV is deleted automatically as soon as a decision is made on your application, or after 24 hours if you never complete the identity verification step.
+If you upload a CV, it is validated server-side before storage and kept in private object storage. It is never publicly accessible. Reviewers view it through a sandboxed, in-browser viewer rather than downloading it. Your CV is deleted automatically as soon as a decision is made on your application, or after 24 hours if you never complete the sign-in or email confirmation step.
 
 ---
 
@@ -287,10 +287,12 @@ We do not use your data for automated decision-making or profiling. Every applic
 
 We do not keep your data longer than is necessary for the purpose it was collected for. In practice:
 
-- Started but never completed an application, meaning identity verification was not finished: deleted automatically after 24 hours, including any uploaded CV.
+- Started but never completed an application, meaning sign-in or email confirmation was not finished: deleted automatically after 24 hours, including any uploaded CV.
+- Newsletter signup you never confirmed: deleted automatically once the confirmation link expires, after 7 days.
 - Application awaiting review: kept until a reviewer makes a decision.
-- Decided, whether approved or rejected: your full application record (name, email, CV, profile photo, everything you submitted) is deleted immediately once the decision is made and you've been notified. We retain only a one-way cryptographic hash of your email address, together with the outcome, so we can recognise a repeat application. The hash cannot be reversed back to your email address, though it still counts as data about you, and if you ask us to erase your data we delete the hash as well. For rejections only, the reviewer's internal notes are kept alongside the hash and are deleted with it; reviewers are instructed not to include your name or other identifying details in those notes.
+- Decided, whether approved or rejected: your full application record (name, email, CV, profile photo, everything you submitted) is deleted immediately once the decision is made and you've been notified. We retain only a one-way cryptographic hash of your email address, together with the outcome, so we can recognise a repeat application. The hash cannot be reversed back to your email address, though it still counts as data about you, and if you ask us to erase your data we delete the hash as well. For rejections only, the reviewer's internal notes are kept alongside the hash and are deleted with it; reviewers are instructed not to include your name or other identifying details in those notes. We also keep an internal record of which reviewer made the decision and when, linked to the same hash. If you ask us to erase your data, that link is removed along with the hash.
 - Newsletter subscribers: your email is kept for as long as you remain subscribed. You can unsubscribe at any time via the link in any newsletter email.
+- Rate-limiting counters, keyed by a one-way hash of your IP address: deleted within an hour.
 
 ---
 
@@ -325,6 +327,7 @@ Some of our processors are outside the EEA, and our email provider uses sub-proc
 The public site sets no analytics, advertising, or tracking cookies.
 
 - Cloudflare Turnstile may set its own cookies as part of its bot challenge, governed by Cloudflare's privacy policy.
+- If you apply using LinkedIn or Google sign-in, we set one strictly necessary cookie when you submit the form. It holds a random value that lets us check the sign-in is completed in the same browser that started it, so nobody else's application can be attached to your identity. It contains no personal data, is not used for tracking, and expires within an hour.
 
 ---
 
@@ -336,6 +339,7 @@ We take appropriate technical and organisational measures to secure your data ag
 - Uploaded CVs are validated server-side (file signature, size cap) before storage, and viewed by reviewers only through a sandboxed in-browser viewer, not downloaded to a reviewer's device.
 - Access to the internal system where applications are reviewed is restricted to a specific list of authorised people, each signed in to an authenticated session.
 - Automated submissions are filtered by bot-detection and rate limiting before they reach our systems.
+- Decisions and erasures made by reviewers are recorded in an internal audit log, so any action can be traced to the person who took it.
 
 ---
 

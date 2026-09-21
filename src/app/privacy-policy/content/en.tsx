@@ -185,9 +185,12 @@ const en: PolicyContent = {
               <li>
                 Name and email only, with no identity verification: if you
                 don&apos;t use LinkedIn or Google, you can type your name and
-                email directly. This data is entirely self-reported and
-                unverified. We have no proof it&apos;s accurate, and our
-                reviewers are told to treat it that way.
+                email directly. We email a link to that address, and your
+                application is only submitted once you open the link and
+                confirm. That shows you can read mail at the address and
+                nothing more. Your name is self-reported and unverified. We
+                have no proof it&apos;s accurate, and our reviewers are told to
+                treat it that way.
               </li>
             </ul>
             <p className={P}>
@@ -231,9 +234,11 @@ const en: PolicyContent = {
             <h3 className={H3}>Technical and anti-abuse data</h3>
             <ul className={UL}>
               <li>
-                Your IP address, used transiently for rate-limiting and passed
-                to Cloudflare Turnstile (see below) to verify you&apos;re not a
-                bot. It is not stored in our database.
+                Your IP address, used for rate-limiting and passed to
+                Cloudflare Turnstile (see below) to verify you&apos;re not a
+                bot. We never store the address itself. To count requests we
+                keep a keyed one-way hash of it for up to an hour, then delete
+                it.
               </li>
               <li>
                 Signals collected by Cloudflare Turnstile as part of its bot
@@ -254,7 +259,7 @@ const en: PolicyContent = {
           Reviewers view it through a sandboxed, in-browser viewer rather than
           downloading it. Your CV is deleted automatically as soon as a decision
           is made on your application, or after 24 hours if you never complete
-          the identity verification step.
+          the sign-in or email confirmation step.
         </p>
       ),
     },
@@ -349,9 +354,13 @@ const en: PolicyContent = {
           </p>
           <ul className={UL}>
             <li>
-              Started but never completed an application, meaning identity
-              verification was not finished: deleted automatically after 24
-              hours, including any uploaded CV.
+              Started but never completed an application, meaning sign-in or
+              email confirmation was not finished: deleted automatically after
+              24 hours, including any uploaded CV.
+            </li>
+            <li>
+              Newsletter signup you never confirmed: deleted automatically
+              once the confirmation link expires, after 7 days.
             </li>
             <li>
               Application awaiting review: kept until a reviewer makes a
@@ -369,14 +378,29 @@ const en: PolicyContent = {
               only, the reviewer&apos;s internal notes are kept alongside the
               hash and are deleted with it; reviewers are instructed not to
               include your name or other identifying details in those notes.
+              We also keep an internal record of which reviewer made the
+              decision and when, linked to the same hash. If you ask us to
+              erase your data, that link is removed along with the hash.
             </li>
             <li>
               Newsletter subscribers: your email is kept for as long as you
               remain subscribed. You can unsubscribe at any time via the link in
               any newsletter email.
             </li>
+            <li>
+              Rate-limiting counters, keyed by a one-way hash of your IP
+              address: deleted within an hour.
+            </li>
           </ul>
           {/*
+            The reviewer record mentioned under "Decided" is the admin audit
+            log (admin_audit_log). It exists so that an approval can be traced
+            to the person who made it if an admin account is ever misused. It
+            holds no applicant data beyond the same email hash, which the
+            erasure tool nulls together with the decision record. Erasures
+            themselves are logged with no subject at all. The reviewer's own
+            email in that log is staff data, outside this notice.
+
             The retained email hash is treated as personal data, and an erasure
             request reaches it. An earlier draft of this note suggested such a
             request might already be satisfied once the identifying data is
@@ -596,7 +620,24 @@ const en: PolicyContent = {
               Cloudflare Turnstile may set its own cookies as part of its bot
               challenge, governed by Cloudflare&apos;s privacy policy.
             </li>
+            <li>
+              If you apply using LinkedIn or Google sign-in, we set one
+              strictly necessary cookie when you submit the form. It holds a
+              random value that lets us check the sign-in is completed in the
+              same browser that started it, so nobody else&apos;s application
+              can be attached to your identity. It contains no personal data,
+              is not used for tracking, and expires within an hour.
+            </li>
           </ul>
+          {/*
+            The sign-in cookie (oauth_state) is set only on form submission
+            and falls under the "strictly necessary" exemption of Article
+            5(3) ePrivacy (Dutch Telecommunicatiewet 11.7a(3)): it is a
+            security measure for a service the user explicitly requested, so
+            no consent banner is needed. Reviewers signing in to the admin
+            area get session cookies too; those are staff-side and outside
+            this notice.
+          */}
         </>
       ),
     },
@@ -624,6 +665,11 @@ const en: PolicyContent = {
             <li>
               Automated submissions are filtered by bot-detection and rate
               limiting before they reach our systems.
+            </li>
+            <li>
+              Decisions and erasures made by reviewers are recorded in an
+              internal audit log, so any action can be traced to the person
+              who took it.
             </li>
           </ul>
         </>

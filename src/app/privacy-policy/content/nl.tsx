@@ -167,10 +167,13 @@ const nl: PolicyContent = {
               <li>
                 Alleen naam en e-mailadres, zonder identiteitsverificatie:
                 gebruikt u LinkedIn noch Google, dan kunt u uw naam en
-                e-mailadres rechtstreeks invullen. Deze gegevens zijn volledig
-                zelf opgegeven en niet geverifieerd. Wij hebben geen bewijs dat
-                ze juist zijn, en onze beoordelaars krijgen de instructie ze ook
-                zo te behandelen.
+                e-mailadres rechtstreeks invullen. Wij sturen een link naar dat
+                adres, en uw aanmelding wordt pas ingediend nadat u de link
+                heeft geopend en bevestigd. Dat toont aan dat u e-mail op dat
+                adres kunt lezen, en niets meer. Uw naam is zelf opgegeven en
+                niet geverifieerd. Wij hebben geen bewijs dat die juist is, en
+                onze beoordelaars krijgen de instructie die ook zo te
+                behandelen.
               </li>
             </ul>
             <p className={P}>
@@ -217,10 +220,12 @@ const nl: PolicyContent = {
             <h3 className={H3}>Technische gegevens en misbruikpreventie</h3>
             <ul className={UL}>
               <li>
-                Uw IP-adres, dat tijdelijk wordt gebruikt om het aantal
-                aanvragen te begrenzen en wordt doorgegeven aan Cloudflare
-                Turnstile (zie hieronder) om te controleren dat u geen bot bent.
-                Het wordt niet in onze database opgeslagen.
+                Uw IP-adres, dat wordt gebruikt om het aantal aanvragen te
+                begrenzen en wordt doorgegeven aan Cloudflare Turnstile (zie
+                hieronder) om te controleren dat u geen bot bent. Het adres
+                zelf slaan wij nooit op. Om aanvragen te tellen bewaren wij
+                maximaal een uur een onomkeerbare hash met sleutel van het
+                adres, die daarna wordt verwijderd.
               </li>
               <li>
                 Signalen die Cloudflare Turnstile verzamelt als onderdeel van de
@@ -242,7 +247,8 @@ const nl: PolicyContent = {
           openbaar toegankelijk. Beoordelaars bekijken het via een afgeschermde
           viewer in de browser en downloaden het niet. Uw cv wordt automatisch
           verwijderd zodra er een beslissing over uw aanmelding is genomen, of
-          na 24 uur als u de identiteitsverificatie nooit heeft afgerond.
+          na 24 uur als u het inloggen of de e-mailbevestiging nooit heeft
+          afgerond.
         </p>
       ),
     },
@@ -332,9 +338,13 @@ const nl: PolicyContent = {
           </p>
           <ul className={UL}>
             <li>
-              Aanmelding begonnen maar nooit afgerond, dus
-              identiteitsverificatie niet voltooid: automatisch verwijderd na 24
+              Aanmelding begonnen maar nooit afgerond, dus inloggen of
+              e-mailbevestiging niet voltooid: automatisch verwijderd na 24
               uur, inclusief een eventueel geüpload cv.
+            </li>
+            <li>
+              Nieuwsbriefinschrijving die u nooit heeft bevestigd: automatisch
+              verwijderd zodra de bevestigingslink verloopt, na 7 dagen.
             </li>
             <li>
               Aanmelding in afwachting van beoordeling: bewaard totdat een
@@ -353,12 +363,19 @@ const nl: PolicyContent = {
               bij afwijzingen worden de interne notities van de beoordelaar
               naast de hash bewaard en samen daarmee verwijderd; beoordelaars
               krijgen de instructie daarin geen naam of andere identificerende
-              gegevens op te nemen.
+              gegevens op te nemen. Wij houden daarnaast intern bij welke
+              beoordelaar de beslissing heeft genomen en wanneer, gekoppeld aan
+              dezelfde hash. Vraagt u ons uw gegevens te wissen, dan wordt die
+              koppeling samen met de hash verwijderd.
             </li>
             <li>
               Nieuwsbriefabonnees: uw e-mailadres wordt bewaard zolang u
               ingeschreven blijft. U kunt zich op elk moment uitschrijven via de
               link in elke nieuwsbrief.
+            </li>
+            <li>
+              Tellers voor het begrenzen van aanvragen, gekoppeld aan een
+              onomkeerbare hash van uw IP-adres: binnen een uur verwijderd.
             </li>
           </ul>
           {/*
@@ -481,6 +498,16 @@ const nl: PolicyContent = {
               de botcontrole, waarop het privacybeleid van Cloudflare van
               toepassing is.
             </li>
+            <li>
+              Meldt u zich aan via inloggen bij LinkedIn of Google, dan
+              plaatsen wij bij het verzenden van het formulier één strikt
+              noodzakelijke cookie. Die bevat een willekeurige waarde waarmee
+              wij controleren dat het inloggen wordt afgerond in dezelfde
+              browser waarin het is begonnen, zodat de aanmelding van iemand
+              anders niet aan uw identiteit kan worden gekoppeld. De cookie
+              bevat geen persoonsgegevens, wordt niet gebruikt voor tracking en
+              vervalt binnen een uur.
+            </li>
           </ul>
         </>
       ),
@@ -512,6 +539,11 @@ const nl: PolicyContent = {
             <li>
               Geautomatiseerde inzendingen worden door botdetectie en
               snelheidsbegrenzing gefilterd voordat zij onze systemen bereiken.
+            </li>
+            <li>
+              Beslissingen en verwijderingen door beoordelaars worden
+              vastgelegd in een intern auditlogboek, zodat elke handeling te
+              herleiden is tot de persoon die haar heeft verricht.
             </li>
           </ul>
         </>
