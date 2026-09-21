@@ -7,6 +7,10 @@ import {
   boolean,
   timestamp,
   uniqueIndex,
+  jsonb,
+  index,
+  integer,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 export const applicationStatus = pgEnum("application_status", [
@@ -131,3 +135,49 @@ export const newsletterSignups = pgTable("newsletter_signups", {
   confirmationToken: text("confirmation_token"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
 });
+
+export const adminAuditAction = pgEnum("admin_audit_action", [
+  "login",
+  "approve",
+  "reject",
+  "erase",
+  "signup_toggle",
+]);
+
+// Append-only record of who did what in the admin panel. The application row
+// (and its reviewed_by) is deleted once a decision is notified, so without
+// this there is no way to tell afterwards who approved whom. The subject is
+// the same peppered HMAC as processed_applications.email_hash — no new PII —
+// and is nulled by the erasure tool along with the processed record. Erasures
+// themselves are logged without a subject at all.
+export const adminAuditLog = pgTable(
+  "admin_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    actorEmail: text("actor_email").notNull(),
+    action: adminAuditAction("action").notNull(),
+    subjectEmailHash: text("subject_email_hash"),
+    detail: jsonb("detail"),
+  },
+  (table) => [
+    index("admin_audit_log_subject_idx").on(table.subjectEmailHash),
+  ],
+);
+
+// Fixed-window request counters for the public form endpoints — shared across
+// function instances, which an in-memory counter isn't. `key` is a bucket name
+// plus a keyed hash of the client IP, never the address itself; rows are swept
+// an hour after their window opens (see src/lib/rate-limit.ts).
+export const rateLimitHits = pgTable(
+  "rate_limit_hits",
+  {
+    key: text("key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.key, table.windowStart] }),
+    index("rate_limit_hits_window_start_idx").on(table.windowStart),
+  ],
+);

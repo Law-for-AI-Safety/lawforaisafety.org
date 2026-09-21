@@ -36,6 +36,20 @@
       "when": 1790009035157,
       "tag": "0004_chunky_red_shift",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790012684170,
+      "tag": "0005_handy_malice",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790014170354,
+      "tag": "0006_lucky_tiger_shark",
+      "breakpoints": true
     }
   ]
 }

@@ -43,6 +43,17 @@ CV uploads outside a real Netlify deploy (plain `next dev`, or this seed script)
 
 Requires Docker Desktop (or another Docker Compose–compatible runtime) running locally. Production uses Netlify DB (managed Postgres/Neon) instead — see the feature spec for provisioning.
 
+### Schema changes
+
+Migrations live in `netlify/database/migrations/` — Netlify Database's directory, which Drizzle Kit is pointed at (`drizzle.config.ts`). Netlify applies any new files there, in filename order, just before a production deploy or deploy preview is published; a failing migration blocks the deploy. Deploy previews run against their own database branch, copied from production.
+
+1. Edit `src/drizzle/schema.ts`.
+2. `npm run db:generate` — writes the next numbered SQL file (and Drizzle's `meta/` snapshot).
+3. `npm run dev` — applies it to the local Docker database.
+4. Commit the SQL and `meta/` files with the code that needs them, and deploy.
+
+Never run `drizzle-kit migrate` or `push` against the Netlify database, and never edit a migration that has already been deployed — add a new one. Keep migrations backwards-compatible (new tables, nullable columns): they are applied moments before the new code goes live, so the old code briefly runs against the new schema.
+
 You'll also need real values for `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_ID`/`SECRET`, `RESEND_API_KEY`, `SLACK_WEBHOOK_URL`/`SLACK_BOT_TOKEN`, and the generated secrets (`SESSION_SECRET`, `EMAIL_HASH_SECRET`) — see `.env.example` for what each is for.
 
 ## Images

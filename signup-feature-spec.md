@@ -217,7 +217,9 @@ Deploy on **Netlify Database** (managed Postgres, powered by Neon) and **Netlify
 
 Considered and rejected: a standalone Neon account, fully independent of Netlify. More portable in principle (Netlify DB is Neon underneath either way), but costs a second login/dashboard for a portability benefit that doesn't actually materialize on exit — the connection string Netlify hands back is a plain Postgres/Neon endpoint, so `pg_dump`/`pg_restore` to any other host works the same regardless of which path was taken. Not worth the extra account for this project's size.
 
-Netlify's own migration system (`netlify database migrations ...`, auto-applied from `netlify/database/migrations` on every deploy) is **not** used here — it's opt-in and only activates for files in that specific directory. This project keeps Drizzle Kit exactly as described below, migrations committed under `src/drizzle/migrations/`, applied manually — no conflict, no rework.
+**Update, 21 September 2026**: the paragraph below is superseded. Before the first database-backed deploy, migrations were moved to `netlify/database/migrations/` and Drizzle Kit's `out` pointed there, so Netlify applies them automatically before each deploy is published (see README → Schema changes). Drizzle Kit is still what generates them; only `drizzle-kit migrate` against production is gone. Nothing had been applied to production at that point, so there was no history to reconcile.
+
+~~Original decision:~~ Netlify's own migration system (`netlify database migrations ...`, auto-applied from `netlify/database/migrations` on every deploy) is **not** used here — it's opt-in and only activates for files in that specific directory. This project keeps Drizzle Kit exactly as described below, migrations committed under `src/drizzle/migrations/`, applied manually — no conflict, no rework.
 
 ### Blob storage (CV uploads)
 
@@ -235,7 +237,7 @@ Netlify's own migration system (`netlify database migrations ...`, auto-applied 
 
 - Schema defined in TypeScript (`drizzle/schema.ts`)
 - `drizzle-kit generate` produces versioned SQL migration files under `drizzle/migrations/` — committed to git, reviewed like any other code change
-- Migrations applied manually before each schema-changing deploy: `npx drizzle-kit migrate` against `DATABASE_URL`
+- ~~Migrations applied manually before each schema-changing deploy: `npx drizzle-kit migrate` against `DATABASE_URL`~~ Superseded: applied automatically by Netlify from `netlify/database/migrations/` (see the update note under Database above)
 - **Caveat:** Drizzle Kit may not order `CREATE TYPE` statements before the `CREATE TABLE` that references them — verify generated migration files place enum creation above table creation, and hand-edit if not
 - No query engine binary — Drizzle is a thin query builder over `pg`, which keeps Netlify Function cold starts fast
 
