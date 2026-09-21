@@ -129,6 +129,20 @@ async function purgeApplication(
   await db.delete(applications).where(eq(applications.id, row.id));
 }
 
+/**
+ * A side effect of approval, not part of the decision: a Brevo outage or a
+ * failed courtesy email must not fail the approval itself (see the note in
+ * approveApplication). Logged for manual follow-up.
+ */
+async function subscribeToNewsletterBestEffort(row: ApplicationRow): Promise<void> {
+  if (!row.newsletterOptIn || !row.email) return;
+  try {
+    await recordVerifiedNewsletterOptIn(row.email);
+  } catch (err) {
+    console.error(`Newsletter opt-in failed for approved application ${row.id}:`, err);
+  }
+}
+
 export async function approveApplication(
   id: string,
   reviewedBy: string,
@@ -145,11 +159,16 @@ export async function approveApplication(
   if (row) {
     if (!row.email) throw new Error("Approved application missing verified email");
     await recordDecision(row, "approve", reviewedBy);
-    if (row.newsletterOptIn) await recordVerifiedNewsletterOptIn(row.email);
+    await subscribeToNewsletterBestEffort(row);
   } else {
     row = await getRetriableApplication(id, "approved");
   }
 
+  // From here the row is claimed: it's no longer pending, so it has dropped
+  // out of the admin list, and it only becomes retriable if the notification
+  // email is what fails. Anything else that throws before that email would
+  // strand it — approved, applicant never told, nothing to click. So the
+  // optional steps on either side of this comment never throw.
   const alreadyInSlack = await isAlreadyInSlackWorkspace(row.email!);
 
   try {

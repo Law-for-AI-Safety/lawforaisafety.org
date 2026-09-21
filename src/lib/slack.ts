@@ -65,12 +65,32 @@ export async function notifyReviewersOfNewApplication({
  * Standard `users.list` (available on all plans, unlike the Enterprise-only
  * admin.* namespace) — used to check if an approved applicant already has a
  * workspace account before showing the manual "Invite to Slack" step.
+ *
+ * A convenience, and never throws: it runs mid-approval, after the decision
+ * is saved and before the applicant is emailed, where an error would strand
+ * the application. Without SLACK_BOT_TOKEN (the Slack app is optional), or
+ * if Slack is unreachable, the answer is "not known to be a member" — the
+ * reviewer just sees the invite button, and Slack itself says so if the
+ * person turns out to be in the workspace already.
  */
 export async function isAlreadyInSlackWorkspace(
   email: string,
 ): Promise<boolean> {
-  const botToken = requireEnv("SLACK_BOT_TOKEN");
+  const botToken = process.env.SLACK_BOT_TOKEN;
+  if (!botToken) return false;
 
+  try {
+    return await findSlackMemberByEmail(botToken, email);
+  } catch (err) {
+    console.error("Slack membership check failed, showing the invite step anyway:", err);
+    return false;
+  }
+}
+
+async function findSlackMemberByEmail(
+  botToken: string,
+  email: string,
+): Promise<boolean> {
   let cursor: string | undefined;
   do {
     const url = new URL("https://slack.com/api/users.list");

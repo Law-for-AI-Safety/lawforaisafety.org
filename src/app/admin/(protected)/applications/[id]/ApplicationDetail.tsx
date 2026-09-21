@@ -131,7 +131,9 @@ export default function ApplicationDetail({
               Invite <strong>{approveResult.email}</strong> and no other
               address, whatever the application asked for. That address is the
               only thing about this person that was confirmed. The button
-              copies it for you.
+              copies it for you. If someone else sends the Slack invites, give
+              them this address exactly as shown here, not one taken from the
+              application or from a message.
             </p>
           <button
             type="button"
