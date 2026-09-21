@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  adminAuditLog,
   applications,
   newsletterSignups,
   processedApplications,
@@ -204,6 +205,13 @@ export async function eraseDataForEmail(
       .where(eq(processedApplications.emailHash, hashEmail(address)))
       .returning({ id: processedApplications.id });
     result.processed = deleted.length;
+
+    // The audit log keys decisions to the same hash. Keep the entry (who
+    // decided something, and when) but cut its link to this person.
+    await db
+      .update(adminAuditLog)
+      .set({ subjectEmailHash: null })
+      .where(eq(adminAuditLog.subjectEmailHash, hashEmail(address)));
   }
 
   return result;

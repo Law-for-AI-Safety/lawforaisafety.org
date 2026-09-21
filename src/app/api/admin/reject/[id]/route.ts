@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminSession } from "@/lib/session";
+import { requireAdmin } from "@/lib/admin-guard";
 import {
   AlreadyReviewedError,
   NotFoundError,
@@ -7,20 +7,23 @@ import {
   rejectApplication,
 } from "@/lib/admin-flow";
 
+const MAX_REVIEWER_NOTES_LENGTH = 2000;
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
 
   const { id } = await context.params;
   const body = (await request.json().catch(() => ({}))) as {
     reviewerNotes?: string;
   };
-  const reviewerNotes = body.reviewerNotes?.trim() || null;
+  const reviewerNotes =
+    typeof body.reviewerNotes === "string"
+      ? body.reviewerNotes.trim().slice(0, MAX_REVIEWER_NOTES_LENGTH) || null
+      : null;
 
   try {
     await rejectApplication(id, session.email, reviewerNotes);

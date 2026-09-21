@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminSession } from "@/lib/session";
+import { requireAdmin } from "@/lib/admin-guard";
 import {
   AlreadyReviewedError,
   NotFoundError,
@@ -11,10 +11,8 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
 
   const { id } = await context.params;
 

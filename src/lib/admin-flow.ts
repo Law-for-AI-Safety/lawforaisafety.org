@@ -9,6 +9,7 @@ import {
 } from "@/lib/email";
 import { recordVerifiedNewsletterOptIn } from "@/lib/newsletter-signup";
 import { isAlreadyInSlackWorkspace } from "@/lib/slack";
+import { recordAdminAction } from "@/lib/audit-log";
 
 export class AlreadyReviewedError extends Error {}
 export class NotFoundError extends Error {}
@@ -86,6 +87,25 @@ async function upsertProcessedApplication(row: {
     });
 }
 
+/**
+ * Written when the decision is claimed, not when the email sends — a retry of
+ * a failed notification is the same decision, so it isn't logged twice. The
+ * application row (with reviewed_by) is deleted after notification; this is
+ * the only lasting record of who decided.
+ */
+async function recordDecision(
+  row: ApplicationRow,
+  action: "approve" | "reject",
+  reviewedBy: string,
+): Promise<void> {
+  await recordAdminAction({
+    actorEmail: reviewedBy,
+    action,
+    subjectEmailHash: row.email ? hashEmail(row.email) : null,
+    detail: { authProvider: row.authProvider },
+  });
+}
+
 async function markNotificationFailed(id: string): Promise<never> {
   await db
     .update(applications)
@@ -124,6 +144,7 @@ export async function approveApplication(
   let row = await tryClaimPendingApplication(id, "approved", reviewedBy, null);
   if (row) {
     if (!row.email) throw new Error("Approved application missing verified email");
+    await recordDecision(row, "approve", reviewedBy);
     if (row.newsletterOptIn) await recordVerifiedNewsletterOptIn(row.email);
   } else {
     row = await getRetriableApplication(id, "approved");
@@ -153,10 +174,12 @@ export async function rejectApplication(
   reviewerNotes: string | null,
 ): Promise<void> {
   let row = await tryClaimPendingApplication(id, "rejected", reviewedBy, reviewerNotes);
+  const claimed = row !== null;
   if (!row) {
     row = await getRetriableApplication(id, "rejected");
   }
   if (!row.email) throw new Error("Rejected application missing verified email");
+  if (claimed) await recordDecision(row, "reject", reviewedBy);
 
   try {
     await sendApplicationRejectedEmail(row.email, row.name);

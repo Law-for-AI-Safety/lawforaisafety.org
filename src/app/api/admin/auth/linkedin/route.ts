@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildAuthorizeUrl } from "@/lib/oauth";
 import { createAdminOAuthState } from "@/lib/admin-oauth-state";
+import { setOAuthStateCookie } from "@/lib/oauth-state-cookie";
 
 export async function GET() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -9,6 +10,8 @@ export async function GET() {
   }
 
   const state = await createAdminOAuthState();
+  await setOAuthStateCookie("admin", state);
+
   const authorizeUrl = buildAuthorizeUrl("linkedin", {
     redirectUri: `${siteUrl}/api/admin/auth/linkedin/callback`,
     state,

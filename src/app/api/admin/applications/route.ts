@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
-import { getAdminSession } from "@/lib/session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { db } from "@/lib/db";
 import { applications } from "@/drizzle/schema";
 
-export async function GET() {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET(request: Request) {
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
 
   const pending = await db
     .select()

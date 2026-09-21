@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getAdminSession } from "@/lib/session";
+import { requireTechAdmin } from "@/lib/admin-guard";
 import { setSignupEnabled } from "@/lib/feature-flags";
+import { recordAdminAction } from "@/lib/audit-log";
 
 /**
  * Turns public signup (newsletter + apply) on or off, behind the admin session.
@@ -10,10 +11,8 @@ import { setSignupEnabled } from "@/lib/feature-flags";
  * rather than defaulted, so a malformed request can't flip the flag.
  */
 export async function POST(request: Request) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireTechAdmin(request);
+  if (session instanceof NextResponse) return session;
 
   const formData = await request.formData();
   const enabled = formData.get("enabled");
@@ -22,6 +21,11 @@ export async function POST(request: Request) {
   }
 
   await setSignupEnabled(enabled === "true", session.email);
+  await recordAdminAction({
+    actorEmail: session.email,
+    action: "signup_toggle",
+    detail: { enabled: enabled === "true" },
+  });
   console.log(
     `[feature-flag] ${session.email} turned signup ${enabled === "true" ? "on" : "off"}`,
   );

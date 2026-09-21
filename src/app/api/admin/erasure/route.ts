@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAdminSession } from "@/lib/session";
+import { requireTechAdmin } from "@/lib/admin-guard";
+import { recordAdminAction } from "@/lib/audit-log";
 import {
   eraseDataForEmail,
   findDataForEmail,
@@ -16,10 +17,8 @@ import {
  * has seen exactly what it will remove.
  */
 export async function POST(request: Request) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireTechAdmin(request);
+  if (session instanceof NextResponse) return session;
 
   const body = (await request.json().catch(() => ({}))) as {
     email?: string;
@@ -62,6 +61,13 @@ export async function POST(request: Request) {
         `${result.newsletterSignups} newsletter signup(s), ` +
         `${result.processed} processed record(s)`,
     );
+    // Counts only, no subject hash: an erasure that left a pointer to the
+    // person it erased wouldn't be one.
+    await recordAdminAction({
+      actorEmail: session.email,
+      action: "erase",
+      detail: { scopes, ...result },
+    });
     return NextResponse.json(result);
   }
 
