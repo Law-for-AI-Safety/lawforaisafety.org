@@ -35,6 +35,13 @@ const PROVIDERS: Record<OAuthProviderName, ProviderConfig> = {
   },
 };
 
+/**
+ * The provider signed the user in but doesn't vouch for the email address.
+ * Everything downstream treats `email` as proven (admin allowlist, the
+ * reapplication hash, where decision emails go), so this is a hard stop.
+ */
+export class UnverifiedEmailError extends Error {}
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -96,15 +103,24 @@ export async function exchangeCodeForUserInfo(
   }
 
   const raw = (await userInfoResponse.json()) as {
-    sub: string;
-    name: string;
-    email: string;
+    sub?: string;
+    name?: string;
+    email?: string;
+    // Boolean per the OIDC spec; Google's legacy endpoints have returned the string.
+    email_verified?: boolean | "true" | "false";
     picture?: string | null;
   };
 
+  if (raw.email_verified !== true && raw.email_verified !== "true") {
+    throw new UnverifiedEmailError(`${provider} did not return a verified email`);
+  }
+  if (!raw.sub || !raw.email) {
+    throw new Error(`${provider} userinfo response missing sub or email`);
+  }
+
   return {
     sub: raw.sub,
-    name: raw.name,
+    name: raw.name ?? "",
     email: raw.email,
     picture: raw.picture ?? null,
   };

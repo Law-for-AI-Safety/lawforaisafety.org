@@ -8,6 +8,20 @@ function requireEnv(name: string): string {
   return value;
 }
 
+/**
+ * Slack parses `<url|label>` and `<!channel>` in webhook text, so applicant-
+ * supplied values are escaped per Slack's own rules (`&`, `<`, `>` only) —
+ * otherwise an applicant could post a disguised link into the reviewers'
+ * channel. Capped so a long value can't push the real review link out of view.
+ */
+function escapeSlack(value: string, maxLength = 120): string {
+  return value
+    .slice(0, maxLength)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 export async function notifyReviewersOfNewApplication({
   applicantName,
   organisation,
@@ -27,14 +41,16 @@ export async function notifyReviewersOfNewApplication({
       ? "LinkedIn"
       : authProvider === "google"
         ? "Google"
-        : "email only, unverified";
-  const orgLine = organisation ? ` (${organisation})` : "";
+        : "email link";
+  const orgLine = organisation ? ` (${escapeSlack(organisation)})` : "";
 
   const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      text: `New application: ${applicantName}${orgLine}, verified via ${authProviderLabel}. Review: ${siteUrl}/admin/applications/${applicationId}`,
+      // "Confirmed via", not "verified": sign-in proves control of an account
+      // with this name and email, not that the person is who they claim to be.
+      text: `New application: ${escapeSlack(applicantName)}${orgLine}, email confirmed via ${authProviderLabel}. Review: ${siteUrl}/admin/applications/${applicationId}`,
     }),
   });
 

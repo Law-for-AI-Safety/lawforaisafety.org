@@ -59,8 +59,9 @@ function sendAllowed(to: string): boolean {
 
 async function send(to: string, subject: string, bodyHtml: string): Promise<void> {
   if (!sendAllowed(to)) {
+    // No address in the log line — function logs are outside the erasure tool's reach.
     console.log(
-      `[email] Skipping send to ${to} outside production (not in ADMIN_EMAILS): "${subject}"`,
+      `[email] Skipping send outside production (recipient not in ADMIN_EMAILS): "${subject}"`,
     );
     return;
   }
@@ -95,10 +96,26 @@ async function send(to: string, subject: string, bodyHtml: string): Promise<void
   }
 }
 
+/**
+ * Anything interpolated into email HTML goes through this. On the email-only
+ * apply path the applicant types both the name and the recipient address, so
+ * an unescaped name is attacker-chosen HTML sent from our domain to a third party.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 /** First word of a full name, for a natural-reading greeting — falls back to no greeting at all if there's no name. */
 function greeting(name: string | null): string {
   const firstName = name?.trim().split(/\s+/)[0];
-  return firstName ? `<p style="margin:0 0 16px;">Hi ${firstName},</p>` : "";
+  return firstName
+    ? `<p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>`
+    : "";
 }
 
 function approvedEmail(name: string | null) {
@@ -128,8 +145,23 @@ function newsletterConfirmationEmail(confirmUrl: string) {
   return {
     subject: "Confirm your subscription",
     bodyHtml: `<p style="margin:0 0 16px;">Please confirm you'd like to receive the Law for AI Safety newsletter.</p>
-     <p style="margin:0 0 16px;"><a href="${confirmUrl}" style="color:#9b1c1f;">Confirm your subscription</a></p>
+     <p style="margin:0 0 16px;"><a href="${escapeHtml(confirmUrl)}" style="color:#9b1c1f;">Confirm your subscription</a></p>
      <p style="margin:0;">If you didn't request this, you can ignore this email.</p>`,
+  };
+}
+
+/**
+ * Email-only apply path: the applicant typed this address, nothing proves
+ * they hold it. The application only reaches reviewers once this link is
+ * clicked — that's what stops someone applying (or overwriting an
+ * application) in another person's name.
+ */
+function applicationConfirmationEmail(name: string | null, confirmUrl: string) {
+  return {
+    subject: "Confirm your application to Law for AI Safety",
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Please confirm your email address to submit your application to work with Law for AI Safety.</p>
+     <p style="margin:0 0 16px;"><a href="${escapeHtml(confirmUrl)}" style="color:#9b1c1f;">Confirm and submit application</a></p>
+     <p style="margin:0;">The link works for 24 hours. If you didn't apply, you can ignore this email and nothing will be submitted.</p>`,
   };
 }
 
@@ -170,6 +202,15 @@ export async function sendNewsletterConfirmationEmail(
   await send(to, subject, bodyHtml);
 }
 
+export async function sendApplicationConfirmationEmail(
+  to: string,
+  name: string | null,
+  confirmUrl: string,
+): Promise<void> {
+  const { subject, bodyHtml } = applicationConfirmationEmail(name, confirmUrl);
+  await send(to, subject, bodyHtml);
+}
+
 export async function sendNewsletterSignupReceivedEmail(
   to: string,
 ): Promise<void> {
@@ -189,10 +230,17 @@ export function getEmailPreviews(): { label: string; subject: string; html: stri
     {
       label: "Newsletter confirmation",
       ...newsletterConfirmationEmail(
-        `${siteUrl()}/api/newsletter/confirm?token=preview-token`,
+        `${siteUrl()}/newsletter/confirm?token=preview-token`,
       ),
     },
     { label: "Newsletter signup received", ...newsletterSignupReceivedEmail() },
+    {
+      label: "Application confirmation (email-only path)",
+      ...applicationConfirmationEmail(
+        "Alex Applicant",
+        `${siteUrl()}/apply/confirm?token=preview-token`,
+      ),
+    },
   ];
   return templates.map(({ label, subject, bodyHtml }) => ({
     label,
