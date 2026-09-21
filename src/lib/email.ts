@@ -1,3 +1,5 @@
+import { isProductionDeploy } from "./deploy-context";
+
 const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 
 function requireEnv(name: string): string {
@@ -47,14 +49,15 @@ function wrapEmailHtml(bodyHtml: string): string {
 }
 
 /**
- * Outside production (Netlify's own CONTEXT var — unset locally, or
- * "deploy-preview"/"branch-deploy"/"dev" on Netlify), real sends are
+ * Outside production (the deploy context captured at build time, see
+ * deploy-context.ts — empty locally, or "deploy-preview"/"branch-deploy" on
+ * Netlify), real sends are
  * restricted to admin addresses only. Brevo has no sandbox key that fakes
  * delivery, so without this a preview deploy exercising the apply/approve
  * flow would send real mail to whatever address was used to test it.
  */
 function sendAllowed(to: string): boolean {
-  return process.env.CONTEXT === "production" || isAdminEmail(to);
+  return isProductionDeploy() || isAdminEmail(to);
 }
 
 async function send(to: string, subject: string, bodyHtml: string): Promise<void> {
@@ -69,7 +72,7 @@ async function send(to: string, subject: string, bodyHtml: string): Promise<void
   // Marks the send visibly as non-production, on top of it already only
   // ever reaching an admin inbox (see sendAllowed) — so a test send is
   // never mistaken for a real notification while scanning an inbox.
-  const isProduction = process.env.CONTEXT === "production";
+  const isProduction = isProductionDeploy();
   const finalSubject = isProduction ? subject : `[TESTING] ${subject}`;
 
   const res = await fetch(BREVO_SEND_URL, {

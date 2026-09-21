@@ -1,3 +1,5 @@
+import { isProductionDeploy } from "@/lib/deploy-context";
+
 /**
  * The one switch that decides whether the privacy policy is public.
  *
@@ -14,15 +16,18 @@
  * makes it public everywhere, removes the banner and every counsel note, and
  * lets it be indexed.
  *
- * Reads Netlify's own `CONTEXT` variable, the same one `src/lib/email.ts` uses
- * to tell production apart. It is unset locally, which counts as not
+ * Production is told apart with `isProductionDeploy()` (the Netlify deploy
+ * context captured at build time), the same check `src/lib/email.ts` uses.
+ * Netlify's raw `CONTEXT` variable must not be read here: it is undefined at
+ * function runtime, which would serve the draft on any dynamically rendered
+ * page in production. Locally the context is empty, which counts as not
  * production.
  */
 export const POLICY_PUBLISHED = false;
 
 /** Whether this deploy should serve the policy and link to it. */
 export function isPolicyServed(): boolean {
-  return POLICY_PUBLISHED || process.env.CONTEXT !== "production";
+  return POLICY_PUBLISHED || !isProductionDeploy();
 }
 
 /** Whether the banner and counsel notes should render. */

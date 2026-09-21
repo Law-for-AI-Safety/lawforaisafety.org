@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { rateLimitHits } from "@/drizzle/schema";
+import { isNetlifyDeploy } from "@/lib/deploy-context";
 
 /**
  * Fixed-window rate limiter backed by Postgres, keyed by bucket name + client.
@@ -81,7 +82,7 @@ export function getClientIp(request: Request): string {
   const netlifyIp = request.headers.get("x-nf-client-connection-ip");
   if (netlifyIp) return netlifyIp.trim();
 
-  if (!process.env.CONTEXT) {
+  if (!isNetlifyDeploy()) {
     const forwardedFor = request.headers.get("x-forwarded-for");
     const first = forwardedFor?.split(",")[0]?.trim();
     if (first) return first;
