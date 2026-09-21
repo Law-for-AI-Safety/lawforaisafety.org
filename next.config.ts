@@ -49,6 +49,11 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   poweredByHeader: false,
+  // Netlify's CONTEXT only exists at build time; this inlines it so runtime
+  // code can still tell production from a preview (src/lib/deploy-context.ts).
+  env: {
+    DEPLOY_CONTEXT: process.env.CONTEXT ?? "",
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

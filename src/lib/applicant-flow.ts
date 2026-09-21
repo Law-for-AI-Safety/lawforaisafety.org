@@ -11,6 +11,7 @@ import {
 import type { ApplicantAuthProvider } from "@/lib/applicant-types";
 import { deleteCv, storeCv, validatePdf } from "@/lib/cv-storage";
 import { sendApplicationConfirmationEmail } from "@/lib/email";
+import { isProductionDeploy } from "@/lib/deploy-context";
 import { hashEmail } from "@/lib/email-hash";
 import { notifyReviewersOfNewApplication } from "@/lib/slack";
 
@@ -499,7 +500,7 @@ export async function submitManualApplication(formData: FormData): Promise<strin
 
   // Outside production, mail only goes to admin addresses (see email.ts) —
   // surface the link so the flow can still be walked through locally.
-  if (process.env.CONTEXT !== "production") {
+  if (!isProductionDeploy()) {
     console.log(`[apply] Confirmation link for draft ${applicationId}: ${confirmUrl}`);
   }
 
