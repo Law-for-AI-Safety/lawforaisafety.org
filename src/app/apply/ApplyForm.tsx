@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FORM_RENDERED_AT_FIELD_NAME,
   HONEYPOT_FIELD_NAME,
@@ -29,6 +29,12 @@ const CREDENTIAL_TABS: { id: CredentialTab; label: string }[] = [
 
 export default function ApplyForm() {
   const [error, setError] = useState<string | null>(null);
+  // Which submit button is mid-flight (its formAction), or null. Submitting
+  // uploads the CV and then leaves for LinkedIn/Google, which can take several
+  // seconds with nothing on screen changing — without this, people press
+  // again, and each press is another upload, another draft and another tick
+  // on the rate limiter.
+  const [submittingTo, setSubmittingTo] = useState<string | null>(null);
   const [renderedAt] = useState(() => Date.now());
   const [activeTab, setActiveTab] = useState<VerifyTab>("linkedin");
   const [activeCredentialTab, setActiveCredentialTab] =
@@ -39,6 +45,16 @@ export default function ApplyForm() {
   const positionStatementRef = useRef<HTMLTextAreaElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+
+  // Coming back with the browser's Back button can restore this page from the
+  // back/forward cache exactly as it was left: mid-submit, buttons dead.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setSubmittingTo(null);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   function validate(submitter: HTMLElement | null): boolean {
     const hasLinkedin = Boolean(linkedinUrlRef.current?.value.trim());
@@ -75,7 +91,26 @@ export default function ApplyForm() {
       onSubmit={(event) => {
         const submitter = (event.nativeEvent as SubmitEvent)
           .submitter as HTMLElement | null;
-        if (!validate(submitter)) event.preventDefault();
+        if (submittingTo !== null || !validate(submitter)) {
+          event.preventDefault();
+          return;
+        }
+        // The Turnstile panel is hidden unless it needs the visitor, so there
+        // is nothing on screen to show it's still working. If its token
+        // hasn't arrived yet, say so here rather than letting the server
+        // bounce the whole submission (CV upload included) as unverified.
+        const form = event.currentTarget;
+        const token = form.querySelector<HTMLInputElement>(
+          'input[name="cf-turnstile-response"]',
+        );
+        if (form.querySelector(".cf-turnstile") && !token?.value) {
+          event.preventDefault();
+          setError(
+            "Still checking you're not a robot. Give it a second and press the button again. If a checkbox has appeared below, tick it first.",
+          );
+          return;
+        }
+        setSubmittingTo(submitter?.getAttribute("formaction") ?? "");
       }}
     >
       <div
@@ -205,10 +240,13 @@ export default function ApplyForm() {
             <WipeSubmitButton
               type="submit"
               formAction="/api/auth/linkedin"
+              busy={submittingTo !== null}
               className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
               hoverBg="rgba(255,255,255,0.15)"
             >
-              Verify with LinkedIn
+              {submittingTo === "/api/auth/linkedin"
+                ? "Taking you to LinkedIn…"
+                : "Verify with LinkedIn"}
             </WipeSubmitButton>
           </div>
         )}
@@ -222,10 +260,13 @@ export default function ApplyForm() {
             <WipeSubmitButton
               type="submit"
               formAction="/api/auth/google"
+              busy={submittingTo !== null}
               className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
               hoverBg="rgba(255,255,255,0.15)"
             >
-              Verify with Google
+              {submittingTo === "/api/auth/google"
+                ? "Taking you to Google…"
+                : "Verify with Google"}
             </WipeSubmitButton>
           </div>
         )}
@@ -243,10 +284,13 @@ export default function ApplyForm() {
             <WipeSubmitButton
               type="submit"
               formAction="/api/auth/email"
+              busy={submittingTo !== null}
               className="self-start bg-brand-black px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
               hoverBg="rgba(255,255,255,0.15)"
             >
-              Submit application
+              {submittingTo === "/api/auth/email"
+                ? "Sending…"
+                : "Submit application"}
             </WipeSubmitButton>
           </div>
         )}

@@ -16,7 +16,7 @@ If the org doesn't have one: sign up free at [dash.cloudflare.com/sign-up](https
    - `lawforaisafety.org`
    - `localhost` (needed for local dev — Turnstile allows adding it as a domain even without real DNS)
    - Add the Netlify deploy-preview domain too if previews should also pass (`*.netlify.app`, or the specific preview subdomain pattern the site uses)
-4. **Widget mode**: **Managed** (recommended — matches what's already coded: shows an interactive checkbox only when Cloudflare's risk signals warrant it, invisible otherwise)
+4. **Widget mode**: **Managed** (recommended — matches what's already coded: Cloudflare decides per visitor whether a checkbox is needed. Managed mode on its own still shows the panel permanently; it's the widget's `data-appearance="interaction-only"` in `src/app/apply/TurnstileWidget.tsx` that keeps it hidden unless the visitor has to do something)
 5. Create → copy the **Site Key** and **Secret Key** shown
 
 ## 3. Env vars
