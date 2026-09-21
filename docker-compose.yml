@@ -7,7 +7,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: lawforaisafety
     ports:
-      - "5432:5432"
+      # Host port is configurable (DB_PORT in .env.local) because 5432 is often
+      # taken by another project's Postgres. Keep it in step with DATABASE_URL.
+      - "${DB_PORT:-5440}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
