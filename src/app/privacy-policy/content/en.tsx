@@ -1,10 +1,15 @@
 import Link from "next/link";
-import { ORGANISATION_DETAILS, detailsFor } from "../../organisation";
+import {
+  ORGANISATION_DETAILS,
+  detailsFor,
+  isEntityRegistered,
+} from "../../organisation";
 import type { PolicyContent } from "../types";
 import { H3, LINK, NOTE, P, SUBSECTION, UL } from "../styles";
 
 /** Entity name, address, supervisory authority etc., resolved for English. */
 const d = detailsFor("en");
+const registered = isEntityRegistered();
 
 /**
  * English source text. Every other locale is a translation of this file, so
@@ -74,34 +79,65 @@ const en: PolicyContent = {
       label: "Who we are",
       body: (
         <>
-          <p className={P}>
-            The {d.entityName}, {d.legalForm}, registered in {d.jurisdiction}{" "}
-            at {d.registeredAddress}, is the controller of the personal data
-            described in this policy. This means we determine the purposes and
-            the means of the processing. If you have questions about this policy
-            or how we handle your data, contact us at{" "}
-            <a href={`mailto:${d.contactEmail}`} className={LINK}>
-              {d.contactEmail}
-            </a>
-            .
-          </p>
-          <ul className={UL}>
-            <li>Enterprise number: {d.enterpriseNumber}</li>
-            <li>Register of legal entities (RPR): {d.registerCourt}</li>
-          </ul>
-          <p className={NOTE}>
-            [Counsel: supply the legal form, enterprise number, and court of
-            the register. Article 2:20 of the Companies and Associations Code
-            requires a legal person&apos;s name, legal form, registered office,
-            enterprise number, and register with its competent court on the
-            website, whichever non-profit form is chosen; Article III.74 of the
-            Code of Economic Law requires the enterprise number on
-            publications. Both are site-wide obligations, so a legal notice or
-            the site footer would satisfy them equally, and this block could
-            move there. &ldquo;NGO&rdquo; is a description, not a legal form:
-            the candidates are a national non-profit (VZW/ASBL) or an
-            international one (IVZW/AISBL).]
-          </p>
+          {registered ? (
+            <>
+              <p className={P}>
+                The {d.entityName}, {d.legalForm}, registered in{" "}
+                {d.jurisdiction} at {d.registeredAddress}, is the controller of
+                the personal data described in this policy. This means we
+                determine the purposes and the means of the processing. If you
+                have questions about this policy or how we handle your data,
+                contact us at{" "}
+                <a href={`mailto:${d.contactEmail}`} className={LINK}>
+                  {d.contactEmail}
+                </a>
+                .
+              </p>
+              <ul className={UL}>
+                <li>Enterprise number: {d.enterpriseNumber}</li>
+                <li>Register of legal entities (RPR): {d.registerCourt}</li>
+              </ul>
+              <p className={NOTE}>
+                [Counsel: confirm the legal form, enterprise number, and court
+                of the register. Article 2:20 of the Companies and Associations
+                Code requires a legal person&apos;s name, legal form,
+                registered office, enterprise number, and register with its
+                competent court on the website; Article III.74 of the Code of
+                Economic Law requires the enterprise number on publications.
+                Both are site-wide obligations, so the site footer, which
+                already carries them, satisfies them equally and this block
+                could be removed.]
+              </p>
+            </>
+          ) : (
+            <>
+              <p className={P}>
+                The {d.entityName} is currently in the process of being
+                established in {d.jurisdiction} and is not yet registered. It
+                is the controller of the personal data described in this
+                policy. This means we determine the purposes and the means of
+                the processing. If you have questions about this policy or how we
+                handle your data, contact us at{" "}
+                <a href={`mailto:${d.contactEmail}`} className={LINK}>
+                  {d.contactEmail}
+                </a>
+                . We will add our legal form, enterprise number, and registered
+                office here once registration is complete.
+              </p>
+              <p className={NOTE}>
+                [Counsel: wording follows your &ldquo;in oprichting&rdquo;
+                advice. Please confirm three things. (1) Who is the controller
+                until the entity has legal personality: the entity in formation
+                as drafted, or its founders? (2) Whether the Article 2:20 and
+                Article III.74 identification duties apply before registration,
+                or only from the moment the entity exists. (3) That the
+                supervisory authority below, which assumes Belgium, still holds
+                while the entity is unregistered. All of this switches to the
+                registered wording automatically once the enterprise number is
+                entered in <code>organisation.ts</code>.]
+              </p>
+            </>
+          )}
           {/*
             No Data Protection Officer is named, and none needs to be. Article
             37(1) doesn't require one here: not a public authority, and neither

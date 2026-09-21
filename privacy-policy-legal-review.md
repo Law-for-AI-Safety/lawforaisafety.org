@@ -32,10 +32,10 @@ rows are the ones we cannot supply ourselves.
 | --- | --- | --- |
 | Entity name | Law for AI Safety Institute | Told to us, not checked against a filing |
 | Country of establishment | Belgium | Assumed, and load-bearing: see section 2 |
-| Legal form | | Needed. VZW/ASBL if national, IVZW/AISBL if international |
-| Enterprise number | | Needed. The KBO/BCE number, `0xxx.xxx.xxx` |
-| Court of the register | | Needed. The enterprise court with jurisdiction over the registered office, for the "RPR" line required by Article 2:20. Follows from the address and appears on the KBO extract |
-| Registered office | | Needed |
+| Legal form | | Not yet available: the entity is "in oprichting" (per counsel). VZW/ASBL if national, IVZW/AISBL if international, once chosen |
+| Enterprise number | | Not yet available, same reason. The KBO/BCE number, `0xxx.xxx.xxx`. **Entering this switches the policy to its registered wording** |
+| Court of the register | | Not yet available. The enterprise court with jurisdiction over the registered office, for the "RPR" line required by Article 2:20. Follows from the address and appears on the KBO extract |
+| Registered office | | Not yet available |
 | Supervisory authority | Belgian Data Protection Authority (Gegevensbeschermingsautoriteit) | Follows from establishment in Belgium |
 | Authority address | Drukpersstraat 35, 1000 Brussel | Checked against the authority's own site, 26 August 2026 |
 | Authority email | contact@apd-gba.be | Checked, same date |
@@ -59,7 +59,19 @@ confirming.
 - **The organisation is established in Belgium.** Everything else rests on
   this. It decides that Belgian law applies and that the Belgian authority
   supervises us. If the entity is incorporated elsewhere, the jurisdiction and
-  the supervisory authority both change.
+  the supervisory authority both change. "In oprichting" is used in the
+  Netherlands as well as Belgium, so the advice on its own does not settle
+  which.
+
+- **While unregistered, the entity in formation is named as controller.**
+  Counsel's advice was that we describe ourselves as "in oprichting", and the
+  policy now says the Institute is being established and is not yet registered,
+  in place of a legal form, enterprise number, and registered office. Still to
+  confirm: whether the controller before legal personality is the entity in
+  formation or its founders; whether the Article 2:20 and III.74
+  identification duties bite before registration; and that the Belgian
+  authority still supervises an unregistered entity. The site footer already
+  hides the identification line until an enterprise number exists.
 
 - **LinkedIn and Google are separate controllers, not our processors.** The
   OAuth flow sends them only a client id, a redirect URI, a scope and an opaque

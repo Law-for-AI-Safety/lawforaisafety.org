@@ -1,10 +1,15 @@
 import Link from "next/link";
-import { ORGANISATION_DETAILS, detailsFor } from "../../organisation";
+import {
+  ORGANISATION_DETAILS,
+  detailsFor,
+  isEntityRegistered,
+} from "../../organisation";
 import type { PolicyContent } from "../types";
 import { H3, LINK, NOTE, P, SUBSECTION, UL } from "../styles";
 
 /** Entity name, address, supervisory authority etc., resolved for Dutch. */
 const d = detailsFor("nl");
+const registered = isEntityRegistered();
 
 /**
  * Dutch translation of `en.tsx`. Machine-drafted, not yet checked by a native
@@ -75,35 +80,51 @@ const nl: PolicyContent = {
       label: "Wie zijn wij?",
       body: (
         <>
-          <p className={P}>
-            Het {d.entityName}, {d.legalForm}, gevestigd in {d.jurisdiction} te{" "}
-            {d.registeredAddress}, is verwerkingsverantwoordelijke voor de
-            persoonsgegevens die in deze verklaring worden beschreven. Dat
-            betekent dat wij het doel van en de middelen voor de verwerking
-            bepalen. Heeft u vragen over deze verklaring of over de manier
-            waarop wij met uw gegevens omgaan, neem dan contact op via{" "}
-            <a href={`mailto:${d.contactEmail}`} className={LINK}>
-              {d.contactEmail}
-            </a>
-            .
-          </p>
-          <ul className={UL}>
-            <li>Ondernemingsnummer: {d.enterpriseNumber}</li>
-            <li>Rechtspersonenregister (RPR): {d.registerCourt}</li>
-          </ul>
-          <p className={NOTE}>
-            [Counsel: supply the legal form, enterprise number, and court of
-            the register. Article 2:20 of the Companies and Associations Code
-            requires a legal person&apos;s name, legal form, registered office,
-            enterprise number, and register with its competent court on the
-            website, whichever non-profit form is chosen; Article III.74 of the
-            Code of Economic Law requires the enterprise number on
-            publications. Both are site-wide obligations, so a legal notice or
-            the site footer would satisfy them equally, and this block could
-            move there. &ldquo;NGO&rdquo; is a description, not a legal form:
-            the candidates are a national non-profit (VZW/ASBL) or an
-            international one (IVZW/AISBL).]
-          </p>
+          {registered ? (
+            <>
+              <p className={P}>
+                Het {d.entityName}, {d.legalForm}, gevestigd in {d.jurisdiction}{" "}
+                te {d.registeredAddress}, is verwerkingsverantwoordelijke voor
+                de persoonsgegevens die in deze verklaring worden beschreven.
+                Dat betekent dat wij het doel van en de middelen voor de
+                verwerking bepalen. Heeft u vragen over deze verklaring of over
+                de manier waarop wij met uw gegevens omgaan, neem dan contact op
+                via{" "}
+                <a href={`mailto:${d.contactEmail}`} className={LINK}>
+                  {d.contactEmail}
+                </a>
+                .
+              </p>
+              <ul className={UL}>
+                <li>Ondernemingsnummer: {d.enterpriseNumber}</li>
+                <li>Rechtspersonenregister (RPR): {d.registerCourt}</li>
+              </ul>
+              <p className={NOTE}>
+                [Counsel: confirm the legal form, enterprise number, and court
+                of the register. See the note in the English version.]
+              </p>
+            </>
+          ) : (
+            <>
+              <p className={P}>
+                Het {d.entityName} is in {d.jurisdiction} in oprichting en nog
+                niet ingeschreven. Het is verwerkingsverantwoordelijke voor de
+                persoonsgegevens die in deze verklaring worden beschreven. Dat
+                betekent dat wij het doel van en de middelen voor de verwerking
+                bepalen. Heeft u vragen over deze verklaring of over de manier
+                waarop wij met uw gegevens omgaan, neem dan contact op via{" "}
+                <a href={`mailto:${d.contactEmail}`} className={LINK}>
+                  {d.contactEmail}
+                </a>
+                . Zodra de inschrijving is afgerond, vermelden wij hier onze
+                rechtsvorm, ons ondernemingsnummer en onze zetel.
+              </p>
+              <p className={NOTE}>
+                [Counsel: see the note in the English version, which lists three
+                points to confirm about the entity being in oprichting.]
+              </p>
+            </>
+          )}
           {/*
             No Data Protection Officer is named, and none needs to be. See the
             fuller note in en.tsx. If one is ever appointed, Article 37(7)

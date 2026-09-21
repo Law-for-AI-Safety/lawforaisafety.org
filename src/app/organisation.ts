@@ -132,6 +132,17 @@ export function detailValue(
   return detail.value[locale] ?? null;
 }
 
+/**
+ * Whether the entity has been registered yet. Until it has, there is no legal
+ * form, enterprise number, register, or registered office to state, and the
+ * privacy policy describes the entity as being in formation ("in oprichting")
+ * instead. Keyed on the enterprise number, so this flips to the registered
+ * wording by itself once that is supplied above.
+ */
+export function isEntityRegistered(): boolean {
+  return detailValue("enterpriseNumber", "en") !== null;
+}
+
 function resolve(detail: OrganisationDetail, locale: LocaleCode): string {
   if (detail.value === null) return detail.placeholder;
   if (typeof detail.value === "string") return detail.value;
