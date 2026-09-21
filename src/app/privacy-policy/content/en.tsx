@@ -5,7 +5,8 @@ import {
   isEntityRegistered,
 } from "../../organisation";
 import type { PolicyContent } from "../types";
-import { H3, LINK, NOTE, P, SUBSECTION, UL } from "../styles";
+import CounselNote from "../CounselNote";
+import { H3, LINK, P, SUBSECTION, UL } from "../styles";
 
 /** Entity name, address, supervisory authority etc., resolved for English. */
 const d = detailsFor("en");
@@ -18,9 +19,10 @@ const registered = isEntityRegistered();
  * Two kinds of bracketed placeholder appear below, and they are not the same
  * thing. A blank inside a sentence is a value counsel supplies; those come
  * from `details.ts` as `d.*`, so they are filled in once for every language.
- * A whole paragraph styled with `NOTE` is an instruction to counsel that must
- * be resolved and then deleted; those stay written out here, because each one
- * is specific to the clause it sits under.
+ * A whole paragraph wrapped in `CounselNote` is an instruction to counsel that
+ * must be resolved; those stay written out here, because each one is specific
+ * to the clause it sits under. They stop rendering once the policy is
+ * published (see `visibility.ts`), but delete each one when it is resolved.
  *
  * Neither is emphasised with bold: in a legal document bold reads as "this
  * clause matters more", which is not what a drafting note means.
@@ -97,7 +99,7 @@ const en: PolicyContent = {
                 <li>Enterprise number: {d.enterpriseNumber}</li>
                 <li>Register of legal entities (RPR): {d.registerCourt}</li>
               </ul>
-              <p className={NOTE}>
+              <CounselNote>
                 [Counsel: confirm the legal form, enterprise number, and court
                 of the register. Article 2:20 of the Companies and Associations
                 Code requires a legal person&apos;s name, legal form,
@@ -107,7 +109,7 @@ const en: PolicyContent = {
                 Both are site-wide obligations, so the site footer, which
                 already carries them, satisfies them equally and this block
                 could be removed.]
-              </p>
+              </CounselNote>
             </>
           ) : (
             <>
@@ -124,7 +126,7 @@ const en: PolicyContent = {
                 . We will add our legal form, enterprise number, and registered
                 office here once registration is complete.
               </p>
-              <p className={NOTE}>
+              <CounselNote>
                 [Counsel: wording follows your &ldquo;in oprichting&rdquo;
                 advice. Please confirm three things. (1) Who is the controller
                 until the entity has legal personality: the entity in formation
@@ -135,7 +137,7 @@ const en: PolicyContent = {
                 while the entity is unregistered. All of this switches to the
                 registered wording automatically once the enterprise number is
                 entered in <code>organisation.ts</code>.]
-              </p>
+              </CounselNote>
             </>
           )}
           {/*
@@ -806,9 +808,9 @@ const en: PolicyContent = {
             </a>
             .
           </p>
-          <p className={NOTE}>
+          <CounselNote>
             [Registered postal address, if required for statutory notices.]
-          </p>
+          </CounselNote>
         </>
       ),
     },

@@ -172,13 +172,17 @@ can be revisited.
 - [ ] Values in section 1 supplied
 - [ ] Positions in section 2 confirmed or corrected
 - [ ] Actions in section 3 completed
-- [ ] Both remaining counsel notes deleted from the page
-- [ ] The "Draft for legal review" banner deleted
+- [ ] Counsel notes resolved and deleted from the content files
 - [ ] Transfer certifications re-checked if time has passed
 - [ ] Dutch reviewed
+- [ ] `POLICY_PUBLISHED` set to `true` in `src/app/privacy-policy/visibility.ts`
 
-The page is already linked from the site footer, so it becomes public the
-moment the branch is merged.
+Merging does **not** make the page public. While `POLICY_PUBLISHED` is `false`,
+production returns a 404 at `/privacy-policy` and `/privacy-policy/nl` and the
+footer link is hidden. Deploy previews and local dev still show the full draft,
+with the banner and counsel notes, marked `noindex`. Setting it to `true` is
+the single step that publishes: it makes the page public everywhere, removes the
+banner and every counsel note, hides nothing, and allows indexing.
 
 ---
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import PolicyDocument from "../PolicyDocument";
 import { SUB_PATH_LOCALES, localeFromSegment } from "../locales";
 import { policyMetadata } from "../metadata";
+import { isPolicyServed } from "../visibility";
 
 /**
  * Translations of the policy, one URL per language. English is not served
@@ -30,6 +31,8 @@ export default async function PrivacyPolicyLocalePage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  if (!isPolicyServed()) notFound();
+
   const { locale: segment } = await params;
   const locale = localeFromSegment(segment);
   if (!locale) notFound();

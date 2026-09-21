@@ -5,6 +5,7 @@ import { POLICY_DATES, formatPolicyDate } from "./dates";
 import type { Locale } from "./locales";
 import { H2 } from "./styles";
 import { SECTION_IDS } from "./types";
+import { showDraftMarkup } from "./visibility";
 
 /**
  * A date from `dates.ts`, written out in the reader's language and wrapped in
@@ -35,9 +36,11 @@ export default function PolicyDocument({ locale }: { locale: Locale }) {
   return (
     <ContentPage gap={6}>
       <article lang={locale.tag} className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3 rounded-sm border border-brand-red/30 bg-brand-red/5 px-5 py-4">
-          {content.reviewNotice}
-        </div>
+        {showDraftMarkup() && (
+          <div className="flex flex-col gap-3 rounded-sm border border-brand-red/30 bg-brand-red/5 px-5 py-4">
+            {content.reviewNotice}
+          </div>
+        )}
 
         <div className="flex flex-row flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-2">

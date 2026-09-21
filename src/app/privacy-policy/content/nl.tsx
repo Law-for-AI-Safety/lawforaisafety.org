@@ -5,7 +5,8 @@ import {
   isEntityRegistered,
 } from "../../organisation";
 import type { PolicyContent } from "../types";
-import { H3, LINK, NOTE, P, SUBSECTION, UL } from "../styles";
+import CounselNote from "../CounselNote";
+import { H3, LINK, P, SUBSECTION, UL } from "../styles";
 
 /** Entity name, address, supervisory authority etc., resolved for Dutch. */
 const d = detailsFor("nl");
@@ -99,10 +100,10 @@ const nl: PolicyContent = {
                 <li>Ondernemingsnummer: {d.enterpriseNumber}</li>
                 <li>Rechtspersonenregister (RPR): {d.registerCourt}</li>
               </ul>
-              <p className={NOTE}>
+              <CounselNote>
                 [Counsel: confirm the legal form, enterprise number, and court
                 of the register. See the note in the English version.]
-              </p>
+              </CounselNote>
             </>
           ) : (
             <>
@@ -119,10 +120,10 @@ const nl: PolicyContent = {
                 . Zodra de inschrijving is afgerond, vermelden wij hier onze
                 rechtsvorm, ons ondernemingsnummer en onze zetel.
               </p>
-              <p className={NOTE}>
+              <CounselNote>
                 [Counsel: see the note in the English version, which lists three
                 points to confirm about the entity being in oprichting.]
-              </p>
+              </CounselNote>
             </>
           )}
           {/*
@@ -675,9 +676,9 @@ const nl: PolicyContent = {
             </a>
             .
           </p>
-          <p className={NOTE}>
+          <CounselNote>
             [Registered postal address, if required for statutory notices.]
-          </p>
+          </CounselNote>
         </>
       ),
     },

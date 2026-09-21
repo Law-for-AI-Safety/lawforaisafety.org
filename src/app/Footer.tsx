@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { detailValue } from "./organisation";
+import { isPolicyServed } from "./privacy-policy/visibility";
 
 /**
  * Statutory identification line. Article 2:20 of the Companies and
@@ -51,9 +52,11 @@ export default function Footer() {
           />
           <p className="text-lg font-light text-brand-white/85 flex flex-wrap items-center gap-x-3">
             <span>© {new Date().getFullYear()} Law for AI Safety. All rights reserved.</span>
-            <Link href="/privacy-policy" className="underline hover:text-brand-white">
-              Privacy Policy
-            </Link>
+            {isPolicyServed() && (
+              <Link href="/privacy-policy" className="underline hover:text-brand-white">
+                Privacy Policy
+              </Link>
+            )}
           </p>
         </div>
         {identification.length > 0 && (
