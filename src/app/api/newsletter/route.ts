@@ -3,12 +3,16 @@ import { looksLikeBot } from "@/lib/abuse-protection";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordNewsletterSignup } from "@/lib/newsletter-signup";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { signupClosedJson } from "@/lib/feature-flags";
 
 // Same success response whether the honeypot caught a bot or not — a bot
 // doesn't need to be told it was caught.
 const SUCCESS_RESPONSE = { ok: true };
 
 export async function POST(request: Request) {
+  const closed = await signupClosedJson();
+  if (closed) return closed;
+
   const ip = getClientIp(request);
   const { allowed } = checkRateLimit(`newsletter:${ip}`, {
     limit: 5,

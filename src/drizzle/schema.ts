@@ -107,6 +107,17 @@ export const applications = pgTable(
   ],
 );
 
+// Runtime feature flags, toggled from the admin panel. A missing row reads as
+// off, so a flag only turns on by an explicit admin action.
+export const featureFlags = pgTable("feature_flags", {
+  key: text("key").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const newsletterSignups = pgTable("newsletter_signups", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull(),

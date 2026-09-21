@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { retryApplicationDraft } from "@/lib/applicant-flow";
+import { signupClosedRedirect } from "@/lib/feature-flags";
 
 export async function POST(request: Request) {
+  const closed = await signupClosedRedirect(request);
+  if (closed) return closed;
+
   const formData = await request.formData();
   const token = formData.get("token");
   const provider = formData.get("provider");

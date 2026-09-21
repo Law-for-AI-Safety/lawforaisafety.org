@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { handleOAuthCallback } from "@/lib/applicant-flow";
+import { signupClosedRedirect } from "@/lib/feature-flags";
 
 export async function GET(request: Request) {
+  const closed = await signupClosedRedirect(request);
+  if (closed) return closed;
+
   const { searchParams } = new URL(request.url);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;

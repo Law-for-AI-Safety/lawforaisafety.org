@@ -8,6 +8,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid: "That verification link isn't valid. Please try again below.",
   expired: "That verification attempt expired. Please try again below.",
   verification: "We couldn't verify you're not a robot. Please try again below.",
+  closed:
+    "Signups are closed right now. Please email info@lawforaisafety.org instead.",
 };
 
 export default function ContactErrorBanner() {

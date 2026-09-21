@@ -3,8 +3,12 @@ import { looksLikeBot } from "@/lib/abuse-protection";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createApplicationDraft, ValidationError } from "@/lib/applicant-flow";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { signupClosedRedirect } from "@/lib/feature-flags";
 
 export async function POST(request: Request) {
+  const closed = await signupClosedRedirect(request);
+  if (closed) return closed;
+
   const ip = getClientIp(request);
   const { allowed } = checkRateLimit(`auth-draft:${ip}`, {
     limit: 5,
