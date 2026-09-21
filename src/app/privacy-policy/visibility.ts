@@ -23,7 +23,23 @@ import { isProductionDeploy } from "@/lib/deploy-context";
  * page in production. Locally the context is empty, which counts as not
  * production.
  */
-export const POLICY_PUBLISHED = false;
+/*
+ * Published on 21 September 2026 as an INTERIM version, ahead of counsel's
+ * sign-off, so that signup never runs without a notice people can read.
+ * "Interim" needs no separate text: while the enterprise number in
+ * `organisation.ts` is null, the policy uses its "being established, not yet
+ * registered" wording, and every unfilled value sits either in the registered
+ * wording (not rendered) or in a CounselNote (not rendered once published),
+ * so nothing bracketed reaches the public page.
+ *
+ * When the details arrive, nothing here changes. Fill the `null`s in
+ * `src/app/organisation.ts` (registered address, legal form, enterprise
+ * number, competent court): the policy and the footer switch to the
+ * registered wording by themselves. Then bump `dates.ts`, and resolve and
+ * delete the CounselNotes in `content/*.tsx`. To read those notes again in
+ * the meantime, set this to false locally — never on main.
+ */
+export const POLICY_PUBLISHED = true;
 
 /** Whether this deploy should serve the policy and link to it. */
 export function isPolicyServed(): boolean {

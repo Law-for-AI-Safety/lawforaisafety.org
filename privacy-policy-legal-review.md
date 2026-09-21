@@ -1,9 +1,14 @@
 # Privacy policy: handover for legal review
 
 What we need from you, what we have assumed, and what we have already decided.
-The policy itself is a working draft, not published: it lives on a branch and
-is visible only on the pull request's deploy preview. The full text is
-appended at the end of this document.
+The full text is appended at the end of this document.
+
+**Status, 21 September 2026: published as an interim version**, ahead of your
+review, so that the signup forms never run without a notice people can read.
+The public page uses the "being established, not yet registered" wording and
+shows none of the bracketed blanks or the notes addressed to you. Everything in
+this handover is still open: your answers change the published text, they
+don't gate it. See section 5 for what happens when the details arrive.
 
 **None of this is legal advice.** It was drafted from how the signup and
 vetting flow actually behaves in code, so that you are reviewing the real
@@ -175,14 +180,25 @@ can be revisited.
 - [ ] Counsel notes resolved and deleted from the content files
 - [ ] Transfer certifications re-checked if time has passed
 - [ ] Dutch reviewed
-- [ ] `POLICY_PUBLISHED` set to `true` in `src/app/privacy-policy/visibility.ts`
+- [x] `POLICY_PUBLISHED` set to `true` in `src/app/privacy-policy/visibility.ts`
+      (done 21 September 2026, as an interim version; the items above remain open)
 
-Merging does **not** make the page public. While `POLICY_PUBLISHED` is `false`,
-production returns a 404 at `/privacy-policy` and `/privacy-policy/nl` and the
-footer link is hidden. Deploy previews and local dev still show the full draft,
-with the banner and counsel notes, marked `noindex`. Setting it to `true` is
-the single step that publishes: it makes the page public everywhere, removes the
-banner and every counsel note, hides nothing, and allows indexing.
+`POLICY_PUBLISHED = true` makes the page public everywhere, removes the draft
+banner and every counsel note from view, and allows indexing. The notes are
+still in the content files: they are hidden, not resolved.
+
+### When the entity's details arrive
+
+Nothing about publishing changes. In `src/app/organisation.ts`, replace the
+four `null`s: registered address, legal form, enterprise number, competent
+court. Entering the enterprise number switches the "Who we are" section and
+the site footer from the in-formation wording to the registered wording by
+itself, in both languages. Then set `lastUpdated` in
+`src/app/privacy-policy/dates.ts`, and resolve and delete the counsel notes in
+`src/app/privacy-policy/content/en.tsx` and `nl.tsx`.
+
+To read the counsel notes and banner on a rendered page again, set
+`POLICY_PUBLISHED` to `false` locally. Don't merge that.
 
 ---
 
