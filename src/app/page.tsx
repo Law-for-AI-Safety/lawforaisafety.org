@@ -1,7 +1,14 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Nav from "./Nav";
+import Footer from "./Footer";
 import WipeButton from "./WipeButton";
 import WavyUnderline from "./WavyUnderline";
+import ContactErrorBanner from "./ContactErrorBanner";
+import ApplyToast from "./ApplyToast";
+import NewsletterForm from "./apply/NewsletterForm";
+import ApplyForm from "./apply/ApplyForm";
+import { isSignupEnabled } from "@/lib/feature-flags";
 
 function Rule() {
   return (
@@ -113,10 +120,20 @@ const mechanisms = [
 
 const linkedin = "https://www.linkedin.com/company/law-for-ai-safety/";
 
-export default function Home() {
+// The signup forms are toggled at runtime from the admin panel, so this page
+// has to render per request rather than being prerendered at build time.
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const signupEnabled = await isSignupEnabled();
+
   return (
     <main className="flex flex-col font-sans">
       <Nav />
+
+      <Suspense fallback={null}>
+        <ApplyToast />
+      </Suspense>
 
       {/* Hero */}
       <section className="bg-brand-white flex flex-col justify-center px-8 md:px-16 py-60 pb-30">
@@ -572,24 +589,32 @@ Our co-founder and Executive Director, Karolina Gruzel, was selected to take par
               Follow our work on Linkedin
             </WipeButton>
           </div>
+
+          <Suspense fallback={null}>
+            <ContactErrorBanner />
+          </Suspense>
+
+          {signupEnabled && (
+            <>
+              <div className="flex flex-col gap-4 pt-12 border-t border-brand-black/10">
+                <h3 className="text-2xl md:text-3xl font-light text-brand-black">
+                  Stay updated with our newsletter
+                </h3>
+                <NewsletterForm />
+              </div>
+
+              <div className="flex flex-col gap-4 pt-12 border-t border-brand-black/10">
+                <h3 className="text-2xl md:text-3xl font-light text-brand-black">
+                  Work with us
+                </h3>
+                <ApplyForm />
+              </div>
+            </>
+          )}
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-brand-black px-8 md:px-16 py-12">
-        <div className="max-w-4xl mx-auto flex flex-row justify-between items-center gap-6">
-          <Image
-            src="/logo.svg"
-            alt="Law for AI Safety"
-            width={160}
-            height={48}
-            className="w-36 brightness-0 invert opacity-40"
-          />
-          <p className="text-lg font-light text-brand-white/85">
-            © {new Date().getFullYear()} Law for AI Safety. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

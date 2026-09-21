@@ -22,9 +22,43 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Signup & vetting feature — local dev
+
+The `/apply` and `/admin` routes need a Postgres database. Locally:
+
+```bash
+cp .env.example .env.local   # fill in the OAuth/Resend/Slack values below
+npm run dev                  # starts Postgres in Docker, migrates it, then boots Next
+```
+
+That's the only command needed — `predev` (`scripts/db-ensure.mjs`) handles starting the container and running migrations before `next dev` starts.
+
+The container listens on host port **5440** (not 5432, to avoid clashing with other local Postgres instances). To use another port, set `DB_PORT` in `.env.local` and change the port in `DATABASE_URL` to match.
+
+`npm run db:down` stops the container (data persists in a Docker volume). `npm run db:reset` wipes it and starts clean — use when migrations get out of sync. If you ever run `npm run db:migrate` directly (rather than through `npm run dev`), export `DATABASE_URL` in your shell first — unlike `predev`, the bare drizzle-kit command doesn't read `.env.local` itself.
+
+`npm run db:seed` inserts 9 sample pending applications into the admin queue — one for every combination of verification method (LinkedIn / Google / no-verification name+email) and credential type (LinkedIn URL / CV / position statement), so every badge and banner state in `/admin` is reachable without doing a real OAuth round trip. CV rows get a minimal placeholder PDF written to the local blob fallback so the PDF.js viewer has something to render. Re-running it is safe — same fixed IDs, old rows are deleted and replaced.
+
+CV uploads outside a real Netlify deploy (plain `next dev`, or this seed script) fall back to on-disk storage at `.local-blobs/` (gitignored) — see `src/lib/cv-storage.ts`.
+
+Requires Docker Desktop (or another Docker Compose–compatible runtime) running locally. Production uses Netlify DB (managed Postgres/Neon) instead — see the feature spec for provisioning.
+
+### Schema changes
+
+Migrations live in `netlify/database/migrations/` — Netlify Database's directory, which Drizzle Kit is pointed at (`drizzle.config.ts`). Netlify applies any new files there, in filename order, just before a production deploy or deploy preview is published; a failing migration blocks the deploy. Deploy previews run against their own database branch, copied from production.
+
+1. Edit `src/drizzle/schema.ts`.
+2. `npm run db:generate` — writes the next numbered SQL file (and Drizzle's `meta/` snapshot).
+3. `npm run dev` — applies it to the local Docker database.
+4. Commit the SQL and `meta/` files with the code that needs them, and deploy.
+
+Never run `drizzle-kit migrate` or `push` against the Netlify database, and never edit a migration that has already been deployed — add a new one. Keep migrations backwards-compatible (new tables, nullable columns): they are applied moments before the new code goes live, so the old code briefly runs against the new schema.
+
+You'll also need real values for `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_ID`/`SECRET`, `RESEND_API_KEY`, `SLACK_WEBHOOK_URL`/`SLACK_BOT_TOKEN`, and the generated secrets (`SESSION_SECRET`, `EMAIL_HASH_SECRET`) — see `.env.example` for what each is for.
+
 ## Images
 
-This site uses `output: "export"` with `images.unoptimized: true`, so Next's image optimizer does not run — images must be pre-optimized before commit.
+`images.unoptimized: true` is set (independent of the deploy target — see below), so Next's image optimizer does not run — images must be pre-optimized before commit.
 
 Full-res originals live in `design/images-src/` (not the shipped assets). To add or replace a photo:
 
@@ -60,8 +94,6 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deployed on Netlify via [`@netlify/plugin-nextjs`](https://docs.netlify.com/frameworks/next-js/overview/), which runs this as a full Next.js server (Route Handlers, cookies, dynamic routes) rather than a static export — required for the signup & vetting feature's OAuth/admin routes. See `netlify.toml`.

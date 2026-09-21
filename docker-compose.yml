@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lawforaisafety
+    ports:
+      # Host port is configurable (DB_PORT in .env.local) because 5432 is often
+      # taken by another project's Postgres. Keep it in step with DATABASE_URL.
+      # Bound to loopback: without the 127.0.0.1, Docker publishes on every
+      # interface and the database (postgres/postgres) is open to the local network.
+      - "127.0.0.1:${DB_PORT:-5440}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
