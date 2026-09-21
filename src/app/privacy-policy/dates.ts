@@ -14,8 +14,8 @@ export const POLICY_DATES: {
   lastUpdated: string | null;
   effectiveFrom: string | null;
 } = {
-  lastUpdated: null,
-  effectiveFrom: null,
+  lastUpdated: "2026-09-21",
+  effectiveFrom: "2026-09-21",
 };
 
 /** Shown in place of an unset date, in every language. */
