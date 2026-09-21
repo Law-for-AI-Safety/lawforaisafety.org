@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsletterSignups } from "@/drizzle/schema";
 import { subscribeToBrevoList } from "@/lib/brevo-contacts";
 import { CONFIRMATION_TTL_MS } from "@/lib/newsletter-signup";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { seeOther } from "@/lib/redirect";
 
 /**
  * Links in emails sent before the confirm step moved to a page still point
@@ -13,9 +13,11 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
  */
 export async function GET(request: Request) {
   const token = new URL(request.url).searchParams.get("token");
-  const target = new URL("/newsletter/confirm", request.url);
-  if (token) target.searchParams.set("token", token);
-  return NextResponse.redirect(target, 303);
+  return seeOther(
+    token
+      ? `/newsletter/confirm?token=${encodeURIComponent(token)}`
+      : "/newsletter/confirm",
+  );
 }
 
 export async function POST(request: Request) {
@@ -24,17 +26,16 @@ export async function POST(request: Request) {
     windowMs: 60_000,
   });
   if (!allowed) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    // This route is reached by a browser form post, so a JSON body would be
+    // shown to the visitor as a raw page. Send them back with a message instead.
+    return seeOther("/?error=ratelimit#contact");
   }
 
   const formData = await request.formData();
   const token = formData.get("token");
 
   if (typeof token !== "string" || token === "") {
-    return NextResponse.redirect(
-      new URL("/newsletter/invalid", request.url),
-      303,
-    );
+    return seeOther("/newsletter/invalid");
   }
 
   const [row] = await db
@@ -61,11 +62,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.redirect(
-    new URL(
-      row ? "/newsletter/confirmed" : "/newsletter/invalid",
-      request.url,
-    ),
-    303,
-  );
+  return seeOther(row ? "/newsletter/confirmed" : "/newsletter/invalid");
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { exchangeCodeForUserInfo, UnverifiedEmailError } from "@/lib/oauth";
 import { verifyAdminOAuthState } from "@/lib/admin-oauth-state";
 import {
@@ -12,6 +11,7 @@ import {
   isAdminSubPinningConfigured,
 } from "@/lib/session";
 import { recordAdminAction } from "@/lib/audit-log";
+import { seeOther } from "@/lib/redirect";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -27,17 +27,11 @@ export async function GET(request: Request) {
   await clearOAuthStateCookie("admin");
 
   if (!stateOk) {
-    return NextResponse.redirect(
-      new URL("/admin/login?error=invalid", request.url),
-      303,
-    );
+    return seeOther("/admin/login?error=invalid");
   }
 
   if (!code) {
-    return NextResponse.redirect(
-      new URL("/admin/login?error=denied", request.url),
-      303,
-    );
+    return seeOther("/admin/login?error=denied");
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -53,19 +47,13 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     if (err instanceof UnverifiedEmailError) {
-      return NextResponse.redirect(
-        new URL("/admin/login?error=forbidden", request.url),
-        303,
-      );
+      return seeOther("/admin/login?error=forbidden");
     }
     throw err;
   }
 
   if (!isAdminEmailAllowed(userInfo.email)) {
-    return NextResponse.redirect(
-      new URL("/admin/login?error=forbidden", request.url),
-      303,
-    );
+    return seeOther("/admin/login?error=forbidden");
   }
 
   if (!isAdminSubAllowed(userInfo.sub)) {
@@ -74,10 +62,7 @@ export async function GET(request: Request) {
     console.warn(
       `[admin-login] Refused ${userInfo.email}: LinkedIn sub ${userInfo.sub} is not in ADMIN_LINKEDIN_SUBS`,
     );
-    return NextResponse.redirect(
-      new URL("/admin/login?error=forbidden", request.url),
-      303,
-    );
+    return seeOther("/admin/login?error=forbidden");
   }
 
   if (!isAdminSubPinningConfigured()) {
@@ -97,5 +82,5 @@ export async function GET(request: Request) {
     detail: { linkedinSub: userInfo.sub },
   });
 
-  return NextResponse.redirect(new URL("/admin", request.url), 303);
+  return seeOther("/admin");
 }

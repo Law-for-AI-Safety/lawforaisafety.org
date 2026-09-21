@@ -17,7 +17,15 @@ export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true;
 
-  const allowed = new Set([new URL(request.url).origin]);
+  // Not `request.url`: on Netlify that is the deploy's internal address, not
+  // the one the browser used. The Host header is — and a cross-site attacker
+  // can't choose it, the victim's browser sets it to wherever the request goes.
+  const allowed = new Set<string>();
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (host) {
+    allowed.add(`https://${host}`);
+    allowed.add(`http://${host}`); // local dev
+  }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (siteUrl) allowed.add(new URL(siteUrl).origin);
   return allowed.has(origin);

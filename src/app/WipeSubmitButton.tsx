@@ -14,6 +14,7 @@ export default function WipeSubmitButton({
   type = "button",
   formAction,
   disabled,
+  busy,
   onClick,
   className,
   hoverBg,
@@ -22,6 +23,14 @@ export default function WipeSubmitButton({
   type?: "button" | "submit";
   formAction?: string;
   disabled?: boolean;
+  /**
+   * The form is mid-submit. Deliberately not the `disabled` attribute: this
+   * is set from inside the submit event, and disabling the very button that
+   * is submitting (it carries the `formAction`) while the browser is still
+   * working out where to post is asking for trouble. Looks and reads as
+   * disabled; the form's own onSubmit is what actually blocks a second post.
+   */
+  busy?: boolean;
   onClick?: () => void;
   className: string;
   hoverBg: string;
@@ -56,8 +65,10 @@ export default function WipeSubmitButton({
       type={type}
       formAction={formAction}
       disabled={disabled}
+      aria-disabled={busy || undefined}
+      aria-busy={busy || undefined}
       onClick={onClick}
-      className={`btn-wipe ${className}`}
+      className={`btn-wipe ${className}${busy ? " pointer-events-none opacity-60" : ""}`}
       style={
         {
           "--wipe-hover-bg": hoverBg,

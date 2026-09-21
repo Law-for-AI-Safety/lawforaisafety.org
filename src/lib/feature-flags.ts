@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { featureFlags } from "@/drizzle/schema";
+import { seeOther } from "@/lib/redirect";
 
 // One flag covers the whole public signup feature: newsletter signup and
 // apply-to-work-with-us. Admin review and already-sent confirm links are not
@@ -59,11 +60,9 @@ export async function setSignupEnabled(
 
 // Guard for the form-submit / OAuth routes, which are hit by a browser
 // navigation: send the visitor back to the contact section with a message.
-export async function signupClosedRedirect(
-  request: Request,
-): Promise<NextResponse | null> {
+export async function signupClosedRedirect(): Promise<Response | null> {
   if (await isSignupEnabled()) return null;
-  return NextResponse.redirect(new URL("/?error=closed#contact", request.url), 303);
+  return seeOther("/?error=closed#contact");
 }
 
 // Guard for the newsletter route, which is called with fetch() and expects JSON.

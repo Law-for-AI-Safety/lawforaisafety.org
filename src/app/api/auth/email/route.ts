@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
 import { looksLikeBot } from "@/lib/abuse-protection";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { submitManualApplication, ValidationError } from "@/lib/applicant-flow";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { signupClosedRedirect } from "@/lib/feature-flags";
+import { seeOther } from "@/lib/redirect";
 
 export async function POST(request: Request) {
-  const closed = await signupClosedRedirect(request);
+  const closed = await signupClosedRedirect();
   if (closed) return closed;
 
   const ip = getClientIp(request);
@@ -15,31 +15,27 @@ export async function POST(request: Request) {
     windowMs: 60_000,
   });
   if (!allowed) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    // This route is reached by a browser form post, so a JSON body would be
+    // shown to the visitor as a raw page. Send them back with a message instead.
+    return seeOther("/?error=ratelimit#contact");
   }
 
   const formData = await request.formData();
 
   if (!(await verifyTurnstile(formData, ip))) {
-    return NextResponse.redirect(
-      new URL("/?error=verification#contact", request.url),
-      303,
-    );
+    return seeOther("/?error=verification#contact");
   }
 
   if (looksLikeBot(formData)) {
-    return NextResponse.redirect(new URL("/?applied=1#contact", request.url), 303);
+    return seeOther("/?applied=1#contact");
   }
 
   try {
     const redirectTo = await submitManualApplication(formData);
-    return NextResponse.redirect(new URL(redirectTo, request.url), 303);
+    return seeOther(redirectTo);
   } catch (err) {
     if (err instanceof ValidationError) {
-      return NextResponse.redirect(
-        new URL(`/?error=${err.code}#contact`, request.url),
-        303,
-      );
+      return seeOther(`/?error=${err.code}#contact`);
     }
     throw err;
   }

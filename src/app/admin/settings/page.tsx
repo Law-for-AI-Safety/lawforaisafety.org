@@ -12,6 +12,8 @@ import {
 } from "@/lib/session";
 import { getSignupFlagState } from "@/lib/feature-flags";
 import TechAdminOnly from "../TechAdminOnly";
+import { isPolicyServed } from "../../privacy-policy/visibility";
+import SignupToggle from "./SignupToggle";
 
 export const metadata: Metadata = {
   title: "LAIS - Settings",
@@ -49,7 +51,14 @@ async function getAdminLogins() {
     .groupBy(adminAuditLog.actorEmail, linkedinSub)
     .orderBy(desc(lastLoginAt));
 }
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ signup?: string }>;
+}) {
+  // Set by the toggle route's redirect, so the page can say what just happened.
+  const { signup: justChanged } = await searchParams;
+
   const session = await getAdminSession();
   if (!session) {
     redirect("/admin/login");
@@ -85,6 +94,21 @@ export default async function AdminSettingsPage() {
           </p>
         </div>
 
+        {(justChanged === "on" || justChanged === "off") && (
+          <p
+            role="status"
+            className={`border px-3 py-3 ${
+              justChanged === "on"
+                ? "border-brand-navy bg-brand-navy/5 text-brand-navy"
+                : "border-brand-black/30 bg-brand-black/5 text-brand-black"
+            }`}
+          >
+            {justChanged === "on"
+              ? "Done. Signup is now ON: the newsletter and application forms are live on the homepage."
+              : "Done. Signup is now OFF: the forms are hidden and their endpoints refuse requests."}
+          </p>
+        )}
+
         <p className="text-lg text-brand-black">
           Currently{" "}
           <strong className={enabled ? "text-brand-navy" : "text-brand-red"}>
@@ -102,19 +126,7 @@ export default async function AdminSettingsPage() {
           </p>
         )}
 
-        <form action="/api/admin/settings/signup" method="post">
-          <input type="hidden" name="enabled" value={enabled ? "false" : "true"} />
-          <button
-            type="submit"
-            className={`w-full rounded-sm px-6 py-4 text-lg ${
-              enabled
-                ? "border border-brand-red text-brand-red"
-                : "bg-brand-navy text-brand-white"
-            }`}
-          >
-            {enabled ? "Turn signup off" : "Turn signup on"}
-          </button>
-        </form>
+        <SignupToggle enabled={enabled} policyPublished={isPolicyServed()} />
       </section>
 
       <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
