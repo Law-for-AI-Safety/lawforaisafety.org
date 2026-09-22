@@ -40,7 +40,10 @@ export const ORGANISATION_DETAILS = {
   },
   registeredAddress: {
     placeholder: "[registered address]",
-    value: null,
+    value: {
+      en: "38 rue du marché aux herbes, boite 7, 1000 Brussels, Belgium",
+      nl: "38 rue du marché aux herbes, boite 7, 1000 Brussel, België",
+    },
   },
   /**
    * Legal form, enterprise number, and register are required on a Belgian

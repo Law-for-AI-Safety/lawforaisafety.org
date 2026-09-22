@@ -115,16 +115,17 @@ const en: PolicyContent = {
             <>
               <p className={P}>
                 The {d.entityName} is currently in the process of being
-                established in {d.jurisdiction} and is not yet registered. It
+                established in {d.jurisdiction} as the {d.entityName} vzw. It
                 is the controller of the personal data described in this
                 policy. This means we determine the purposes and the means of
                 the processing. If you have questions about this policy or how we
                 handle your data, contact us at{" "}
                 <a href={`mailto:${d.contactEmail}`} className={LINK}>
                   {d.contactEmail}
-                </a>
-                . We will add our legal form, enterprise number, and registered
-                office here once registration is complete.
+                </a>{" "}
+                or {d.registeredAddress}. We will add our legal form,
+                enterprise number, and registered office here once
+                registration is complete.
               </p>
               <CounselNote>
                 [Counsel: wording follows your &ldquo;in oprichting&rdquo;

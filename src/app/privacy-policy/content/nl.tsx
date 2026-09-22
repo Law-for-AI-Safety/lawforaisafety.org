@@ -108,17 +108,19 @@ const nl: PolicyContent = {
           ) : (
             <>
               <p className={P}>
-                Het {d.entityName} is in {d.jurisdiction} in oprichting en nog
-                niet ingeschreven. Het is verwerkingsverantwoordelijke voor de
-                persoonsgegevens die in deze verklaring worden beschreven. Dat
-                betekent dat wij het doel van en de middelen voor de verwerking
-                bepalen. Heeft u vragen over deze verklaring of over de manier
-                waarop wij met uw gegevens omgaan, neem dan contact op via{" "}
+                Het {d.entityName} is in {d.jurisdiction} in oprichting als
+                het {d.entityName} vzw. Het is verwerkingsverantwoordelijke
+                voor de persoonsgegevens die in deze verklaring worden
+                beschreven. Dat betekent dat wij het doel van en de middelen
+                voor de verwerking bepalen. Heeft u vragen over deze
+                verklaring of over de manier waarop wij met uw gegevens
+                omgaan, neem dan contact op via{" "}
                 <a href={`mailto:${d.contactEmail}`} className={LINK}>
                   {d.contactEmail}
-                </a>
-                . Zodra de inschrijving is afgerond, vermelden wij hier onze
-                rechtsvorm, ons ondernemingsnummer en onze zetel.
+                </a>{" "}
+                of {d.registeredAddress}. Zodra de inschrijving is afgerond,
+                vermelden wij hier onze rechtsvorm, ons ondernemingsnummer en
+                onze zetel.
               </p>
               <CounselNote>
                 [Counsel: see the note in the English version, which lists three
