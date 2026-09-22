@@ -329,7 +329,7 @@ export default function ApplicationDetail({
 
       {error && <p className="text-brand-red">{error}</p>}
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
         {application.failedNotification !== "rejected" && (
           <button
             type="button"

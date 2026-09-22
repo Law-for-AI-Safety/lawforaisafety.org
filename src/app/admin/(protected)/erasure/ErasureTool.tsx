@@ -88,7 +88,7 @@ export default function ErasureTool() {
         <label htmlFor="erasure-email" className="text-brand-black/70">
           Email address
         </label>
-        <div className="flex flex-row gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <input
             id="erasure-email"
             type="email"
@@ -148,7 +148,7 @@ export default function ErasureTool() {
                     type="checkbox"
                     checked={scopes.applications}
                     onChange={() => toggle("applications")}
-                    className="mt-1.5"
+                    className="mt-1.5 h-5 w-5 flex-shrink-0"
                   />
                   <span>
                     {findings.applications.map((application) => (
@@ -168,7 +168,7 @@ export default function ErasureTool() {
                     type="checkbox"
                     checked={scopes.newsletterSignups}
                     onChange={() => toggle("newsletterSignups")}
-                    className="mt-1.5"
+                    className="mt-1.5 h-5 w-5 flex-shrink-0"
                   />
                   <span>
                     {findings.newsletterSignups.map((signup) => (
@@ -188,7 +188,7 @@ export default function ErasureTool() {
                     type="checkbox"
                     checked={scopes.processed}
                     onChange={() => toggle("processed")}
-                    className="mt-1.5"
+                    className="mt-1.5 h-5 w-5 flex-shrink-0"
                   />
                   <span>
                     Decision record ({findings.processed.outcome}) from{" "}

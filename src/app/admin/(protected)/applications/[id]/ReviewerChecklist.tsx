@@ -61,7 +61,7 @@ export default function ReviewerChecklist({
         <label key={check.id} className="flex items-start gap-3 text-brand-black/80">
           <input
             type="checkbox"
-            className="mt-1.5"
+            className="mt-1.5 h-5 w-5 flex-shrink-0"
             checked={checked.has(check.id)}
             onChange={() => onToggle(check.id)}
             disabled={disabled}
