@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { and, asc, eq, or } from "drizzle-orm";
-import { getAdminSession, isTechAdminEmail } from "@/lib/session";
+import { getAdminSession, isTechAdminEmail, isLegalTeamEmail } from "@/lib/session";
 import { db } from "@/lib/db";
 import { applications } from "@/drizzle/schema";
 import AdminApplicationsList from "./AdminApplicationsList";
@@ -65,6 +65,11 @@ export default async function ProtectedAdminLayout({
           <Link href="/admin/email-preview" className="underline">
             Email preview
           </Link>
+          {isLegalTeamEmail(session.email) && (
+            <Link href="/admin/legal" className="underline">
+              Legal Tracker
+            </Link>
+          )}
           <form action="/api/admin/logout" method="post">
             <button type="submit" className="underline">
               Log out

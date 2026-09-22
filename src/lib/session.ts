@@ -103,6 +103,26 @@ export function isTechAdminConfigured(): boolean {
   return (process.env.TECH_ADMIN_EMAILS ?? "").trim() !== "";
 }
 
+/**
+ * Access to the legal team's project tracker. Unlike TECH_ADMIN_EMAILS,
+ * this defaults to *everyone* in ADMIN_EMAILS when LEGAL_TEAM_EMAILS is
+ * unset — today's reviewers and the lawyers who need the tracker are
+ * largely the same people, and requiring the env var to be set first would
+ * lock everyone out until someone remembers to configure it. Setting
+ * LEGAL_TEAM_EMAILS narrows access to that list, same "narrows, never
+ * grants" rule as isTechAdminEmail.
+ */
+export function isLegalTeamEmail(email: string): boolean {
+  if (!isAdminEmailAllowed(email)) return false;
+  const configured = (process.env.LEGAL_TEAM_EMAILS ?? "").trim() !== "";
+  if (!configured) return true;
+  const allowed = (process.env.LEGAL_TEAM_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(email.toLowerCase());
+}
+
 export function pinnedAdminSubs(): string[] {
   return (process.env.ADMIN_LINKEDIN_SUBS ?? "")
     .split(",")

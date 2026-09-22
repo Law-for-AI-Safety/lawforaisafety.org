@@ -50,6 +50,13 @@
       "when": 1790014170354,
       "tag": "0006_lucky_tiger_shark",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790078196754,
+      "tag": "0007_spicy_omega_flight",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import {
   index,
   integer,
   primaryKey,
+  date,
 } from "drizzle-orm/pg-core";
 
 export const applicationStatus = pgEnum("application_status", [
@@ -181,3 +182,87 @@ export const rateLimitHits = pgTable(
     index("rate_limit_hits_window_start_idx").on(table.windowStart),
   ],
 );
+
+// Shared by legalProjects and legalTasks. Reason for "blocked" lives in a
+// separate nullable column, not folded into the enum — same reason
+// applicationStatus keeps reviewerNotes separate.
+export const legalTaskStatus = pgEnum("legal_task_status", [
+  "draft",
+  "ready",
+  "in_progress",
+  "blocked",
+  "done",
+  "cancelled",
+]);
+
+export const legalProjects = pgTable("legal_projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  description: text("description"),
+  ownerEmail: text("owner_email"),
+  status: legalTaskStatus("status").notNull().default("draft"),
+  plannedStart: date("planned_start"),
+  plannedEnd: date("planned_end"),
+  actualStart: date("actual_start"),
+  actualEnd: date("actual_end"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: text("created_by").notNull(),
+});
+
+export const legalTasks = pgTable("legal_tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => legalProjects.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  // Freeform list of URLs, added as needed — no fixed shape to justify a
+  // separate table yet.
+  resourceLinks: jsonb("resource_links").$type<string[]>().default([]),
+  assigneeEmail: text("assignee_email"),
+  status: legalTaskStatus("status").notNull().default("draft"),
+  blockedReason: text("blocked_reason"),
+  plannedStart: date("planned_start"),
+  plannedEnd: date("planned_end"),
+  actualStart: date("actual_start"),
+  actualEnd: date("actual_end"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: text("created_by").notNull(),
+});
+
+// A task can depend on several others; "still blocked by a dependency" is
+// computed at read time from this table (join to legalTasks, filter status
+// != 'done') rather than stored, so it can't go stale.
+export const legalTaskDependencies = pgTable(
+  "legal_task_dependencies",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => legalTasks.id),
+    dependsOnTaskId: uuid("depends_on_task_id")
+      .notNull()
+      .references(() => legalTasks.id),
+  },
+  (table) => [
+    primaryKey({ columns: [table.taskId, table.dependsOnTaskId] }),
+    index("legal_task_dependencies_depends_on_idx").on(table.dependsOnTaskId),
+  ],
+);
+
+// Separate from adminAuditLog: that table's subjectEmailHash exists
+// specifically for the applicant-erasure/privacy workflow, which doesn't
+// apply to internal project tracking.
+export const legalAuditLog = pgTable("legal_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  actorEmail: text("actor_email").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: uuid("entity_id").notNull(),
+  detail: jsonb("detail"),
+});
