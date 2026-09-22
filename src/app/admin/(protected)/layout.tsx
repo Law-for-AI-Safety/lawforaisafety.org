@@ -1,10 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { and, asc, eq, or } from "drizzle-orm";
 import { getAdminSession, isTechAdminEmail, isTaskTrackerTeamEmail } from "@/lib/session";
-import { db } from "@/lib/db";
-import { applications } from "@/drizzle/schema";
-import AdminApplicationsList from "./AdminApplicationsList";
 
 export default async function ProtectedAdminLayout({
   children,
@@ -16,38 +12,25 @@ export default async function ProtectedAdminLayout({
     redirect("/admin/login");
   }
 
-  // Pending applications, plus already-decided ones stuck because their
-  // notification email failed to send — those still need admin attention
-  // (retry), so they belong in this list too, not just the truly pending.
-  const pending = await db
-    .select({
-      id: applications.id,
-      name: applications.name,
-      organisation: applications.organisation,
-      authProvider: applications.authProvider,
-      createdAt: applications.createdAt,
-      status: applications.status,
-      notificationStatus: applications.notificationStatus,
-    })
-    .from(applications)
-    .where(
-      or(
-        eq(applications.status, "pending"),
-        and(
-          or(
-            eq(applications.status, "approved"),
-            eq(applications.status, "rejected"),
-          ),
-          eq(applications.notificationStatus, "failed"),
-        ),
-      ),
-    )
-    .orderBy(asc(applications.createdAt));
-
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-brand-black/10 px-4 py-4">
-        <span className="text-brand-black/70">Signed in as {session.email}</span>
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href="/admin" className="font-sans text-xl text-brand-black">
+            Admin
+          </Link>
+          {/* "Collaboration" distinguishes these from other kinds of
+              application the org may take later, e.g. public works. */}
+          <Link href="/admin/applications" className="underline">
+            Collaboration applications
+          </Link>
+          {isTaskTrackerTeamEmail(session.email) && (
+            <Link href="/admin/task-tracker" className="underline">
+              Project Tracker
+            </Link>
+          )}
+          <span className="text-brand-black/70">Signed in as {session.name}</span>
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           {isTechAdminEmail(session.email) && (
             <>
@@ -65,11 +48,6 @@ export default async function ProtectedAdminLayout({
           <Link href="/admin/email-preview" className="underline">
             Email preview
           </Link>
-          {isTaskTrackerTeamEmail(session.email) && (
-            <Link href="/admin/task-tracker" className="underline">
-              Project Tracker
-            </Link>
-          )}
           <form action="/api/admin/logout" method="post">
             <button type="submit" className="underline">
               Log out
@@ -78,27 +56,9 @@ export default async function ProtectedAdminLayout({
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-        <aside className="max-h-64 flex-shrink-0 overflow-y-auto border-b border-brand-black/10 md:max-h-none md:w-96 md:border-b-0 md:border-r">
-          <h1 className="px-4 pt-6 text-2xl font-light text-brand-black">
-            Applications
-          </h1>
-          <div className="mt-4">
-            <AdminApplicationsList
-              applications={pending.map((application) => ({
-                id: application.id,
-                name: application.name,
-                organisation: application.organisation,
-                authProvider: application.authProvider,
-                createdAtLabel: application.createdAt.toLocaleDateString(),
-                needsNotificationRetry: application.notificationStatus === "failed",
-              }))}
-            />
-          </div>
-        </aside>
-
-        <div className="flex-1 overflow-y-auto">{children}</div>
-      </div>
+      {/* Scrolls for ordinary pages; the applications workspace below opts
+          out and scrolls its two panes independently instead. */}
+      <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
     </div>
   );
 }

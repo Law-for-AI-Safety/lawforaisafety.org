@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PdfViewer from "./PdfViewer";
 import ReviewerChecklist, {
@@ -109,7 +110,7 @@ export default function ApplicationDetail({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Reject failed");
-      router.push("/admin");
+      router.push("/admin/applications");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reject failed");
       setBusy(false);
@@ -152,9 +153,9 @@ export default function ApplicationDetail({
           </p>
         )}
 
-        <a href="/admin" className="underline">
-          Back to pending applications
-        </a>
+        <Link href="/admin/applications" className="underline">
+          Back to pending collaboration applications
+        </Link>
       </main>
     );
   }
