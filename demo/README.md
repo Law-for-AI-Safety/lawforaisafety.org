@@ -6,12 +6,13 @@ Playwright-driven screen recordings with a moving cursor, click and typing sound
 
 ```bash
 npm run demo -- task-tracker              # one flow, in a visible browser (you hear it live on macOS)
+npm run demo -- reschedule-dependents     # the dependent-task rescheduling walkthrough
 npm run demo -- task-tracker --headless   # same, no window
 npm run demo                              # every flow, headless
 npm run demo -- task-tracker --skip-build # reuse the last `next build` while tweaking a flow
 ```
 
-Output lands in `demo/output/<flow>.mp4` (plus a `.webm`). Share the `.mp4`.
+Output lands in `demo/output/<flow>.mp4` (plus a `.webm`). Share the `.mp4`. Videos aren't committed, only the flow scripts — re-record after UI changes instead of editing footage.
 
 Needs: Docker running (same local Postgres as `npm run dev`), `ffmpeg` with libopus and libx264 (`brew install ffmpeg`), and Playwright's Chromium (`npx playwright install chromium`). The first run downloads the Kokoro text-to-speech model (~90 MB) from Hugging Face.
 

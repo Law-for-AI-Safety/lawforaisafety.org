@@ -48,7 +48,6 @@ const SCROLL_PX_PER_SEC = 500 * SPEED // scale with SPEED so slower mode = slowe
 
 const CAPTION_CSS = [
   'position:fixed',
-  'bottom:32px',
   'left:50%',
   'transform:translateX(-50%)',
   'background:#16161d',
@@ -120,6 +119,8 @@ type DemoWindow = Window & {
 
 export class DemoEngine {
   activePage: Page | null = null
+  /** Top keeps captions clear of anything pinned to the bottom, like a sticky save bar. */
+  captionPosition: 'top' | 'bottom' = 'bottom'
   cursorX = -200
   cursorY = -200
 
@@ -555,7 +556,10 @@ export class DemoEngine {
           div.style.opacity = '1'
         })
       },
-      [text, CAPTION_CSS] as [string, string],
+      [
+        text,
+        `${CAPTION_CSS};${this.captionPosition === 'top' ? 'top:72px' : 'bottom:32px'}`,
+      ] as [string, string],
     )
   }
 

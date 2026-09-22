@@ -4,13 +4,14 @@ import fs from 'fs'
 import { buildForDemo, prepareDemoDatabase, startDemoServer, stopDemoServer } from './server'
 import { DemoEngine } from './engine'
 import * as taskTrackerFlow from './flows/task-tracker'
+import * as rescheduleDependentsFlow from './flows/reschedule-dependents'
 
 type FlowModule = {
   meta: { name: string; title: string }
   run: (engine: DemoEngine, browser: Browser) => Promise<void>
 }
 
-const ALL_FLOWS: FlowModule[] = [taskTrackerFlow]
+const ALL_FLOWS: FlowModule[] = [taskTrackerFlow, rescheduleDependentsFlow]
 
 async function main() {
   const args = process.argv.slice(2)
