@@ -17,7 +17,8 @@
     "db:seed": "node scripts/db-seed.mjs",
     "db:up": "docker compose --env-file .env.local up -d db",
     "db:down": "docker compose --env-file .env.local down",
-    "db:reset": "docker compose --env-file .env.local down -v && docker compose --env-file .env.local up -d db"
+    "db:reset": "docker compose --env-file .env.local down -v && docker compose --env-file .env.local up -d db",
+    "demo": "tsx demo/index.ts"
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.11",
@@ -41,8 +42,11 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "kokoro-js": "^1.2.1",
+    "playwright": "^1.59.1",
     "sharp": "^0.35.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
