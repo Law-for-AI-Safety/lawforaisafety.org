@@ -16,6 +16,13 @@ Checked directly against Netlify (`netlify env:list --context production`) — t
 
 If you've already got working LinkedIn/Google apps from local dev (`.env.local`), `LINKEDIN_CLIENT_ID`/`GOOGLE_CLIENT_ID` and their secrets are literally the same values — same app, just needs the production redirect URI registered too (see `oauth-production-setup.md`). `SESSION_SECRET` and `EMAIL_HASH_SECRET` are the two you should actually generate fresh, not copy from local.
 
+## Deliberately not set
+
+- `TECH_ADMIN_EMAILS` and `TASK_TRACKER_TEAM_EMAILS` are both optional, and both **narrow** access rather than granting it — an address in either that isn't in `ADMIN_EMAILS` gets nothing. Their empty defaults are opposites, on purpose:
+  - `TECH_ADMIN_EMAILS` empty = **nobody** can erase data, toggle signup, or read the audit log. Set it (two people minimum, so an erasure request can't get stuck on one) when you want those pages open.
+  - `TASK_TRACKER_TEAM_EMAILS` empty = **everyone** in `ADMIN_EMAILS` can use the project/task tracker. Leave it unset unless the tracker team and the reviewers stop being the same people.
+- Setting either to an empty string in Netlify is the same as not setting it at all — the code treats blank and absent identically.
+
 ## Adding them in Netlify
 
 **Dashboard**: Site configuration → Environment variables → **Add a variable** → enter key/value → choose scope (see below) → Create.
