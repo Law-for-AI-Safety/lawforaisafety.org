@@ -6,7 +6,7 @@ import { applications, processedApplications } from "@/drizzle/schema";
 import ApplicationDetail from "./ApplicationDetail";
 
 export const metadata: Metadata = {
-  title: "LAIS - Application",
+  title: "LAIS - Collaboration application",
   robots: { index: false, follow: false },
 };
 

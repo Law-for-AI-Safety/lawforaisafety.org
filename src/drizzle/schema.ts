@@ -11,6 +11,7 @@ import {
   index,
   integer,
   primaryKey,
+  date,
 } from "drizzle-orm/pg-core";
 
 export const applicationStatus = pgEnum("application_status", [
@@ -181,3 +182,102 @@ export const rateLimitHits = pgTable(
     index("rate_limit_hits_window_start_idx").on(table.windowStart),
   ],
 );
+
+// Shared by taskTrackerProjects and taskTrackerTasks. Reason for "blocked" lives in a
+// separate nullable column, not folded into the enum — same reason
+// applicationStatus keeps reviewerNotes separate.
+export const taskTrackerStatus = pgEnum("task_tracker_status", [
+  "draft",
+  "ready",
+  "in_progress",
+  "blocked",
+  "done",
+  "cancelled",
+]);
+
+/**
+ * Names for the people who use the admin panel, so the tracker can offer
+ * "Ada Lovelace" instead of asking someone to type an email exactly. Filled
+ * in from the OAuth profile each time someone logs in — it holds no more
+ * than the login already puts in the session cookie, and assignments are
+ * still stored as the email (the stable identifier), never as a name.
+ */
+export const adminPeople = pgTable("admin_people", {
+  email: text("email").primaryKey(),
+  name: text("name").notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const taskTrackerProjects = pgTable("task_tracker_projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  description: text("description"),
+  ownerEmail: text("owner_email"),
+  status: taskTrackerStatus("status").notNull().default("draft"),
+  plannedStart: date("planned_start"),
+  plannedEnd: date("planned_end"),
+  actualStart: date("actual_start"),
+  actualEnd: date("actual_end"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: text("created_by").notNull(),
+});
+
+export const taskTrackerTasks = pgTable("task_tracker_tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => taskTrackerProjects.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  // Freeform list of URLs, added as needed — no fixed shape to justify a
+  // separate table yet.
+  resourceLinks: jsonb("resource_links").$type<string[]>().default([]),
+  assigneeEmail: text("assignee_email"),
+  status: taskTrackerStatus("status").notNull().default("draft"),
+  blockedReason: text("blocked_reason"),
+  plannedStart: date("planned_start"),
+  plannedEnd: date("planned_end"),
+  actualStart: date("actual_start"),
+  actualEnd: date("actual_end"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: text("created_by").notNull(),
+});
+
+// A task can depend on several others; "still blocked by a dependency" is
+// computed at read time from this table (join to taskTrackerTasks, filter status
+// not in 'done'/'cancelled') rather than stored, so it can't go stale.
+export const taskTrackerTaskDependencies = pgTable(
+  "task_tracker_task_dependencies",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => taskTrackerTasks.id),
+    dependsOnTaskId: uuid("depends_on_task_id")
+      .notNull()
+      .references(() => taskTrackerTasks.id),
+  },
+  (table) => [
+    primaryKey({ columns: [table.taskId, table.dependsOnTaskId] }),
+    index("task_tracker_task_dependencies_depends_on_idx").on(table.dependsOnTaskId),
+  ],
+);
+
+// Separate from adminAuditLog: that table's subjectEmailHash exists
+// specifically for the applicant-erasure/privacy workflow, which doesn't
+// apply to internal project tracking.
+export const taskTrackerAuditLog = pgTable("task_tracker_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  actorEmail: text("actor_email").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: uuid("entity_id").notNull(),
+  detail: jsonb("detail"),
+});
