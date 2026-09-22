@@ -35,7 +35,7 @@ export default function SignupToggle({
         <label className="flex items-start gap-3 border border-brand-red bg-brand-red/10 px-3 py-3 text-brand-black/80">
           <input
             type="checkbox"
-            className="mt-1.5"
+            className="mt-1.5 h-5 w-5 flex-shrink-0"
             checked={acknowledged}
             onChange={(event) => setAcknowledged(event.target.checked)}
             disabled={submitting}

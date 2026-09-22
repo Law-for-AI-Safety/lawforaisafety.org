@@ -46,9 +46,9 @@ export default async function ProtectedAdminLayout({
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="flex items-center justify-between border-b border-brand-black/10 px-4 py-4">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-brand-black/10 px-4 py-4">
         <span className="text-brand-black/70">Signed in as {session.email}</span>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           {isTechAdminEmail(session.email) && (
             <>
               <Link href="/admin/settings" className="underline">
@@ -73,8 +73,8 @@ export default async function ProtectedAdminLayout({
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-96 flex-shrink-0 overflow-y-auto border-r border-brand-black/10">
+      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+        <aside className="max-h-64 flex-shrink-0 overflow-y-auto border-b border-brand-black/10 md:max-h-none md:w-96 md:border-b-0 md:border-r">
           <h1 className="px-4 pt-6 text-2xl font-light text-brand-black">
             Applications
           </h1>
