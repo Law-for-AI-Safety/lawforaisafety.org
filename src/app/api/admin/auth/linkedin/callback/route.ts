@@ -11,6 +11,7 @@ import {
   isAdminSubPinningConfigured,
 } from "@/lib/session";
 import { recordAdminAction } from "@/lib/audit-log";
+import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
 
 export async function GET(request: Request) {
@@ -73,6 +74,8 @@ export async function GET(request: Request) {
   }
 
   await createAdminSessionCookie({ email: userInfo.email, name: userInfo.name });
+  // Kept so the task tracker can offer people by name; see adminPeople.
+  await rememberPerson(userInfo.email, userInfo.name);
   // The sub is kept so a technical admin can read every admin's LinkedIn id
   // off the settings page when filling in ADMIN_LINKEDIN_SUBS. It's an opaque
   // account id, not a credential.

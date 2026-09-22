@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getAdminSession,
   isTechAdminEmail,
-  isLegalTeamEmail,
+  isTaskTrackerTeamEmail,
   type AdminSessionPayload,
 } from "@/lib/session";
 
@@ -61,15 +61,15 @@ export async function requireTechAdmin(
   return session;
 }
 
-/** As requireAdmin, but for the legal team's project tracker. */
-export async function requireLegalTeam(
+/** As requireAdmin, but for the task tracker team. */
+export async function requireTaskTracker(
   request: Request,
 ): Promise<AdminSessionPayload | NextResponse> {
   const session = await requireAdmin(request);
   if (session instanceof NextResponse) return session;
-  if (!isLegalTeamEmail(session.email)) {
+  if (!isTaskTrackerTeamEmail(session.email)) {
     return NextResponse.json(
-      { error: "This action is restricted to the legal team" },
+      { error: "This action is restricted to the task tracker team" },
       { status: 403 },
     );
   }
