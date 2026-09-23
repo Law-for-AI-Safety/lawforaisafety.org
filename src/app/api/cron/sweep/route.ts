@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sweepOldDrafts } from "@/lib/applicant-flow";
+import { sweepOldRedLinesDrafts } from "@/lib/red-lines-flow";
 import { sweepUnconfirmedSignups } from "@/lib/newsletter-signup";
 import { sweepRateLimitHits } from "@/lib/rate-limit";
 
@@ -33,13 +34,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [drafts, newsletterSignups, rateLimitHits] = await Promise.all([
+  const [drafts, redLinesDrafts, newsletterSignups, rateLimitHits] = await Promise.all([
     sweepOldDrafts(),
+    sweepOldRedLinesDrafts(),
     sweepUnconfirmedSignups(),
     sweepRateLimitHits(),
   ]);
 
-  const result = { drafts, newsletterSignups, rateLimitHits };
+  const result = { drafts, redLinesDrafts, newsletterSignups, rateLimitHits };
   console.log(`[cron] Swept expired data: ${JSON.stringify(result)}`);
   return NextResponse.json(result);
 }

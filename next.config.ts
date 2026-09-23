@@ -16,7 +16,8 @@ const contentSecurityPolicy = [
   "font-src 'self'",
   "connect-src 'self'",
   "frame-src https://challenges.cloudflare.com",
-  // pdf.js renders CVs in a worker on the admin review page.
+  // pdf.js renders CVs (admin) and the Red Lines Dialogues letter (public)
+  // as canvases via a worker, rather than in an iframe or native PDF plugin.
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
