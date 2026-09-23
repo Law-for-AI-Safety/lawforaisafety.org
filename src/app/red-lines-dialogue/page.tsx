@@ -140,9 +140,6 @@ export default async function RedLinesDialoguePage() {
       {/* Hero */}
       <section className="bg-brand-white flex flex-col justify-center px-8 md:px-16 pt-44 pb-20 md:pt-52 md:pb-24">
         <div className="max-w-4xl mx-auto w-full flex flex-col gap-8 max-w-3xl">
-          <p className="text-sm font-medium tracking-wide text-brand-navy/70 uppercase">
-            Track-two expert initiative
-          </p>
           <h1
             className="text-4xl md:text-6xl font-light text-brand-black leading-[1.1] tracking-tight"
             style={{ textWrap: "balance" }}
@@ -493,9 +490,7 @@ export default async function RedLinesDialoguePage() {
           {applicationsEnabled ? (
             <>
               <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                Applying takes about five minutes. You&apos;ll verify your
-                identity with LinkedIn as the last step, so nothing is
-                submitted until then.
+                Applying takes about five minutes. Everything is kept in your browser until you submit.
               </p>
               <Suspense fallback={null}>
                 <RedLinesErrorBanner />
@@ -531,9 +526,9 @@ export default async function RedLinesDialoguePage() {
             Get in touch
           </h2>
           <p className="text-lg md:text-xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-            Interested in contributing, reviewing the report, joining the
-            expert dialogue, discussing institutional cooperation, or
-            supporting the project?
+            Have a question, or want to discuss institutional cooperation or
+            supporting the project? To contribute to the report or join the
+            expert dialogue, use the application form above instead.
           </p>
 
           <div className="flex flex-col gap-4 pt-4">
