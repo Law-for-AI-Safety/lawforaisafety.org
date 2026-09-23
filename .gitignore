@@ -60,3 +60,8 @@ lighthouse-report.html
 
 # Local-only working docs — outreach notes, personal data, anything that never belongs in a public repo
 /local-docs/
+
+# Demo video harness — see demo/README.md
+/demo/.tts-cache/
+/demo/.scratch/
+/demo/output/

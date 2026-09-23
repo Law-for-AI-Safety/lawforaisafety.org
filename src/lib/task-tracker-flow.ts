@@ -6,6 +6,11 @@ import {
   taskTrackerTaskDependencies,
 } from "@/drizzle/schema";
 import { recordTaskTrackerAction } from "@/lib/task-tracker-audit-log";
+import {
+  planDependentReschedule,
+  reschedulableDownstreamIds,
+  type ReschedulePlan,
+} from "@/lib/task-tracker-reschedule";
 
 export class NotFoundError extends Error {}
 export class ValidationError extends Error {}
@@ -249,7 +254,7 @@ export async function updateTask(
     dependsOnTaskIds: string[];
   }>,
   actorEmail: string,
-): Promise<TaskRow> {
+): Promise<{ task: TaskRow; reschedule: ReschedulePlan | null }> {
   const [existing] = await db.select().from(taskTrackerTasks).where(eq(taskTrackerTasks.id, id));
   if (!existing) throw new NotFoundError();
 
@@ -305,7 +310,87 @@ export async function updateTask(
     entityId: row.id,
     detail: { ...patch, ...automaticDates(existing, patch) },
   });
-  return row;
+
+  // A moved end date may leave dependents starting too early (or with a
+  // gap). Only proposed here — the form asks before anything else moves.
+  const reschedule =
+    patch.plannedEnd !== undefined && patch.plannedEnd !== existing.plannedEnd
+      ? await loadProjectSchedule(row.projectId).then(({ tasks, edges }) =>
+          planDependentReschedule(tasks, edges, row.id, existing.plannedEnd),
+        )
+      : null;
+
+  return { task: row, reschedule };
+}
+
+async function loadProjectSchedule(projectId: string) {
+  const tasks = await db
+    .select()
+    .from(taskTrackerTasks)
+    .where(eq(taskTrackerTasks.projectId, projectId));
+  const edges = await getDependencyEdges(tasks.map((task) => task.id));
+  return { tasks, edges };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Applies the dates someone confirmed from a reschedule proposal. Only
+ * tasks downstream of `taskId` that haven't started are accepted — this is
+ * for following a dependency's change, not a general bulk edit.
+ */
+export async function rescheduleDependents(
+  taskId: string,
+  changes: { id: string; plannedStart: string; plannedEnd: string | null }[],
+  actorEmail: string,
+): Promise<number> {
+  const [root] = await db.select().from(taskTrackerTasks).where(eq(taskTrackerTasks.id, taskId));
+  if (!root) throw new NotFoundError();
+
+  const { tasks, edges } = await loadProjectSchedule(root.projectId);
+  const allowed = reschedulableDownstreamIds(tasks, edges, taskId);
+  for (const change of changes) {
+    if (!allowed.has(change.id)) {
+      throw new ValidationError(
+        "One of those tasks has changed since the suggestion was made. Reload and try again.",
+      );
+    }
+    if (
+      !ISO_DATE.test(change.plannedStart) ||
+      (change.plannedEnd !== null && !ISO_DATE.test(change.plannedEnd)) ||
+      (change.plannedEnd !== null && change.plannedEnd < change.plannedStart)
+    ) {
+      throw new ValidationError("Those dates don't make sense — reload and try again.");
+    }
+  }
+
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  await db.transaction(async (tx) => {
+    for (const change of changes) {
+      await tx
+        .update(taskTrackerTasks)
+        .set({ plannedStart: change.plannedStart, plannedEnd: change.plannedEnd })
+        .where(eq(taskTrackerTasks.id, change.id));
+    }
+  });
+
+  for (const change of changes) {
+    const before = byId.get(change.id)!;
+    await recordTaskTrackerAction({
+      actorEmail,
+      action: "task_reschedule",
+      entityType: "task",
+      entityId: change.id,
+      detail: {
+        plannedStart: change.plannedStart,
+        plannedEnd: change.plannedEnd,
+        previousPlannedStart: before.plannedStart,
+        previousPlannedEnd: before.plannedEnd,
+        followingTaskId: taskId,
+      },
+    });
+  }
+  return changes.length;
 }
 
 /**

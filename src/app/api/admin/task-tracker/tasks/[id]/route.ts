@@ -43,8 +43,8 @@ export async function PATCH(
   }
 
   try {
-    const task = await updateTask(id, patch, session.email);
-    return NextResponse.json(task);
+    const { task, reschedule } = await updateTask(id, patch, session.email);
+    return NextResponse.json({ ...task, reschedule });
   } catch (err) {
     if (err instanceof NotFoundError) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
