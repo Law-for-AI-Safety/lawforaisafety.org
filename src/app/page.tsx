@@ -5,6 +5,7 @@ import Footer from "./Footer";
 import WipeButton from "./WipeButton";
 import WavyUnderline from "./WavyUnderline";
 import RingBullet from "./RingBullet";
+import TimelineRail from "./TimelineRail";
 import ContactErrorBanner from "./ContactErrorBanner";
 import ApplyToast from "./ApplyToast";
 import NewsletterForm from "./apply/NewsletterForm";
@@ -267,194 +268,194 @@ export default async function Home() {
             </h2>
           </div>
 
-          {/* Timeline: gap-14=56px; line h=calc(100%+44px) bridges gap to next dot */}
+          {/* Timeline: gap-14=56px. Dot centres sit 18px into each event. The rail
+              reaches one 64px tip past the first and last dots, so it is sized to
+              events 1-4 plus one gap, the last dot's 18px and both tips. */}
           <div className="flex flex-col gap-14">
-            {/* Event 1 */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5">
-                <div
-                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
-                  aria-hidden
-                />
-                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
-                  <RingBullet />
+            <div className="relative flex flex-col gap-14">
+            <TimelineRail className="left-1 -top-[46px] h-[calc(100%+184px)]" />
+              {/* Event 1 */}
+              <div className="flex gap-8">
+                <div className="relative flex-shrink-0 w-5">
+                  <div className="relative w-5 h-9 flex items-center justify-center">
+                    <span className="flex rounded-full bg-brand-white">
+                      <RingBullet />
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 min-w-0">
+                  <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                    Team meets at the European Parliament
+                  </h3>
+                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                    Our founding team first met at the{" "}
+                    <em>
+                      Beyond the AI Act: Global Security &amp; the Control Problem
+                    </em>{" "}
+                    conference at the European Parliament, hosted by PauseAI and
+                    MEP Ondřej Kolář. Several members of our team were involved in
+                    organising the event.
+                  </p>
                 </div>
               </div>
-              <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  Team meets at the European Parliament
-                </h3>
-                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                  Our founding team first met at the{" "}
-                  <em>
-                    Beyond the AI Act: Global Security &amp; the Control Problem
-                  </em>{" "}
-                  conference at the European Parliament, hosted by PauseAI and
-                  MEP Ondřej Kolář. Several members of our team were involved in
-                  organising the event.
-                </p>
-              </div>
-            </div>
 
-            {/* Event 2 */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5">
-                <div
-                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
-                  aria-hidden
-                />
-                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
-                  <RingBullet />
+              {/* Event 2 */}
+              <div className="flex gap-8">
+                <div className="relative flex-shrink-0 w-5">
+                  <div className="relative w-5 h-9 flex items-center justify-center">
+                    <span className="flex rounded-full bg-brand-white">
+                      <RingBullet />
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 min-w-0">
+                  <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                    FOI requests drafted &amp; legal groundwork laid
+                  </h3>
+                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                    We drafted an initial Freedom of Information request related
+                    to the advanced risks of AI, aimed at Member States, currently
+                    being finalised following review by the Future of Life
+                    Institute team. We also conducted preliminary research into
+                    legal and administrative levers and barriers to action, and
+                    secured pro bono support from global law firm Dentons to
+                    assist with our registration in Brussels.
+                  </p>
                 </div>
               </div>
-              <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  FOI requests drafted &amp; legal groundwork laid
-                </h3>
-                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                  We drafted an initial Freedom of Information request related
-                  to the advanced risks of AI, aimed at Member States, currently
-                  being finalised following review by the Future of Life
-                  Institute team. We also conducted preliminary research into
-                  legal and administrative levers and barriers to action, and
-                  secured pro bono support from global law firm Dentons to
-                  assist with our registration in Brussels.
-                </p>
-              </div>
-            </div>
 
-            {/* Event 3 */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5">
-                <div
-                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
-                  aria-hidden
-                />
-                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
-                  <RingBullet />
+              {/* Event 3 */}
+              <div className="flex gap-8">
+                <div className="relative flex-shrink-0 w-5">
+                  <div className="relative w-5 h-9 flex items-center justify-center">
+                    <span className="flex rounded-full bg-brand-white">
+                      <RingBullet />
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col gap-3 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  Building the network
-                </h3>
-                <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                  We established a relationship with{" "}
-                  <a
-                    href="https://pauseai.info"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-brand-black"
-                  >
-                    PauseAI
-                  </a>{" "}
-                  to channel volunteers with legal backgrounds to our work.
-                  Through attending conferences, we connected with AI law and
-                  policy experts who have expressed willingness to collaborate
-                  with us on our upcoming projects.
-                </p>
-                <div className="pt-4">
-                  <WipeButton
-                    href={linkedin}
-                    className="inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden"
-                    hoverBg="rgba(255,255,255,0.15)"
-                  >
-                    <LinkedInLogo /> Connect on LinkedIn
-                  </WipeButton>
-                </div>
-              </div>
-            </div>
-
-            {/* Event 4 */}
-            <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5">
-                <div
-                  className="absolute top-0 left-[8px] w-1 bg-brand-red/20 h-[calc(100%+80px)]"
-                  aria-hidden
-                />
-                <div className="relative w-5 h-9 bg-brand-white flex items-center justify-center">
-                  <RingBullet />
-                </div>
-              </div>
-              <div className="flex flex-col gap-6 min-w-0">
-                <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-                  Implementing EU AI Act conference, European Parliament
-                </h3>
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 min-w-0">
+                  <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                    Building the network
+                  </h3>
                   <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    Raphaël Weuts, Karolina Gruzel, and Cristian Teodorescu
-                    participated in a conference on implementing the EU AI Act,
-                    held at the European Parliament in Brussels and hosted by
-                    Maria Grapini, Vice-Chair of the Committee on the Internal
-                    Market and Consumer Protection.
-                  </p>
-                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    Our team highlighted that safety and innovation should not
-                    be treated as opposing goals. Understanding AI risks and
-                    shortcomings can not only increase safety, but also improve
-                    the effectiveness of AI use. However, the case for AI safety
-                    extends beyond improving how individual organisations use
-                    these technologies. Large-scale AI risks can also threaten
-                    the stability of the economic, legal, and social systems on
-                    which companies and institutions depend.
-                  </p>
-                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    It is therefore in the interest of stakeholders across
-                    sectors to ensure adaptation of AI safety standards and
-                    encourage leaders to strengthen international coordination
-                    on AI safety, including through the development of a global
-                    treaty.{" "}
-                  </p>
-                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-                    The conference also provided a valuable opportunity to learn
-                    from fellow participants, including Victor Negrescu,
-                    Vice-President of the European Parliament; Brando Benifei,
-                    former co-rapporteur on the EU AI Act; Martin Ulbrich, AI
-                    Policy Officer at the European Commission; Carmen
-                    Socolovici, Head of Legal at the Romanian telecommunications
-                    regulator ANCOM; and Bruno Delepierre, Chief Regenerative
-                    Officer at Happonomy.{" "}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[
-                    {
-                      src: "/images/conference-ai-act-1.webp",
-                      alt: "Karolina Gruzel on the panel at AI Act in Romania conference",
-                      position: "object-center",
-                    },
-                    {
-                      src: "/images/conference-ai-act-2.webp",
-                      alt: "Raphaël Weuts on the panel at AI Act in Romania conference",
-                      position: "object-top",
-                    },
-                    {
-                      src: "/images/conference-ai-act-3.webp",
-                      alt: "Cristian Teodorescu on the panel at AI Act in Romania conference",
-                      position: "object-center",
-                    },
-                  ].map((img) => (
-                    <div
-                      key={img.src}
-                      className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
+                    We established a relationship with{" "}
+                    <a
+                      href="https://pauseai.info"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-brand-black"
                     >
-                      <Image
-                        src={img.src}
-                        alt={img.alt}
-                        fill
-                        className={`object-cover ${img.position}`}
-                        sizes="(max-width: 768px) 100vw, 298px"
-                      />
-                    </div>
-                  ))}
+                      PauseAI
+                    </a>{" "}
+                    to channel volunteers with legal backgrounds to our work.
+                    Through attending conferences, we connected with AI law and
+                    policy experts who have expressed willingness to collaborate
+                    with us on our upcoming projects.
+                  </p>
+                  <div className="pt-4">
+                    <WipeButton
+                      href={linkedin}
+                      className="inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden"
+                      hoverBg="rgba(255,255,255,0.15)"
+                    >
+                      <LinkedInLogo /> Connect on LinkedIn
+                    </WipeButton>
+                  </div>
                 </div>
               </div>
+
+              {/* Event 4 */}
+              <div className="flex gap-8">
+                <div className="relative flex-shrink-0 w-5">
+                  <div className="relative w-5 h-9 flex items-center justify-center">
+                    <span className="flex rounded-full bg-brand-white">
+                      <RingBullet />
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-6 min-w-0">
+                  <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                    Implementing EU AI Act conference, European Parliament
+                  </h3>
+                  <div className="flex flex-col gap-4">
+                    <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                      Raphaël Weuts, Karolina Gruzel, and Cristian Teodorescu
+                      participated in a conference on implementing the EU AI Act,
+                      held at the European Parliament in Brussels and hosted by
+                      Maria Grapini, Vice-Chair of the Committee on the Internal
+                      Market and Consumer Protection.
+                    </p>
+                    <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                      Our team highlighted that safety and innovation should not
+                      be treated as opposing goals. Understanding AI risks and
+                      shortcomings can not only increase safety, but also improve
+                      the effectiveness of AI use. However, the case for AI safety
+                      extends beyond improving how individual organisations use
+                      these technologies. Large-scale AI risks can also threaten
+                      the stability of the economic, legal, and social systems on
+                      which companies and institutions depend.
+                    </p>
+                    <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                      It is therefore in the interest of stakeholders across
+                      sectors to ensure adaptation of AI safety standards and
+                      encourage leaders to strengthen international coordination
+                      on AI safety, including through the development of a global
+                      treaty.{" "}
+                    </p>
+                    <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                      The conference also provided a valuable opportunity to learn
+                      from fellow participants, including Victor Negrescu,
+                      Vice-President of the European Parliament; Brando Benifei,
+                      former co-rapporteur on the EU AI Act; Martin Ulbrich, AI
+                      Policy Officer at the European Commission; Carmen
+                      Socolovici, Head of Legal at the Romanian telecommunications
+                      regulator ANCOM; and Bruno Delepierre, Chief Regenerative
+                      Officer at Happonomy.{" "}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      {
+                        src: "/images/conference-ai-act-1.webp",
+                        alt: "Karolina Gruzel on the panel at AI Act in Romania conference",
+                        position: "object-center",
+                      },
+                      {
+                        src: "/images/conference-ai-act-2.webp",
+                        alt: "Raphaël Weuts on the panel at AI Act in Romania conference",
+                        position: "object-top",
+                      },
+                      {
+                        src: "/images/conference-ai-act-3.webp",
+                        alt: "Cristian Teodorescu on the panel at AI Act in Romania conference",
+                        position: "object-center",
+                      },
+                    ].map((img) => (
+                      <div
+                        key={img.src}
+                        className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
+                      >
+                        <Image
+                          src={img.src}
+                          alt={img.alt}
+                          fill
+                          className={`object-cover ${img.position}`}
+                          sizes="(max-width: 768px) 100vw, 298px"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             {/* Event 5: no line below */}
             <div className="flex gap-8">
-              <div className="relative flex-shrink-0 w-5 h-9 bg-brand-white flex items-center justify-center">
-                <RingBullet />
+              <div className="relative flex-shrink-0 w-5 h-9 flex items-center justify-center">
+                <span className="flex rounded-full bg-brand-white">
+                  <RingBullet />
+                </span>
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">

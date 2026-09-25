@@ -8,8 +8,9 @@ import RedLinesApplyForm from "./ApplyForm";
 import RedLinesApplyToast from "./ApplyToast";
 import RedLinesErrorBanner from "./ErrorBanner";
 import LetterViewer from "./LetterViewer";
-import LocalTime from "./LocalTime";
+import Timeline from "./Timeline";
 import RingBullet from "../RingBullet";
+import WavyUnderline from "../WavyUnderline";
 
 function Rule() {
   return (
@@ -148,8 +149,9 @@ export default async function RedLinesDialoguePage() {
           </h1>
           <Rule />
           <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-            A joint US, Chinese and EU expert dialogue on catastrophic risk
-            from advanced AI, to be presented at the European Parliament.
+            A joint US, Chinese and EU expert dialogue on{" "}
+            <WavyUnderline>catastrophic risk</WavyUnderline> from advanced AI,
+            to be presented at the European Parliament.
           </p>
         </div>
       </section>
@@ -174,25 +176,29 @@ export default async function RedLinesDialoguePage() {
         </div>
       </section>
 
+      {/* The central question */}
+      <section className="bg-brand-navy px-8 md:px-16 py-28 md:py-40">
+        <div className="max-w-4xl mx-auto flex flex-col gap-8">
+          <Rule />
+          <h2
+            className="text-4xl md:text-5xl font-light text-brand-white leading-tight max-w-2xl"
+            style={{ textWrap: "balance" }}
+          >
+            How can the US, China, and the EU develop shared approaches to
+            preventing catastrophic outcomes from advanced AI, including the
+            risk of losing control over highly capable AI systems?
+          </h2>
+        </div>
+      </section>
+
       {/* Scope */}
       <section className="bg-brand-white px-8 md:px-16 py-20 md:py-28">
         <div className="max-w-4xl mx-auto flex flex-col gap-12">
-          <div className="flex flex-col gap-6">
-            <Rule />
-            <h2
-              className="text-3xl md:text-4xl font-light text-brand-black leading-tight max-w-2xl"
-              style={{ textWrap: "balance" }}
-            >
-              How can the US, China, and the EU develop shared approaches to
-              preventing catastrophic outcomes from advanced AI, including
-              the risk of losing control over highly capable AI systems?
-            </h2>
-            <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-              The dialogue is deliberately narrow in scope. Rather than
-              attempting to address every risk associated with advanced AI,
-              the project focuses on three connected areas.
-            </p>
-          </div>
+          <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+            The dialogue is deliberately narrow in scope. Rather than
+            attempting to address every risk associated with advanced AI, the
+            project focuses on three connected areas.
+          </p>
 
           <div className="flex flex-col gap-10">
             {focusAreas.map((area, i) => (
@@ -200,7 +206,7 @@ export default async function RedLinesDialoguePage() {
                 key={area.title}
                 className="flex gap-6 pt-8 border-t border-brand-black/10 first:pt-0 first:border-t-0"
               >
-                <span className="text-2xl font-light text-brand-red flex-shrink-0 w-8">
+                <span className="text-6xl md:text-8xl font-light leading-[0.8] [font-variant-numeric:lining-nums] text-brand-red/30 flex-shrink-0 w-12 md:w-24 pt-1">
                   {i + 1}
                 </span>
                 <div className="flex flex-col gap-2">
@@ -392,29 +398,7 @@ export default async function RedLinesDialoguePage() {
             </h2>
           </div>
 
-          <div className="flex flex-col">
-            {timeline.map((item) => (
-              <div
-                key={item.date}
-                className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-2 md:gap-8 py-6 border-t border-brand-black/10 last:border-b"
-              >
-                <div className="flex flex-col">
-                  <span className="text-lg font-medium text-brand-black">
-                    {item.date}
-                  </span>
-                  {item.time && (
-                    <span className="text-base font-light text-brand-navy/70">
-                      {item.time}
-                      {item.utc && <LocalTime utc={item.utc} />}
-                    </span>
-                  )}
-                </div>
-                <p className="text-lg font-light text-brand-navy/85 leading-relaxed">
-                  {item.detail}
-                </p>
-              </div>
-            ))}
-          </div>
+          <Timeline items={timeline} />
         </div>
       </section>
 
