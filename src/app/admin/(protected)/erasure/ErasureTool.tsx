@@ -21,6 +21,7 @@ export default function ErasureTool() {
     applications: true,
     newsletterSignups: true,
     processed: true,
+    redLinesApplications: true,
   });
   const [result, setResult] = useState<ErasureResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,7 +51,12 @@ export default function ErasureTool() {
   async function handleLookup() {
     setResult(null);
     setFindings(null);
-    setScopes({ applications: true, newsletterSignups: true, processed: true });
+    setScopes({
+      applications: true,
+      newsletterSignups: true,
+      processed: true,
+      redLinesApplications: true,
+    });
     try {
       setFindings(await post("lookup"));
       setLookedUp(email.trim().toLowerCase());
@@ -72,14 +78,16 @@ export default function ErasureTool() {
   const total = findings
     ? findings.applications.length +
       findings.newsletterSignups.length +
-      (findings.processed ? 1 : 0)
+      (findings.processed ? 1 : 0) +
+      findings.redLinesApplications.length
     : 0;
   // Only offer to erase what is actually there, and only count a ticked box
   // as selected if it has something behind it.
   const selectedCount = findings
     ? (scopes.applications ? findings.applications.length : 0) +
       (scopes.newsletterSignups ? findings.newsletterSignups.length : 0) +
-      (scopes.processed && findings.processed ? 1 : 0)
+      (scopes.processed && findings.processed ? 1 : 0) +
+      (scopes.redLinesApplications ? findings.redLinesApplications.length : 0)
     : 0;
 
   return (
@@ -182,6 +190,26 @@ export default function ErasureTool() {
                 </label>
               )}
 
+              {findings.redLinesApplications.length > 0 && (
+                <label className="flex items-start gap-3 text-brand-black/80">
+                  <input
+                    type="checkbox"
+                    checked={scopes.redLinesApplications}
+                    onChange={() => toggle("redLinesApplications")}
+                    className="mt-1.5 h-5 w-5 flex-shrink-0"
+                  />
+                  <span>
+                    {findings.redLinesApplications.map((application) => (
+                      <span key={application.id} className="block">
+                        Red Lines Dialogues application ({application.status}
+                        ), submitted{" "}
+                        {new Date(application.createdAt).toLocaleDateString()}
+                      </span>
+                    ))}
+                  </span>
+                </label>
+              )}
+
               {findings.processed && (
                 <label className="flex items-start gap-3 text-brand-black/80">
                   <input
@@ -241,8 +269,9 @@ export default function ErasureTool() {
           <h2 className="text-xl font-light text-brand-black">Erased</h2>
           <p className="text-brand-black/80">
             Deleted {result.applications} application record(s), {result.cvs}{" "}
-            CV file(s), {result.newsletterSignups} newsletter signup(s), and{" "}
-            {result.processed} decision record(s).
+            CV file(s), {result.newsletterSignups} newsletter signup(s),{" "}
+            {result.processed} decision record(s), and{" "}
+            {result.redLinesApplications} Red Lines Dialogues application(s).
           </p>
           <p className="text-sm text-brand-black/50">
             Remember to confirm back to the requester, and to remove them in

@@ -1,15 +1,41 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 const links = [
   { href: "#mission", label: "Mission" },
-  { href: "#work", label: "Our Work" },
+  {
+    href: "#work",
+    label: "Our Work",
+    children: [{ href: "/red-lines-dialogue", label: "Red Lines Dialogues" }],
+  },
   { href: "#our-story", label: "Our Story" },
   { href: "#team", label: "Team" },
   { href: "#contact", label: "Contact" },
 ];
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 12 8"
+      width="10"
+      height="7"
+      aria-hidden
+      fill="none"
+      className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+    >
+      <path
+        d="M1 1.5 L6 6.5 L11 1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 function MenuIcon({ open }: { open: boolean }) {
   const bar = (closedTransform: string, openTransform: string, extra?: React.CSSProperties) => ({
@@ -43,6 +69,12 @@ function MenuIcon({ open }: { open: boolean }) {
 }
 
 export default function Nav() {
+  const pathname = usePathname();
+  const onHomepage = pathname === "/";
+  // Section anchors (#mission etc) only exist on the homepage. Elsewhere,
+  // route through it first so the link actually lands somewhere.
+  const homeHref = (href: string) => (onHomepage ? href : `/${href}`);
+
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("");
   const [open, setOpen] = useState(false);
@@ -54,6 +86,8 @@ export default function Nav() {
   }, []);
 
   useEffect(() => {
+    if (!onHomepage) return;
+
     const ids = links.map((l) => l.href.slice(1));
     const observers: IntersectionObserver[] = [];
 
@@ -69,7 +103,7 @@ export default function Nav() {
     });
 
     return () => observers.forEach((o) => o.disconnect());
-  }, []);
+  }, [onHomepage]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -97,29 +131,52 @@ export default function Nav() {
 
           {/* Desktop links */}
           <div className="hidden md:flex gap-8 p-8 text-xl font-light text-brand-navy">
-            {links.map(({ href, label }) => {
+            {links.map(({ href, label, children }) => {
               const id = href.slice(1);
               const isActive = active === id;
               return (
-                <a key={href} href={href} className="relative group py-1">
-                  <span className={`transition-colors duration-200 ${isActive ? "text-brand-red" : "hover:text-brand-red"}`}>
-                    {label}
-                  </span>
-                  <svg
-                    className={`absolute -bottom-1 left-0 w-full transition-[clip-path] duration-300 ${
-                      isActive
-                        ? "[clip-path:inset(0_0%_0_0)]"
-                        : "[clip-path:inset(0_100%_0_0)] group-hover:[clip-path:inset(0_0%_0_0)]"
-                    }`}
-                    viewBox="0 0 52 12"
-                    height="8"
-                    preserveAspectRatio="none"
-                    aria-hidden
-                    fill="none"
-                  >
-                    <path d="M0 5 C14 2 38 8 52 5 C38 10 14 7 0 5Z" fill="#9b1c1f" />
-                  </svg>
-                </a>
+                <div key={href} className="relative group">
+                  <a href={homeHref(href)} className="relative flex items-center gap-1.5 group/link py-1">
+                    <span className={`transition-colors duration-200 ${isActive ? "text-brand-red" : "group-hover/link:text-brand-red"}`}>
+                      {label}
+                    </span>
+                    {children && (
+                      <span className={isActive ? "text-brand-red" : "group-hover/link:text-brand-red"}>
+                        <Chevron open={false} />
+                      </span>
+                    )}
+                    <svg
+                      className={`absolute -bottom-1 left-0 w-full transition-[clip-path] duration-300 ${
+                        isActive
+                          ? "[clip-path:inset(0_0%_0_0)]"
+                          : "[clip-path:inset(0_100%_0_0)] group-hover/link:[clip-path:inset(0_0%_0_0)]"
+                      }`}
+                      viewBox="0 0 52 12"
+                      height="8"
+                      preserveAspectRatio="none"
+                      aria-hidden
+                      fill="none"
+                    >
+                      <path d="M0 5 C14 2 38 8 52 5 C38 10 14 7 0 5Z" fill="#9b1c1f" />
+                    </svg>
+                  </a>
+
+                  {children && (
+                    <div className="absolute left-0 top-full pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
+                      <div className="min-w-[220px] bg-brand-white border border-brand-black/10 rounded-sm shadow-md py-2">
+                        {children.map((child) => (
+                          <a
+                            key={child.href}
+                            href={child.href}
+                            className="block px-5 py-2.5 text-lg font-light text-brand-navy hover:text-brand-red hover:bg-brand-navy/[0.04] transition-colors duration-200"
+                          >
+                            {child.label}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -142,20 +199,36 @@ export default function Nav() {
         }`}
       >
         <nav className="flex flex-col gap-8">
-          {links.map(({ href, label }) => {
+          {links.map(({ href, label, children }) => {
             const id = href.slice(1);
             const isActive = active === id;
             return (
-              <a
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`text-4xl font-light transition-colors duration-200 ${
-                  isActive ? "text-brand-red" : "text-brand-navy hover:text-brand-red"
-                }`}
-              >
-                {label}
-              </a>
+              <div key={href} className="flex flex-col gap-3">
+                <a
+                  href={homeHref(href)}
+                  onClick={() => setOpen(false)}
+                  className={`text-4xl font-light transition-colors duration-200 ${
+                    isActive ? "text-brand-red" : "text-brand-navy hover:text-brand-red"
+                  }`}
+                >
+                  {label}
+                </a>
+
+                {children && (
+                  <div className="flex flex-col gap-3 pl-4">
+                    {children.map((child) => (
+                      <a
+                        key={child.href}
+                        href={child.href}
+                        onClick={() => setOpen(false)}
+                        className="text-2xl font-light text-brand-navy/80 hover:text-brand-red transition-colors duration-200"
+                      >
+                        {child.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

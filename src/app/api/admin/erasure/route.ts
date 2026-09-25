@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       applications: body.scopes?.applications === true,
       newsletterSignups: body.scopes?.newsletterSignups === true,
       processed: body.scopes?.processed === true,
+      redLinesApplications: body.scopes?.redLinesApplications === true,
     };
 
     if (!Object.values(scopes).some(Boolean)) {
@@ -59,7 +60,8 @@ export async function POST(request: Request) {
       `[erasure] ${session.email} erased data for an applicant: ` +
         `${result.applications} application(s), ${result.cvs} CV(s), ` +
         `${result.newsletterSignups} newsletter signup(s), ` +
-        `${result.processed} processed record(s)`,
+        `${result.processed} processed record(s), ` +
+        `${result.redLinesApplications} Red Lines Dialogues application(s)`,
     );
     // Counts only, no subject hash: an erasure that left a pointer to the
     // person it erased wouldn't be one.

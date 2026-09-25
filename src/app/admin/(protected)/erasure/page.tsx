@@ -39,9 +39,10 @@ export default async function AdminErasurePage() {
         </h1>
         <p className="text-brand-black/70">
           Deletes everything held for one email address: any application in
-          progress and its uploaded CV, any newsletter signup, and the decision
-          record kept after review. Article 12(3) gives you one month to
-          respond.
+          progress and its uploaded CV, any newsletter signup, the decision
+          record kept after review, and any Red Lines Dialogues application
+          (at any status — those aren&apos;t purged automatically, see the
+          schema). Article 12(3) gives you one month to respond.
         </p>
       </div>
 

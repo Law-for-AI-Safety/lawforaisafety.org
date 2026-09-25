@@ -1,11 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 export default function Checkbox({
   name,
   label,
 }: {
   name: string;
-  label: string;
+  label: ReactNode;
 }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">

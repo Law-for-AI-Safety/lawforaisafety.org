@@ -49,6 +49,17 @@ export const processedOutcome = pgEnum("processed_outcome", [
   "rejected",
 ]);
 
+export const redLinesArea = pgEnum("red_lines_area", [
+  "legal_governance",
+  "technical",
+]);
+
+export const redLinesEuInterest = pgEnum("red_lines_eu_interest", [
+  "yes",
+  "maybe",
+  "no",
+]);
+
 export const processedApplications = pgTable("processed_applications", {
   id: uuid("id").primaryKey().defaultRandom(),
   emailHash: text("email_hash").notNull().unique(),
@@ -112,6 +123,70 @@ export const applications = pgTable(
   ],
 );
 
+// Red Lines Dialogues expert applications. Unlike `applications`, decided
+// rows are never purged — approved rows are the working group's actual
+// contact list (area of expertise, affiliation, meeting availability), and
+// rejected rows are deliberately kept as "who we didn't invite", per policy.
+// Only an erasure request (see erasure.ts) deletes a row here. That also
+// means there's no processed_applications-style hash table for this flow:
+// "already applied" is answered directly from provider_id, since the record
+// that answers it is never gone.
+export const redLinesApplications = pgTable("red_lines_applications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+
+  // Self-reported (from form, collected before identity is confirmed)
+  areaOfExpertise: redLinesArea("area_of_expertise"),
+  motivation: text("motivation"),
+  availableHours: integer("available_hours"),
+  availableOct12: boolean("available_oct_12").notNull().default(false),
+  availableNov9: boolean("available_nov_9").notNull().default(false),
+  availableDec7: boolean("available_dec_7").notNull().default(false),
+  euParliamentInterest: redLinesEuInterest("eu_parliament_interest"),
+  affiliation: text("affiliation"),
+  publicationExample: text("publication_example"),
+  // Self-reported, optional, and independent of `authProvider` — someone can
+  // verify with LinkedIn OAuth and still not want to share the URL here, or
+  // verify by name/email and paste it in as a supporting credential.
+  linkedinUrl: text("linkedin_url"),
+
+  // "email" means no OAuth: applicant typed a name + email and confirmed it
+  // via an emailed link — the weakest identity signal, flagged as such in
+  // the admin UI. See applications.authProvider for the fuller version of
+  // this note; this table only ever uses "linkedin" or "email".
+  authProvider: authProvider("auth_provider").notNull().default("linkedin"),
+  // Name/email: OAuth-verified on the LinkedIn path (from the provider,
+  // confirmed at the callback), self-reported on the email path (typed by
+  // the applicant, only proven to the extent they could click the
+  // confirmation link sent to that address).
+  name: text("name"),
+  email: text("email"),
+  pictureUrl: text("picture_url"),
+  // Stable identity key: the LinkedIn `sub` on that path, the normalised
+  // email address on the email path (mirrors applications.providerId).
+  providerId: text("provider_id").unique(),
+
+  // Flow control
+  stateToken: text("state_token"),
+  authError: text("auth_error"),
+  status: applicationStatus("status").notNull().default("draft"),
+
+  // Review — kept alongside the row itself rather than purged elsewhere, see
+  // the note above.
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: text("reviewed_by"),
+  reviewerNotes: text("reviewer_notes"),
+
+  // Decisions here aren't followed by an automatic email (see
+  // red-lines-admin-flow.ts) — the working group contacts applicants by
+  // hand, and marks it here so the admin list can show who still needs
+  // reaching out to.
+  contactedBy: text("contacted_by"),
+  contactedAt: timestamp("contacted_at", { withTimezone: true }),
+});
+
 // Runtime feature flags, toggled from the admin panel. A missing row reads as
 // off, so a flag only turns on by an explicit admin action.
 export const featureFlags = pgTable("feature_flags", {
@@ -143,6 +218,7 @@ export const adminAuditAction = pgEnum("admin_audit_action", [
   "reject",
   "erase",
   "signup_toggle",
+  "red_lines_toggle",
 ]);
 
 // Append-only record of who did what in the admin panel. The application row

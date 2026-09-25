@@ -1,0 +1,1 @@
+ALTER TABLE "red_lines_applications" DROP COLUMN "notification_status";
