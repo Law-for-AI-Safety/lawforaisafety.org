@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import Nav from "./Nav";
 import Footer from "./Footer";
 import WipeButton from "./WipeButton";
@@ -105,7 +106,24 @@ const mechanisms = [
   },
   {
     title: "Dialogue",
-    body: "We advance dialogue with the European Union, the Council of Europe, and other key stakeholders through conferences, events, and targeted engagement to explore and build understanding on the effectiveness of, and gaps in, our current legal frameworks in the context of advanced AI",
+    body: (
+      <>
+        We advance dialogue with the European Union, the Council of Europe,
+        and other key stakeholders through conferences, events, and targeted
+        engagement to explore and build understanding on the effectiveness
+        of, and gaps in, our current legal frameworks in the context of
+        advanced AI. We have convened{" "}
+        <Link
+          href="/red-lines-dialogue"
+          className="underline hover:text-brand-black"
+        >
+          the Red Lines Dialogues
+        </Link>
+        , a track-two initiative bringing together US, Chinese and EU
+        experts to operationalise AI behavioural red lines for presentation
+        at the European Parliament.
+      </>
+    ),
   },
 ];
 
