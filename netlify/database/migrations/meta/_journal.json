@@ -64,6 +64,34 @@
       "when": 1790098082862,
       "tag": "0008_massive_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790156660991,
+      "tag": "0009_hesitant_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790159423043,
+      "tag": "0010_lean_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790162239300,
+      "tag": "0011_red_cobalt_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790162276791,
+      "tag": "0012_rich_jimmy_woo",
+      "breakpoints": true
     }
   ]
 }

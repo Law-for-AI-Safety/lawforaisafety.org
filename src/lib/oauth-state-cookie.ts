@@ -17,6 +17,7 @@ import { cookies } from "next/headers";
 const COOKIE_NAMES = {
   applicant: "oauth_state",
   admin: "admin_oauth_state",
+  redLinesApplicant: "red_lines_oauth_state",
 } as const;
 
 type Flow = keyof typeof COOKIE_NAMES;

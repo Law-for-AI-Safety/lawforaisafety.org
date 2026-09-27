@@ -24,6 +24,9 @@ export default async function ProtectedAdminLayout({
           <Link href="/admin/applications" className="underline">
             Collaboration applications
           </Link>
+          <Link href="/admin/red-lines-dialogue" className="underline">
+            Red Lines Dialogues applications
+          </Link>
           {isTaskTrackerTeamEmail(session.email) && (
             <Link href="/admin/task-tracker" className="underline">
               Project Tracker

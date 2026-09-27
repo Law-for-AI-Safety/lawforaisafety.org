@@ -5,6 +5,7 @@ import {
   applications,
   newsletterSignups,
   processedApplications,
+  redLinesApplications,
 } from "@/drizzle/schema";
 import { deleteCv } from "@/lib/cv-storage";
 import { hashEmail } from "@/lib/email-hash";
@@ -46,6 +47,14 @@ export type ErasureFindings = {
     processedAt: string;
     hasReviewerNotes: boolean;
   } | null;
+  // Unlike `applications`, decided rows here aren't purged to a hash (see
+  // schema.ts), so a Red Lines application can still be found — and erased —
+  // by id at any status, including approved or rejected.
+  redLinesApplications: {
+    id: string;
+    status: string;
+    createdAt: string;
+  }[];
 };
 
 export type ErasureResult = {
@@ -53,6 +62,7 @@ export type ErasureResult = {
   cvs: number;
   newsletterSignups: number;
   processed: number;
+  redLinesApplications: number;
 };
 
 /**
@@ -68,12 +78,14 @@ export type ErasureScopes = {
   applications: boolean;
   newsletterSignups: boolean;
   processed: boolean;
+  redLinesApplications: boolean;
 };
 
 export const ALL_SCOPES: ErasureScopes = {
   applications: true,
   newsletterSignups: true,
   processed: true,
+  redLinesApplications: true,
 };
 
 /** Matches `hashEmail`, so a lookup finds the same row the hash was built from. */
@@ -124,6 +136,15 @@ export async function findDataForEmail(
     .from(processedApplications)
     .where(eq(processedApplications.emailHash, hashEmail(address)));
 
+  const redLinesRows = await db
+    .select({
+      id: redLinesApplications.id,
+      status: redLinesApplications.status,
+      createdAt: redLinesApplications.createdAt,
+    })
+    .from(redLinesApplications)
+    .where(sql`lower(${redLinesApplications.email}) = ${address}`);
+
   return {
     applications: applicationRows.map((row) => ({
       id: row.id,
@@ -143,6 +164,11 @@ export async function findDataForEmail(
           hasReviewerNotes: Boolean(processedRow.reviewerNotes),
         }
       : null,
+    redLinesApplications: redLinesRows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      createdAt: row.createdAt.toISOString(),
+    })),
   };
 }
 
@@ -169,6 +195,7 @@ export async function eraseDataForEmail(
     cvs: 0,
     newsletterSignups: 0,
     processed: 0,
+    redLinesApplications: 0,
   };
 
   if (scopes.applications) {
@@ -208,6 +235,21 @@ export async function eraseDataForEmail(
 
     // The audit log keys decisions to the same hash. Keep the entry (who
     // decided something, and when) but cut its link to this person.
+    await db
+      .update(adminAuditLog)
+      .set({ subjectEmailHash: null })
+      .where(eq(adminAuditLog.subjectEmailHash, hashEmail(address)));
+  }
+
+  if (scopes.redLinesApplications) {
+    const deleted = await db
+      .delete(redLinesApplications)
+      .where(sql`lower(${redLinesApplications.email}) = ${address}`)
+      .returning({ id: redLinesApplications.id });
+    result.redLinesApplications = deleted.length;
+
+    // Same reasoning as the applications branch above: the audit log's
+    // subject hash outlives the row it described.
     await db
       .update(adminAuditLog)
       .set({ subjectEmailHash: null })

@@ -5,19 +5,11 @@ import {
   FORM_RENDERED_AT_FIELD_NAME,
   HONEYPOT_FIELD_NAME,
 } from "@/lib/abuse-protection";
-import WipeSubmitButton from "../WipeSubmitButton";
+import FormSubmissionTabs from "../FormSubmissionTabs";
 import Checkbox from "./Checkbox";
 import CvFileField from "./CvFileField";
 import TurnstileWidget from "./TurnstileWidget";
-import { FIELD_CLASSES, HELPER_TEXT_CLASSES, LABEL_CLASSES } from "./field-styles";
-
-type VerifyTab = "linkedin" | "google" | "email";
-
-const TABS: { id: VerifyTab; label: string }[] = [
-  { id: "linkedin", label: "LinkedIn" },
-  { id: "google", label: "Google" },
-  { id: "email", label: "Name & email" },
-];
+import { FIELD_CLASSES, LABEL_CLASSES } from "./field-styles";
 
 type CredentialTab = "linkedin" | "cv" | "statement";
 
@@ -36,7 +28,6 @@ export default function ApplyForm() {
   // on the rate limiter.
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
   const [renderedAt] = useState(() => Date.now());
-  const [activeTab, setActiveTab] = useState<VerifyTab>("linkedin");
   const [activeCredentialTab, setActiveCredentialTab] =
     useState<CredentialTab>("linkedin");
 
@@ -209,92 +200,14 @@ export default function ApplyForm() {
         <Checkbox name="newsletterOptIn" label="Also subscribe me to the newsletter" />
       </div>
 
-      <div className="flex flex-col gap-5">
-        <h4 className="text-xl font-light text-brand-black">Verify your identity</h4>
-
-        <div className="flex gap-1 border-b border-brand-black/10" role="tablist">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-t-sm px-5 py-3 text-lg transition-colors ${
-                activeTab === tab.id
-                  ? "bg-brand-navy text-brand-white"
-                  : "text-brand-black/60 hover:text-brand-black"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === "linkedin" && (
-          <div className="flex flex-col gap-3">
-            <p className={HELPER_TEXT_CLASSES}>
-              You&apos;ll be taken to LinkedIn to confirm, then brought back here.
-              We&apos;ll receive your name, email address and profile photo.
-            </p>
-            <WipeSubmitButton
-              type="submit"
-              formAction="/api/auth/linkedin"
-              busy={submittingTo !== null}
-              className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
-              hoverBg="rgba(255,255,255,0.15)"
-            >
-              {submittingTo === "/api/auth/linkedin"
-                ? "Taking you to LinkedIn…"
-                : "Verify with LinkedIn"}
-            </WipeSubmitButton>
-          </div>
-        )}
-
-        {activeTab === "google" && (
-          <div className="flex flex-col gap-3">
-            <p className={HELPER_TEXT_CLASSES}>
-              You&apos;ll be taken to Google to confirm, then brought back here.
-              We&apos;ll receive your name, email address and profile photo.
-            </p>
-            <WipeSubmitButton
-              type="submit"
-              formAction="/api/auth/google"
-              busy={submittingTo !== null}
-              className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
-              hoverBg="rgba(255,255,255,0.15)"
-            >
-              {submittingTo === "/api/auth/google"
-                ? "Taking you to Google…"
-                : "Verify with Google"}
-            </WipeSubmitButton>
-          </div>
-        )}
-
-        {activeTab === "email" && (
-          <div className="flex flex-col gap-3">
-            <label className="flex flex-col gap-2">
-              <span className={LABEL_CLASSES}>Full name</span>
-              <input ref={nameRef} type="text" name="name" maxLength={200} className={FIELD_CLASSES} />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className={LABEL_CLASSES}>Email address</span>
-              <input ref={emailRef} type="email" name="email" maxLength={320} className={FIELD_CLASSES} />
-            </label>
-            <WipeSubmitButton
-              type="submit"
-              formAction="/api/auth/email"
-              busy={submittingTo !== null}
-              className="self-start bg-brand-black px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
-              hoverBg="rgba(255,255,255,0.15)"
-            >
-              {submittingTo === "/api/auth/email"
-                ? "Sending…"
-                : "Submit application"}
-            </WipeSubmitButton>
-          </div>
-        )}
-      </div>
+      <FormSubmissionTabs
+        linkedinAction="/api/auth/linkedin"
+        googleAction="/api/auth/google"
+        emailAction="/api/auth/email"
+        submittingTo={submittingTo}
+        nameInputRef={nameRef}
+        emailInputRef={emailRef}
+      />
 
       <TurnstileWidget />
 

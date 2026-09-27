@@ -47,6 +47,14 @@ export default async function ApplicationsLayout({
         <h1 className="px-4 pt-6 text-2xl font-light text-brand-black">
           Collaboration applications
         </h1>
+        <a
+          href="/#contact"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block px-4 pt-1 text-sm underline text-brand-black/70"
+        >
+          Inspect form ↗
+        </a>
         <div className="mt-4">
           <AdminApplicationsList
             applications={pending.map((application) => ({

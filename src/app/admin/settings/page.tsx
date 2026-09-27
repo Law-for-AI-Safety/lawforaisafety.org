@@ -10,10 +10,11 @@ import {
   isTechAdminEmail,
   pinnedAdminSubs,
 } from "@/lib/session";
-import { getSignupFlagState } from "@/lib/feature-flags";
+import { getRedLinesFlagState, getSignupFlagState } from "@/lib/feature-flags";
 import TechAdminOnly from "../TechAdminOnly";
 import { isPolicyServed } from "../../privacy-policy/visibility";
 import SignupToggle from "./SignupToggle";
+import RedLinesToggle from "./RedLinesToggle";
 
 export const metadata: Metadata = {
   title: "LAIS - Settings",
@@ -54,10 +55,10 @@ async function getAdminLogins() {
 export default async function AdminSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ signup?: string }>;
+  searchParams: Promise<{ signup?: string; redLines?: string }>;
 }) {
   // Set by the toggle route's redirect, so the page can say what just happened.
-  const { signup: justChanged } = await searchParams;
+  const { signup: justChanged, redLines: redLinesJustChanged } = await searchParams;
 
   const session = await getAdminSession();
   if (!session) {
@@ -70,6 +71,8 @@ export default async function AdminSettingsPage({
 
   const flag = await getSignupFlagState();
   const enabled = flag?.enabled ?? false;
+  const redLinesFlag = await getRedLinesFlagState();
+  const redLinesEnabled = redLinesFlag?.enabled ?? false;
   const logins = await getAdminLogins();
   const pinned = pinnedAdminSubs();
 
@@ -127,6 +130,51 @@ export default async function AdminSettingsPage({
         )}
 
         <SignupToggle enabled={enabled} policyPublished={isPolicyServed()} />
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl text-brand-black">Red Lines Dialogues applications</h2>
+          <p className="text-brand-black/70">
+            The application form on /red-lines-dialogue. When off, the form is
+            hidden and its endpoints refuse requests. Reviewing applications is
+            not affected.
+          </p>
+        </div>
+
+        {(redLinesJustChanged === "on" || redLinesJustChanged === "off") && (
+          <p
+            role="status"
+            className={`border px-3 py-3 ${
+              redLinesJustChanged === "on"
+                ? "border-brand-navy bg-brand-navy/5 text-brand-navy"
+                : "border-brand-black/30 bg-brand-black/5 text-brand-black"
+            }`}
+          >
+            {redLinesJustChanged === "on"
+              ? "Done. Applications are now ON: the form is live on /red-lines-dialogue."
+              : "Done. Applications are now OFF: the form is hidden and its endpoint refuses requests."}
+          </p>
+        )}
+
+        <p className="text-lg text-brand-black">
+          Currently{" "}
+          <strong className={redLinesEnabled ? "text-brand-navy" : "text-brand-red"}>
+            {redLinesEnabled ? "ON" : "OFF"}
+          </strong>
+        </p>
+        {redLinesFlag ? (
+          <p className="text-sm text-brand-black/60">
+            Last changed by {redLinesFlag.updatedBy ?? "unknown"} on{" "}
+            {redLinesFlag.updatedAt.toLocaleString("en-GB", { timeZone: "UTC" })} UTC
+          </p>
+        ) : (
+          <p className="text-sm text-brand-black/60">
+            Never switched on. Applications stay off until you turn them on here.
+          </p>
+        )}
+
+        <RedLinesToggle enabled={redLinesEnabled} policyPublished={isPolicyServed()} />
       </section>
 
       <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">

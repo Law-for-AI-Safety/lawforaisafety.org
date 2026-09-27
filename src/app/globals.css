@@ -76,3 +76,23 @@ body {
 .btn-wipe:hover .wipe-shape {
   transform: translateX(var(--wipe-btn-w, 0));
 }
+
+/* Timeline rail fill (Red Lines Dialogues, Our Story). Progressive
+   enhancement: without scroll-driven animation support, or with reduced
+   motion, the rail simply renders fully filled. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    @keyframes rl-rail {
+      from { clip-path: inset(0 0 100% 0); }
+      to { clip-path: inset(0 0 0 0); }
+    }
+
+    /* The fill's leading edge tracks a reading line 60% down the viewport,
+       whatever the height of the timeline. */
+    .rail-fill {
+      animation: rl-rail linear both;
+      animation-timeline: view();
+      animation-range: cover 40vh cover calc(100% - 60vh);
+    }
+  }
+}

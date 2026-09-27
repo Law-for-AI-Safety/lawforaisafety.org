@@ -169,6 +169,37 @@ function applicationConfirmationEmail(name: string | null, confirmUrl: string) {
 }
 
 /**
+ * Sent right after identity is confirmed, on either verification path.
+ * Courtesy only: there's no confirm link here, since by this point the
+ * LinkedIn/Google callback (or the emailed link below, on its own second
+ * step) has already proved the address.
+ *
+ * Unlike the volunteer apply flow, there's no matching approved/rejected
+ * email: the working group contacts applicants about the outcome by hand
+ * (see red-lines-admin-flow.ts), not through an automated send.
+ */
+function redLinesApplicationReceivedEmail(name: string | null) {
+  return {
+    subject: "Your Red Lines Dialogues application",
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Thanks for applying to contribute to the Red Lines Dialogues. We've received and confirmed your details, and your application is with the working group.</p>
+     <p style="margin:0;">We'll be in touch once it's been reviewed.</p>`,
+  };
+}
+
+/**
+ * Red Lines Dialogues equivalent of applicationConfirmationEmail, for the
+ * name/email verification path (no LinkedIn OAuth).
+ */
+function redLinesApplicationConfirmationEmail(name: string | null, confirmUrl: string) {
+  return {
+    subject: "Confirm your Red Lines Dialogues application",
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Please confirm your email address to submit your application to contribute to the Red Lines Dialogues.</p>
+     <p style="margin:0 0 16px;"><a href="${escapeHtml(confirmUrl)}" style="color:#9b1c1f;">Confirm and submit application</a></p>
+     <p style="margin:0;">The link works for 24 hours. If you didn't apply, you can ignore this email and nothing will be submitted.</p>`,
+  };
+}
+
+/**
  * Courtesy notice only, no confirm link — used when the email is already
  * verified another way (OAuth, for the apply-flow newsletter opt-in), so a
  * separate double opt-in click would be redundant.
@@ -221,6 +252,23 @@ export async function sendNewsletterSignupReceivedEmail(
   await send(to, subject, bodyHtml);
 }
 
+export async function sendRedLinesApplicationReceivedEmail(
+  to: string,
+  name: string | null,
+): Promise<void> {
+  const { subject, bodyHtml } = redLinesApplicationReceivedEmail(name);
+  await send(to, subject, bodyHtml);
+}
+
+export async function sendRedLinesApplicationConfirmationEmail(
+  to: string,
+  name: string | null,
+  confirmUrl: string,
+): Promise<void> {
+  const { subject, bodyHtml } = redLinesApplicationConfirmationEmail(name, confirmUrl);
+  await send(to, subject, bodyHtml);
+}
+
 /**
  * Rendered HTML for every transactional email template, for the admin
  * preview page — not sent anywhere. Uses a placeholder confirm link since
@@ -242,6 +290,14 @@ export function getEmailPreviews(): { label: string; subject: string; html: stri
       ...applicationConfirmationEmail(
         "Alex Applicant",
         `${siteUrl()}/apply/confirm?token=preview-token`,
+      ),
+    },
+    { label: "Red Lines Dialogues - received", ...redLinesApplicationReceivedEmail("Alex Applicant") },
+    {
+      label: "Red Lines Dialogues - confirmation (email-only path)",
+      ...redLinesApplicationConfirmationEmail(
+        "Alex Applicant",
+        `${siteUrl()}/red-lines-dialogue/confirm?token=preview-token`,
       ),
     },
   ];

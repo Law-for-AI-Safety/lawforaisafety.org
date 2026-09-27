@@ -61,6 +61,35 @@ export async function notifyReviewersOfNewApplication({
   }
 }
 
+export async function notifyReviewersOfNewRedLinesApplication({
+  applicantName,
+  affiliation,
+  applicationId,
+}: {
+  applicantName: string;
+  affiliation: string | null;
+  applicationId: string;
+}): Promise<void> {
+  const webhookUrl = requireEnv("SLACK_WEBHOOK_URL");
+  const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
+
+  const affiliationLine = affiliation ? ` (${escapeSlack(affiliation)})` : "";
+
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: `New Red Lines Dialogues application: ${escapeSlack(applicantName)}${affiliationLine}, confirmed via LinkedIn. Review: ${siteUrl}/admin/red-lines-dialogue/${applicationId}`,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Slack webhook failed: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
 /**
  * Standard `users.list` (available on all plans, unlike the Enterprise-only
  * admin.* namespace) — used to check if an approved applicant already has a
