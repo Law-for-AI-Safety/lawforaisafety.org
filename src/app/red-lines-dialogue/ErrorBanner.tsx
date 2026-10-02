@@ -14,7 +14,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   expired: "That verification attempt expired. Please try again below.",
   verification: "We couldn't verify you're not a robot. Please try again below.",
   ratelimit: "That was a lot of attempts in a short time. Please wait a minute and try again below.",
-  closed: "Applications aren't open right now. Please email redlinesdialogue@lawforaisafety.org instead.",
+  closed: "Applications aren't open right now. Please email redlines@lawforaisafety.org instead.",
 };
 
 export default function RedLinesErrorBanner() {

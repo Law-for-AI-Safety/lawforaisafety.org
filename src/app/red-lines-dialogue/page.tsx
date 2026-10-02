@@ -320,10 +320,10 @@ export default async function RedLinesDialoguePage() {
             <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
               Applications aren&apos;t open right now. Email{" "}
               <a
-                href="mailto:redlinesdialogue@lawforaisafety.org"
+                href="mailto:redlines@lawforaisafety.org"
                 className="underline hover:text-brand-black"
               >
-                redlinesdialogue@lawforaisafety.org
+                redlines@lawforaisafety.org
               </a>{" "}
               to register your interest and we&apos;ll let you know when they
               open.
@@ -379,10 +379,10 @@ export default async function RedLinesDialoguePage() {
                 For sponsorship and institutional support enquiries, please
                 contact the project team at{" "}
                 <a
-                  href="mailto:redlinesdialogue@lawforaisafety.org"
+                  href="mailto:redlines@lawforaisafety.org"
                   className="text-brand-navy underline hover:text-brand-black"
                 >
-                  redlinesdialogue@lawforaisafety.org
+                  redlines@lawforaisafety.org
                 </a>
                 .
               </span>
