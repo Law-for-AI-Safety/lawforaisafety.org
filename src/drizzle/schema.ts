@@ -144,6 +144,7 @@ export const redLinesApplications = pgTable("red_lines_applications", {
   availableOct12: boolean("available_oct_12").notNull().default(false),
   availableNov9: boolean("available_nov_9").notNull().default(false),
   availableDec7: boolean("available_dec_7").notNull().default(false),
+  availableJan11: boolean("available_jan_11").notNull().default(false),
   euParliamentInterest: redLinesEuInterest("eu_parliament_interest"),
   affiliation: text("affiliation"),
   publicationExample: text("publication_example"),

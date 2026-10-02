@@ -56,23 +56,32 @@ const timeline = [
     date: "12 October 2026",
     time: "09:00 CEST",
     utc: "2026-10-12T07:00:00Z",
-    detail: "Online consolidation meeting: scope and content",
+    detail: "Online consolidation meeting: recruitment and scope",
   },
   {
     date: "9 November 2026",
     time: "09:00 CET",
     utc: "2026-11-09T08:00:00Z",
-    detail: "Online consolidation meeting: refinement of the report",
+    detail: "Online consolidation meeting: content of the report",
   },
   {
     date: "7 December 2026",
     time: "09:00 CET",
     utc: "2026-12-07T08:00:00Z",
-    detail: "Online consolidation meeting: finalisation of the report",
+    detail: "Online consolidation meeting: refinement of the content",
   },
   {
-    date: "January 2027",
-    time: "tentative",
+    date: "11 January 2027",
+    time: "09:00 CET",
+    utc: "2027-01-11T08:00:00Z",
+    detail: "Online consolidation meeting: finalising the content",
+  },
+  {
+    date: "February 2027",
+    detail: "Editing and design of the report",
+  },
+  {
+    date: "March 2027",
     detail:
       "Presentation at the European Parliament with US, Chinese and European delegations",
   },

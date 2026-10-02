@@ -31,21 +31,28 @@ const MEETINGS: { name: string; date: string; time: string; utc: string; detail:
     date: "12 October 2026",
     time: "09:00 CEST",
     utc: "2026-10-12T07:00:00Z",
-    detail: "scope and content",
+    detail: "recruitment and scope",
   },
   {
     name: "availableNov9",
     date: "9 November 2026",
     time: "09:00 CET",
     utc: "2026-11-09T08:00:00Z",
-    detail: "refinement of the report",
+    detail: "content of the report",
   },
   {
     name: "availableDec7",
     date: "7 December 2026",
     time: "09:00 CET",
     utc: "2026-12-07T08:00:00Z",
-    detail: "finalisation of the report",
+    detail: "refinement of the content",
+  },
+  {
+    name: "availableJan11",
+    date: "11 January 2027",
+    time: "09:00 CET",
+    utc: "2027-01-11T08:00:00Z",
+    detail: "finalising the content",
   },
 ];
 
