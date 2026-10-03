@@ -19,7 +19,17 @@ const CREDENTIAL_TABS: { id: CredentialTab; label: string }[] = [
   { id: "statement", label: "Position statement" },
 ];
 
-export default function ApplyForm() {
+type ApplicationSource =
+  | "homepage"
+  | "mep_outreach"
+  | "council_of_europe"
+  | "field_building";
+
+export default function ApplyForm({
+  source = "homepage",
+}: {
+  source?: ApplicationSource;
+}) {
   const [error, setError] = useState<string | null>(null);
   // Which submit button is mid-flight (its formAction), or null. Submitting
   // uploads the CV and then leaves for LinkedIn/Google, which can take several
@@ -120,6 +130,7 @@ export default function ApplyForm() {
         </label>
       </div>
       <input type="hidden" name={FORM_RENDERED_AT_FIELD_NAME} value={renderedAt} readOnly />
+      <input type="hidden" name="source" value={source} readOnly />
 
       <div className="flex flex-col gap-5">
         <h4 className="text-xl font-light text-brand-black">Show your credentials</h4>

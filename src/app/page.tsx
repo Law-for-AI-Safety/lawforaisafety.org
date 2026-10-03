@@ -98,11 +98,44 @@ const team = [
 const mechanisms = [
   {
     title: "Survey & Convene",
-    body: "We survey and convene people working at the intersection of law and AI, through meetups, hackathons, and events, to identify promising opportunities for impact, barriers to litigation, and favourable jurisdictions. We organise research projects and fellowships to develop knowledge and experts in this area, and strategically communicate relevant research to increase the likelihood of it being put into practice.",
+    body: (
+      <>
+        We survey and convene people working at the intersection of law and
+        AI, through meetups, hackathons, and events, to identify promising
+        opportunities for impact, barriers to litigation, and favourable
+        jurisdictions. We organise research projects and fellowships to
+        develop knowledge and experts in this area, and strategically
+        communicate relevant research to increase the likelihood of it
+        being put into practice. Read more about our{" "}
+        <Link
+          href="/field-building"
+          className="underline hover:text-brand-black"
+        >
+          field-building and coordination work
+        </Link>
+        .
+      </>
+    ),
   },
   {
     title: "Transparency",
-    body: "We promote greater transparency in AI governance through initiatives such as Freedom of Information requests directed at selected Member States and European Union institutions. These are essential to promoting accountability and democratic oversight in AI governance.",
+    body: (
+      <>
+        We promote greater transparency in AI governance through
+        initiatives such as Freedom of Information requests directed at
+        selected Member States and European Union institutions. These are
+        essential to promoting accountability and democratic oversight in
+        AI governance. Our first request, on catastrophic and existential
+        AI risks, was reviewed by the Future of Life Institute and is
+        backed by a $20K grant, and we are now translating it into EU
+        languages. If you have a legal or translation background, or want
+        your organisation to get involved,{" "}
+        <a href="#contact" className="underline hover:text-brand-black">
+          apply to work with us
+        </a>
+        .
+      </>
+    ),
   },
   {
     title: "Dialogue",
@@ -121,7 +154,21 @@ const mechanisms = [
         </Link>
         , a track-two initiative bringing together US, Chinese and EU
         experts to operationalise AI behavioural red lines for presentation
-        at the European Parliament.
+        at the European Parliament. We are also briefing MEPs on{" "}
+        <Link
+          href="/mep-outreach"
+          className="underline hover:text-brand-black"
+        >
+          AI containment incidents
+        </Link>{" "}
+        and building a strategy for{" "}
+        <Link
+          href="/council-of-europe"
+          className="underline hover:text-brand-black"
+        >
+          engagement with the Council of Europe
+        </Link>
+        .
       </>
     ),
   },
@@ -288,7 +335,7 @@ export default async function Home() {
 
           {/* Timeline: gap-14=56px. Dot centres sit 18px into each event. The rail
               reaches one 64px tip past the first and last dots, so it is sized to
-              events 1-4 plus one gap, the last dot's 18px and both tips. */}
+              events 1-7 plus one gap, the last dot's 18px and both tips. */}
           <div className="flex flex-col gap-14">
             <div className="relative flex flex-col gap-14">
             <TimelineRail className="left-1 -top-[46px] h-[calc(100%+184px)]" />
@@ -466,9 +513,84 @@ export default async function Home() {
                 </div>
               </div>
 
+              {/* Event 5 */}
+              <div className="flex gap-8">
+                <div className="relative flex-shrink-0 w-5 h-9 flex items-center justify-center">
+                  <span className="flex rounded-full bg-brand-white">
+                    <RingBullet />
+                  </span>
+                </div>
+                <div className="flex flex-col gap-3 min-w-0">
+                  <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                    Grant Award and Talk at Unlocking the Potential of Women in AI Safety
+                  </h3>
+                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                    Our co-founder and Executive Director, Karolina Gruzel, was selected to take part in the fully funded Unlocking the Potential of Women in AI Safety programme, where she further developed her leadership skills and built new connections for our organisation. During the event, Karolina also received the exciting news that we had been awarded a grant to fund our workstream submitting Freedom of Information requests on catastrophic and existential AI risks to EU Member States. She shared the news with fellow participants while giving a talk introducing our organisation and its work.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      {
+                        src: "/images/women-in-ai-safety-group.webp",
+                        alt: "Group photo of participants at the Unlocking the Potential of Women in AI Safety programme",
+                      },
+                      {
+                        src: "/images/karolina-at-seminar.webp",
+                        alt: "Karolina Gruzel giving a talk at the Unlocking the Potential of Women in AI Safety seminar",
+                      },
+                    ].map((img) => (
+                      <div
+                        key={img.src}
+                        className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
+                      >
+                        <Image
+                          src={img.src}
+                          alt={img.alt}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 448px"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Event 6 */}
+              <div className="flex gap-8">
+                <div className="relative flex-shrink-0 w-5 h-9 flex items-center justify-center">
+                  <span className="flex rounded-full bg-brand-white">
+                    <RingBullet />
+                  </span>
+                </div>
+                <div className="flex flex-col gap-3 min-w-0">
+                  <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                    FOI translation begins, workshops spark interest abroad
+                  </h3>
+                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                    Legal Advisor Raluca Spataru began coordinating translation of our Freedom of Information request on existential and catastrophic AI risks into the languages of EU Member States. She has also given workshops on FOIs, sparking interest in similar initiatives in Canada and the US.
+                  </p>
+                </div>
+              </div>
+
+              {/* Event 7 */}
+              <div className="flex gap-8">
+                <div className="relative flex-shrink-0 w-5 h-9 flex items-center justify-center">
+                  <span className="flex rounded-full bg-brand-white">
+                    <RingBullet />
+                  </span>
+                </div>
+                <div className="flex flex-col gap-3 min-w-0">
+                  <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
+                    Pro-Human Assembly, Washington, D.C.
+                  </h3>
+                  <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
+                    Executive Director Karolina Gruzel and Legal Advisor Raluca Spataru were invited to the Pro-Human Assembly, a high-profile, bipartisan summit in Washington, D.C. on 15 September 2026, bringing together influential groups to demand strict regulation of AI, with speakers including Bernie Sanders, Ashley Judd, Daron Acemoglu, and Max Tegmark. They were also selected to join a workshop on organising similar assemblies in other regions, and Karolina later gave a fireside chat on her takeaways at the Technoprogressive Opportunity conference in London.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Event 5: no line below */}
+            {/* Event 8: no line below */}
             <div className="flex gap-8">
               <div className="relative flex-shrink-0 w-5 h-9 flex items-center justify-center">
                 <span className="flex rounded-full bg-brand-white">
@@ -477,36 +599,11 @@ export default async function Home() {
               </div>
               <div className="flex flex-col gap-3 min-w-0">
                 <h3 className="text-3xl font-light text-brand-black leading-snug max-w-xl">
-Grant Award and Talk at Unlocking the Potential of Women in AI Safety
+                  AI Regulation Forum
                 </h3>
                 <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-Our co-founder and Executive Director, Karolina Gruzel, was selected to take part in the fully funded Unlocking the Potential of Women in AI Safety programme, where she further developed her leadership skills and built new connections for our organisation. During the event, Karolina also received the exciting news that we had been awarded a grant to fund our workstream submitting Freedom of Information requests on catastrophic and existential AI risks to EU Member States. She shared the news with fellow participants while giving a talk introducing our organisation and its work.
+                  Executive Director Karolina Gruzel attended the AI Regulation Forum, bringing the perspective of large-scale AI risks to an influential gathering of European AI regulators and legal counsel from leading industry organisations.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    {
-                      src: "/images/women-in-ai-safety-group.webp",
-                      alt: "Group photo of participants at the Unlocking the Potential of Women in AI Safety programme",
-                    },
-                    {
-                      src: "/images/karolina-at-seminar.webp",
-                      alt: "Karolina Gruzel giving a talk at the Unlocking the Potential of Women in AI Safety seminar",
-                    },
-                  ].map((img) => (
-                    <div
-                      key={img.src}
-                      className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
-                    >
-                      <Image
-                        src={img.src}
-                        alt={img.alt}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 448px"
-                      />
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           </div>

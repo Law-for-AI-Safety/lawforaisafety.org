@@ -9,7 +9,12 @@ const links = [
   {
     href: "#work",
     label: "Our Work",
-    children: [{ href: "/red-lines-dialogue", label: "Red Lines Dialogues" }],
+    children: [
+      { href: "/red-lines-dialogue", label: "Red Lines Dialogues" },
+      { href: "/mep-outreach", label: "MEP Outreach" },
+      { href: "/council-of-europe", label: "Council of Europe Engagement" },
+      { href: "/field-building", label: "Field-building & Coordination" },
+    ],
   },
   { href: "#our-story", label: "Our Story" },
   { href: "#team", label: "Team" },

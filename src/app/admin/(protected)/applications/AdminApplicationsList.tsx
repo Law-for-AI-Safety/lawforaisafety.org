@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+type ApplicationSource =
+  | "homepage"
+  | "mep_outreach"
+  | "council_of_europe"
+  | "field_building";
+
 type ListedApplication = {
   id: string;
   name: string | null;
@@ -10,6 +16,14 @@ type ListedApplication = {
   authProvider: "linkedin" | "google" | "email";
   createdAtLabel: string;
   needsNotificationRetry: boolean;
+  source: ApplicationSource;
+};
+
+const SOURCE_LABELS: Record<ApplicationSource, string> = {
+  homepage: "Homepage",
+  mep_outreach: "MEP Outreach",
+  council_of_europe: "Council of Europe",
+  field_building: "Field-building",
 };
 
 export default function AdminApplicationsList({
@@ -53,6 +67,11 @@ export default function AdminApplicationsList({
                 <p className="truncate text-sm text-brand-black/60">
                   {application.organisation ?? "No organisation given"}
                 </p>
+                {application.source !== "homepage" && (
+                  <p className="truncate text-sm font-semibold text-brand-navy">
+                    {SOURCE_LABELS[application.source]}
+                  </p>
+                )}
               </div>
               <div className="flex flex-shrink-0 flex-col items-end gap-1">
                 <span

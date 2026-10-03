@@ -49,6 +49,16 @@ export const processedOutcome = pgEnum("processed_outcome", [
   "rejected",
 ]);
 
+// Which public page the applicant used — the general "Work with us" form on
+// the homepage, or one of the workstream pages that embeds the same form.
+// Purely a tag for admin triage; it doesn't change validation or the flow.
+export const applicationSource = pgEnum("application_source", [
+  "homepage",
+  "mep_outreach",
+  "council_of_europe",
+  "field_building",
+]);
+
 export const redLinesArea = pgEnum("red_lines_area", [
   "legal_governance",
   "technical",
@@ -86,6 +96,7 @@ export const applications = pgTable(
     comments: text("comments"),
 
     newsletterOptIn: boolean("newsletter_opt_in").notNull().default(false),
+    source: applicationSource("source").notNull().default("homepage"),
 
     // OAuth-verified (null until callback completes)
     authProvider: authProvider("auth_provider").notNull(),
