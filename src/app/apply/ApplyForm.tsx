@@ -13,23 +13,67 @@ import { FIELD_CLASSES, LABEL_CLASSES } from "./field-styles";
 
 type CredentialTab = "linkedin" | "cv" | "statement";
 
-const CREDENTIAL_TABS: { id: CredentialTab; label: string }[] = [
-  { id: "linkedin", label: "LinkedIn URL" },
-  { id: "cv", label: "CV / résumé" },
-  { id: "statement", label: "Position statement" },
-];
-
 type ApplicationSource =
   | "homepage"
   | "mep_outreach"
   | "council_of_europe"
   | "field_building";
 
+/**
+ * "individual" is the default volunteer/applicant shape (CV, LinkedIn,
+ * position statement). "institutional" is for pages asking orgs for
+ * funding or partnership, not a person's credentials — no CV tab, and the
+ * statement field is reframed around what the org can offer rather than
+ * the applicant's own role.
+ */
+type ApplyFormVariant = "individual" | "institutional";
+
+const VARIANT_COPY: Record<
+  ApplyFormVariant,
+  {
+    heading: string;
+    tabs: { id: CredentialTab; label: string }[];
+    statementLabel: string;
+    statementPlaceholder: string;
+    commentsPlaceholder: string;
+    validationMessage: string;
+  }
+> = {
+  individual: {
+    heading: "Show your credentials",
+    tabs: [
+      { id: "linkedin", label: "LinkedIn URL" },
+      { id: "cv", label: "CV / résumé" },
+      { id: "statement", label: "Position statement" },
+    ],
+    statementLabel: "Position statement",
+    statementPlaceholder: "Describe your current role and why you're relevant",
+    commentsPlaceholder: "Anything else you'd like us to know",
+    validationMessage:
+      "Provide at least one of: LinkedIn profile URL, CV upload, or a position statement.",
+  },
+  institutional: {
+    heading: "Tell us about your organisation",
+    tabs: [
+      { id: "linkedin", label: "LinkedIn URL" },
+      { id: "statement", label: "Tell us more" },
+    ],
+    statementLabel: "How would you like to support this work?",
+    statementPlaceholder:
+      "Funding, partnership, in-kind support, or something else — tell us what you have in mind",
+    commentsPlaceholder: "Anything else about funding, partnership, or timing we should know",
+    validationMessage: "Provide a LinkedIn profile URL or a short statement.",
+  },
+};
+
 export default function ApplyForm({
   source = "homepage",
+  variant = "individual",
 }: {
   source?: ApplicationSource;
+  variant?: ApplyFormVariant;
 }) {
+  const copy = VARIANT_COPY[variant];
   const [error, setError] = useState<string | null>(null);
   // Which submit button is mid-flight (its formAction), or null. Submitting
   // uploads the CV and then leaves for LinkedIn/Google, which can take several
@@ -63,9 +107,7 @@ export default function ApplyForm({
     const hasStatement = Boolean(positionStatementRef.current?.value.trim());
 
     if (!hasLinkedin && !hasCv && !hasStatement) {
-      setError(
-        "Provide at least one of: LinkedIn profile URL, CV upload, or a position statement.",
-      );
+      setError(copy.validationMessage);
       return false;
     }
 
@@ -133,10 +175,10 @@ export default function ApplyForm({
       <input type="hidden" name="source" value={source} readOnly />
 
       <div className="flex flex-col gap-5">
-        <h4 className="text-xl font-light text-brand-black">Show your credentials</h4>
+        <h4 className="text-xl font-light text-brand-black">{copy.heading}</h4>
 
         <div className="flex gap-1 border-b border-brand-black/10" role="tablist">
-          {CREDENTIAL_TABS.map((tab) => (
+          {copy.tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -182,13 +224,13 @@ export default function ApplyForm({
               <input type="text" name="organisation" maxLength={200} className={FIELD_CLASSES} />
             </label>
             <label className="flex flex-col gap-2">
-              <span className={LABEL_CLASSES}>Position statement</span>
+              <span className={LABEL_CLASSES}>{copy.statementLabel}</span>
               <textarea
                 ref={positionStatementRef}
                 name="positionStatement"
                 maxLength={5000}
                 rows={4}
-                placeholder="Describe your current role and why you're relevant"
+                placeholder={copy.statementPlaceholder}
                 className={FIELD_CLASSES}
               />
             </label>
@@ -203,7 +245,7 @@ export default function ApplyForm({
             name="comments"
             maxLength={5000}
             rows={3}
-            placeholder="Anything else you'd like us to know"
+            placeholder={copy.commentsPlaceholder}
             className={FIELD_CLASSES}
           />
         </label>
