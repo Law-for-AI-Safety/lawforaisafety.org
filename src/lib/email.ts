@@ -2,6 +2,12 @@ import { isProductionDeploy } from "./deploy-context";
 
 const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 
+// Admin notification targets — org aliases, not personal admin addresses, so
+// sendAllowed() below only lets these actually fire in production (see its
+// own comment); outside production they log-skip like every other send.
+const GENERAL_NOTIFY_EMAIL = "info@lawforaisafety.org";
+const RED_LINES_NOTIFY_EMAIL = "redlines@lawforaisafety.org";
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -269,6 +275,79 @@ export async function sendRedLinesApplicationConfirmationEmail(
   await send(to, subject, bodyHtml);
 }
 
+export async function sendAdminNewApplicationEmail(params: {
+  applicantName: string;
+  organisation: string | null;
+  authProviderLabel: string;
+  sourceLabel: string | null;
+  applicationId: string;
+}): Promise<void> {
+  const { subject, bodyHtml } = adminNewApplicationEmail(params);
+  await send(GENERAL_NOTIFY_EMAIL, subject, bodyHtml);
+}
+
+export async function sendAdminNewRedLinesApplicationEmail(params: {
+  applicantName: string;
+  affiliation: string | null;
+  applicationId: string;
+}): Promise<void> {
+  const { subject, bodyHtml } = adminNewRedLinesApplicationEmail(params);
+  await send(RED_LINES_NOTIFY_EMAIL, subject, bodyHtml);
+}
+
+/**
+ * To the team, not the applicant — a Slack message goes out alongside this
+ * (see slack.ts), so this is a second, independent channel in case Slack is
+ * down or nobody's watching that channel right now.
+ */
+function adminNewApplicationEmail({
+  applicantName,
+  organisation,
+  authProviderLabel,
+  sourceLabel,
+  applicationId,
+}: {
+  applicantName: string;
+  organisation: string | null;
+  authProviderLabel: string;
+  sourceLabel: string | null;
+  applicationId: string;
+}) {
+  const orgLine = organisation
+    ? `<p style="margin:0 0 8px;">Organisation: ${escapeHtml(organisation)}</p>`
+    : "";
+  const sourceLine = sourceLabel
+    ? `<p style="margin:0 0 8px;">Applied via: ${escapeHtml(sourceLabel)}</p>`
+    : "";
+  return {
+    subject: `New application: ${applicantName}`,
+    bodyHtml: `<p style="margin:0 0 16px;">${escapeHtml(applicantName)} applied to work with Law for AI Safety, confirmed via ${escapeHtml(authProviderLabel)}.</p>
+     ${orgLine}${sourceLine}
+     <p style="margin:0;"><a href="${siteUrl()}/admin/applications/${applicationId}" style="color:#9b1c1f;">Review the application</a></p>`,
+  };
+}
+
+/** Red Lines Dialogues equivalent of adminNewApplicationEmail — sent to redlines@ instead of info@. */
+function adminNewRedLinesApplicationEmail({
+  applicantName,
+  affiliation,
+  applicationId,
+}: {
+  applicantName: string;
+  affiliation: string | null;
+  applicationId: string;
+}) {
+  const affiliationLine = affiliation
+    ? `<p style="margin:0 0 8px;">Affiliation: ${escapeHtml(affiliation)}</p>`
+    : "";
+  return {
+    subject: `New Red Lines Dialogues application: ${applicantName}`,
+    bodyHtml: `<p style="margin:0 0 16px;">${escapeHtml(applicantName)} applied to contribute to the Red Lines Dialogues, confirmed via LinkedIn.</p>
+     ${affiliationLine}
+     <p style="margin:0;"><a href="${siteUrl()}/admin/red-lines-dialogue/${applicationId}" style="color:#9b1c1f;">Review the application</a></p>`,
+  };
+}
+
 /**
  * Rendered HTML for every transactional email template, for the admin
  * preview page — not sent anywhere. Uses a placeholder confirm link since
@@ -299,6 +378,24 @@ export function getEmailPreviews(): { label: string; subject: string; html: stri
         "Alex Applicant",
         `${siteUrl()}/red-lines-dialogue/confirm?token=preview-token`,
       ),
+    },
+    {
+      label: "Admin notification - new application (info@)",
+      ...adminNewApplicationEmail({
+        applicantName: "Alex Applicant",
+        organisation: "Example Org",
+        authProviderLabel: "LinkedIn",
+        sourceLabel: "Field-building and Coordination",
+        applicationId: "preview-id",
+      }),
+    },
+    {
+      label: "Admin notification - new Red Lines Dialogues application (redlines@)",
+      ...adminNewRedLinesApplicationEmail({
+        applicantName: "Alex Applicant",
+        affiliation: "Example Org",
+        applicationId: "preview-id",
+      }),
     },
   ];
   return templates.map(({ label, subject, bodyHtml }) => ({

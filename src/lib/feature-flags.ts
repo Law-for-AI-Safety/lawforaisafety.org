@@ -75,9 +75,13 @@ export const setRedLinesApplicationsEnabled = (enabled: boolean, updatedBy: stri
 
 // Guard for the form-submit / OAuth routes, which are hit by a browser
 // navigation: send the visitor back to the contact section with a message.
-export async function signupClosedRedirect(): Promise<Response | null> {
+// `returnPath` sends them back to whichever page they applied from — see
+// returnPathFor in applicant-flow.ts.
+export async function signupClosedRedirect(
+  returnPath = "/",
+): Promise<Response | null> {
   if (await isSignupEnabled()) return null;
-  return seeOther("/?error=closed#contact");
+  return seeOther(`${returnPath}?error=closed#contact`);
 }
 
 // Guard for the newsletter route, which is called with fetch() and expects JSON.

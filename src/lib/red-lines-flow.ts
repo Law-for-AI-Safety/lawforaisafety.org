@@ -9,6 +9,7 @@ import {
   type OAuthProviderName,
 } from "@/lib/oauth";
 import {
+  sendAdminNewRedLinesApplicationEmail,
   sendRedLinesApplicationConfirmationEmail,
   sendRedLinesApplicationReceivedEmail,
 } from "@/lib/email";
@@ -263,6 +264,17 @@ async function notifyBestEffort(row: typeof redLinesApplications.$inferSelect): 
   } catch {
     // Best-effort — a Slack outage shouldn't fail the applicant-facing flow.
   }
+
+  try {
+    await sendAdminNewRedLinesApplicationEmail({
+      applicantName: row.name ?? "Unknown",
+      affiliation: row.affiliation,
+      applicationId: row.id,
+    });
+  } catch (err) {
+    console.error(`Admin notification email failed for Red Lines application ${row.id}:`, err);
+  }
+
   if (row.email) {
     try {
       await sendRedLinesApplicationReceivedEmail(row.email, row.name);
