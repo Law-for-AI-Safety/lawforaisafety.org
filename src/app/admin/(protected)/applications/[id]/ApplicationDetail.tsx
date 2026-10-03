@@ -17,6 +17,7 @@ type Application = {
   authProvider: "linkedin" | "google" | "email";
   organisation: string | null;
   linkedinUrl: string | null;
+  source: "homepage" | "mep_outreach" | "council_of_europe" | "field_building";
   hasCv: boolean;
   positionStatement: string | null;
   comments: string | null;
@@ -249,6 +250,20 @@ export default function ApplicationDetail({
       <DetailField label="Email">
         <p className="text-brand-black/80">{application.email}</p>
       </DetailField>
+
+      {application.source !== "homepage" && (
+        <DetailField label="Applied via">
+          <p className="text-brand-black/80">
+            {
+              {
+                mep_outreach: "MEP Outreach",
+                council_of_europe: "Council of Europe Engagement",
+                field_building: "Field-building and Coordination",
+              }[application.source]
+            }
+          </p>
+        </DetailField>
+      )}
 
       {application.organisation && (
         <DetailField label="Organisation / firm">

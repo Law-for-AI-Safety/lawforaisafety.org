@@ -53,6 +53,7 @@ export default async function AdminApplicationDetailPage({
         authProvider: application.authProvider,
         organisation: application.organisation,
         linkedinUrl: application.linkedinUrl,
+        source: application.source,
         hasCv: Boolean(application.cvBlobKey),
         positionStatement: application.positionStatement,
         comments: application.comments,

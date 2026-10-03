@@ -9,6 +9,7 @@ import {
   type OAuthProviderName,
 } from "@/lib/oauth";
 import {
+  sendAdminNewRedLinesApplicationEmail,
   sendRedLinesApplicationConfirmationEmail,
   sendRedLinesApplicationReceivedEmail,
 } from "@/lib/email";
@@ -162,6 +163,7 @@ function parseFields(formData: FormData) {
     availableOct12: formData.get("availableOct12") === "on",
     availableNov9: formData.get("availableNov9") === "on",
     availableDec7: formData.get("availableDec7") === "on",
+    availableJan11: formData.get("availableJan11") === "on",
     euParliamentInterest: parseEuInterest(formData),
     affiliation,
     publicationExample: text(formData, "publicationExample"),
@@ -262,6 +264,17 @@ async function notifyBestEffort(row: typeof redLinesApplications.$inferSelect): 
   } catch {
     // Best-effort — a Slack outage shouldn't fail the applicant-facing flow.
   }
+
+  try {
+    await sendAdminNewRedLinesApplicationEmail({
+      applicantName: row.name ?? "Unknown",
+      affiliation: row.affiliation,
+      applicationId: row.id,
+    });
+  } catch (err) {
+    console.error(`Admin notification email failed for Red Lines application ${row.id}:`, err);
+  }
+
   if (row.email) {
     try {
       await sendRedLinesApplicationReceivedEmail(row.email, row.name);
@@ -304,6 +317,7 @@ async function completeRedLinesApplication(
     availableOct12: draft.availableOct12,
     availableNov9: draft.availableNov9,
     availableDec7: draft.availableDec7,
+    availableJan11: draft.availableJan11,
     euParliamentInterest: draft.euParliamentInterest,
     affiliation: draft.affiliation,
     publicationExample: draft.publicationExample,

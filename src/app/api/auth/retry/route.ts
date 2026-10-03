@@ -1,4 +1,8 @@
-import { retryApplicationDraft } from "@/lib/applicant-flow";
+import {
+  getApplicationSourceByToken,
+  retryApplicationDraft,
+  returnPathFor,
+} from "@/lib/applicant-flow";
 import { signupClosedRedirect } from "@/lib/feature-flags";
 import { oauthHandoffResponse } from "@/lib/oauth-handoff";
 import {
@@ -9,7 +13,18 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { seeOther } from "@/lib/redirect";
 
 export async function POST(request: Request) {
-  const closed = await signupClosedRedirect();
+  const formData = await request.formData();
+  const token = formData.get("token");
+  const provider = formData.get("provider");
+
+  // The token is the draft's own state, so looking its source up is safe
+  // even before the cookie check below — it just tells us where to send
+  // this browser back to, not who's allowed to see the draft.
+  const returnPath = returnPathFor(
+    await getApplicationSourceByToken(typeof token === "string" ? token : null),
+  );
+
+  const closed = await signupClosedRedirect(returnPath);
   if (closed) return closed;
 
   const { allowed } = await checkRateLimit("auth-retry", getClientIp(request), {
@@ -19,30 +34,26 @@ export async function POST(request: Request) {
   if (!allowed) {
     // This route is reached by a browser form post, so a JSON body would be
     // shown to the visitor as a raw page. Send them back with a message instead.
-    return seeOther("/?error=ratelimit#contact");
+    return seeOther(`${returnPath}?error=ratelimit#contact`);
   }
-
-  const formData = await request.formData();
-  const token = formData.get("token");
-  const provider = formData.get("provider");
 
   if (
     typeof token !== "string" ||
     (provider !== "linkedin" && provider !== "google")
   ) {
-    return seeOther("/?error=invalid#contact");
+    return seeOther(`${returnPath}?error=invalid#contact`);
   }
 
   // The retry token is the draft's `state`, and this browser only holds the
   // matching cookie if it's the one that submitted the form. Without this, a
   // retry link sent to someone else would re-open the hole the cookie closes.
   if (!(await oauthStateCookieMatches("applicant", token))) {
-    return seeOther("/?error=invalid#contact");
+    return seeOther(`${returnPath}?error=invalid#contact`);
   }
 
   const retry = await retryApplicationDraft(token, provider);
   if (!retry) {
-    return seeOther("/?error=expired#contact");
+    return seeOther(`${returnPath}?error=expired#contact`);
   }
 
   await setOAuthStateCookie("applicant", retry.state);

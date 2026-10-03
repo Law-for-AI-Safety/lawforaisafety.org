@@ -1,0 +1,2 @@
+CREATE TYPE "public"."application_source" AS ENUM('homepage', 'mep_outreach', 'council_of_europe', 'field_building');--> statement-breakpoint
+ALTER TABLE "applications" ADD COLUMN "source" "application_source" DEFAULT 'homepage' NOT NULL;
