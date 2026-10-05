@@ -1,0 +1,1 @@
+ALTER TYPE "public"."application_source" ADD VALUE 'foi';

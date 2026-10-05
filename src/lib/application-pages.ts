@@ -113,6 +113,37 @@ export const APPLY_PAGES = {
       },
     },
   },
+  foi: {
+    label: "Freedom of Information",
+    purpose: "Translating, submitting, co-signing, or funding the FOI request",
+    path: "/freedom-of-information",
+    audience: "choice",
+    copy: {
+      individual: {
+        heading: "Tell us about you",
+        organisationLabel: "Organisation / firm (optional)",
+        statementTabLabel: "About you",
+        statementLabel: "Tell us about yourself",
+        statementPlaceholder:
+          "Your legal or translation background, and any languages you read and write",
+        commentsPlaceholder:
+          "Which country are you in, and would you like to help translate, submit, or both?",
+        validationMessage:
+          "Provide at least one of: LinkedIn profile URL, CV upload, or a short statement about yourself.",
+      },
+      organisation: {
+        heading: "Tell us about your organisation",
+        organisationLabel: "Organisation name",
+        statementTabLabel: "Tell us more",
+        statementLabel: "How would you like to be involved?",
+        statementPlaceholder:
+          "For example, co-signing the FOI request as a Member State organisation, or funding translation and submission",
+        commentsPlaceholder:
+          "Which EU Member State are you operating in, and what would you like to do?",
+        validationMessage: "Provide a LinkedIn profile URL or a short statement.",
+      },
+    },
+  },
 } satisfies Record<string, ApplyPage>;
 
 export type ApplicationSource = keyof typeof APPLY_PAGES;

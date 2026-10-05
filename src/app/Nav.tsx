@@ -14,6 +14,7 @@ const links = [
       { href: "/mep-outreach", label: "MEP Outreach" },
       { href: "/council-of-europe", label: "Council of Europe Engagement" },
       { href: "/field-building", label: "Field-building & Coordination" },
+      { href: "/freedom-of-information", label: "Freedom of Information" },
     ],
   },
   { href: "#our-story", label: "Our Story" },

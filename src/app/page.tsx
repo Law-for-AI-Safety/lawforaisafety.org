@@ -134,6 +134,15 @@ const mechanisms = [
           apply to work with us
         </a>
         .
+        {" "}
+        Read more about our{" "}
+        <Link
+          href="/freedom-of-information"
+          className="underline hover:text-brand-black"
+        >
+          FOI work
+        </Link>
+        .
       </>
     ),
   },

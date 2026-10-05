@@ -58,6 +58,7 @@ export const applicationSource = pgEnum("application_source", [
   "mep_outreach",
   "council_of_europe",
   "field_building",
+  "foi",
 ]);
 
 // Who is applying, as opposed to why (which is the page, see application-pages.ts).

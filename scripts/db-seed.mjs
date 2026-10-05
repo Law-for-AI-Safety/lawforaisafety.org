@@ -217,6 +217,19 @@ const ROWS = [
     credential: "linkedinUrl",
     newsletterOptIn: false,
   },
+  {
+    id: "00000000-0000-4000-8000-000000000015",
+    source: "foi",
+    audience: "individual",
+    authProvider: "email",
+    name: "Tina FOI-Translator",
+    email: "tina.foi@example.com",
+    organisation: null,
+    positionStatement: "Native Polish speaker with a legal background, currently practising in Warsaw.",
+    comments: "Happy to translate the FOI request into Polish and submit it to the relevant ministry.",
+    credential: "positionStatement",
+    newsletterOptIn: false,
+  },
 ];
 
 const RED_LINES_ROWS = [
