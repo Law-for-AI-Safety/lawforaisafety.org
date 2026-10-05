@@ -27,12 +27,12 @@ const photos = [
   {
     src: "/images/raluca-spataru-conference.webp",
     alt: "Raluca Spataru speaking with a microphone to a small group seated around a round table",
-    caption: "Raluca Spataru speaking at a conference.",
+    caption: "Raluca Spataru speaking at a workshop on FOI requests.",
   },
   {
     src: "/images/foi-workshop-audience.webp",
-    alt: "Workshop participants seated in a meeting space, listening to a presenter standing at the front",
-    caption: "Workshop participants listening to a presentation.",
+    alt: "Workshop participants seated in a meeting space, listening to Raluca Spataru presenting",
+    caption: "Raluca Spataru presenting the FOI initiative to participants.",
   },
 ];
 
