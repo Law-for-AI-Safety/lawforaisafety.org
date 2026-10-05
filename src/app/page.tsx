@@ -596,7 +596,7 @@ export default async function Home() {
                     Executive Director Karolina Gruzel and Legal Advisor Raluca Spataru were invited to the Pro-Human Assembly, a high-profile, bipartisan summit in Washington, D.C. on 15 September 2026, bringing together influential groups to demand strict regulation of AI, with speakers including Bernie Sanders, Ashley Judd, Daron Acemoglu, and Max Tegmark. They were also selected to join a workshop on organising similar assemblies in other regions, and Karolina later gave a fireside chat on her takeaways at the Technoprogressive Opportunity conference in London.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
-                    <div className="relative w-full aspect-square rounded-sm overflow-hidden">
+                    <div className="relative w-full aspect-[4/3] rounded-sm overflow-hidden">
                       <Image
                         src="/images/pro-human-assembly-round-table.webp"
                         alt="Name cards for Karolina Gruzel and Raluca Spataru on a round table at the workshop"
@@ -605,10 +605,10 @@ export default async function Home() {
                         sizes="(max-width: 768px) 100vw, 298px"
                       />
                     </div>
-                    <div className="relative w-full aspect-square rounded-sm overflow-hidden">
+                    <div className="relative w-full aspect-[4/3] rounded-sm overflow-hidden">
                       <Image
                         src="/images/technoprogressive-fireside-chat.webp"
-                        alt="Two speakers on stage at a fireside chat, with an audience in the room"
+                        alt="Karolina Gruzel and another speaker on stage at a fireside chat, watched by an audience"
                         fill
                         className="object-cover"
                         sizes="(max-width: 768px) 100vw, 298px"
