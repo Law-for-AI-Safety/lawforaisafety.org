@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Suspense } from "react";
 import Nav from "../Nav";
 import Footer from "../Footer";
@@ -21,6 +22,19 @@ export const metadata: Metadata = {
   description:
     "Our Freedom of Information request on catastrophic and existential AI risks, aimed at EU Member States, and how to help translate, submit, or co-sign it.",
 };
+
+const photos = [
+  {
+    src: "/images/raluca-spataru-conference.webp",
+    alt: "Raluca Spataru speaking with a microphone to a small group seated around a round table",
+    caption: "Raluca Spataru speaking at a conference.",
+  },
+  {
+    src: "/images/foi-workshop-audience.webp",
+    alt: "Workshop participants seated in a meeting space, listening to a presenter standing at the front",
+    caption: "Workshop participants listening to a presentation.",
+  },
+];
 
 const steps = [
   {
@@ -120,6 +134,28 @@ export default async function FreedomOfInformationPage() {
           <p className="text-lg md:text-xl font-light text-brand-black/85 leading-relaxed max-w-2xl">
             The project received a $20K grant.
           </p>
+        </div>
+      </section>
+
+      {/* Photos */}
+      <section className="bg-brand-navy/[0.04] px-8 md:px-16 py-20 md:py-28 border-t border-brand-black/10">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+          {photos.map((photo) => (
+            <figure key={photo.src} className="flex flex-col gap-3">
+              <div className="relative w-full aspect-[4/3] rounded-sm overflow-hidden">
+                <Image
+                  src={photo.src}
+                  alt={photo.alt}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 448px"
+                />
+              </div>
+              <figcaption className="text-base font-light text-brand-navy/80">
+                {photo.caption}
+              </figcaption>
+            </figure>
+          ))}
         </div>
       </section>
 
