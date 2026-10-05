@@ -71,14 +71,15 @@ const VARIANT_COPY: Record<
     tabs: [
       { id: "linkedin", label: "LinkedIn URL" },
       { id: "cv", label: "CV / résumé" },
-      { id: "statement", label: "What you're interested in" },
+      { id: "statement", label: "About you" },
     ],
-    statementLabel: "What you're interested in",
+    statementLabel: "Tell us about yourself",
     statementPlaceholder:
-      "A meet-up, contributing research, funding this work, or starting something similar elsewhere. Tell us what you have in mind",
-    commentsPlaceholder: "Anything else you'd like us to know",
+      "Your background, and anything that helps us understand who you are",
+    commentsPlaceholder:
+      "What would you like to help with? For example, a meet-up, contributing research, funding this work, or starting something similar elsewhere",
     validationMessage:
-      "Provide at least one of: LinkedIn profile URL, CV upload, or a short statement about what you're interested in.",
+      "Provide at least one of: LinkedIn profile URL, CV upload, or a short statement about yourself.",
   },
 };
 
