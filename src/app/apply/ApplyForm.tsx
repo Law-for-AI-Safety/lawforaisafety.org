@@ -24,9 +24,11 @@ type ApplicationSource =
  * position statement). "institutional" is for pages asking orgs for
  * funding or partnership, not a person's credentials — no CV tab, and the
  * statement field is reframed around what the org can offer rather than
- * the applicant's own role.
+ * the applicant's own role. "mixed" keeps the individual tabs but asks what
+ * the applicant is interested in, for pages that take both individuals and
+ * funders/organisations.
  */
-type ApplyFormVariant = "individual" | "institutional";
+type ApplyFormVariant = "individual" | "institutional" | "mixed";
 
 const VARIANT_COPY: Record<
   ApplyFormVariant,
@@ -63,6 +65,20 @@ const VARIANT_COPY: Record<
       "Funding, partnership, in-kind support, or something else — tell us what you have in mind",
     commentsPlaceholder: "Anything else about funding, partnership, or timing we should know",
     validationMessage: "Provide a LinkedIn profile URL or a short statement.",
+  },
+  mixed: {
+    heading: "Tell us about you",
+    tabs: [
+      { id: "linkedin", label: "LinkedIn URL" },
+      { id: "cv", label: "CV / résumé" },
+      { id: "statement", label: "What you're interested in" },
+    ],
+    statementLabel: "What you're interested in",
+    statementPlaceholder:
+      "A meet-up, contributing research, funding this work, or starting something similar elsewhere. Tell us what you have in mind",
+    commentsPlaceholder: "Anything else you'd like us to know",
+    validationMessage:
+      "Provide at least one of: LinkedIn profile URL, CV upload, or a short statement about what you're interested in.",
   },
 };
 
