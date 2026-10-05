@@ -27,12 +27,12 @@ const photos = [
   {
     src: "/images/raluca-spataru-conference.webp",
     alt: "Raluca Spataru speaking with a microphone to a small group seated around a round table",
-    caption: "Raluca Spataru speaking at a workshop on FOI requests.",
+    position: "object-top",
   },
   {
     src: "/images/foi-workshop-audience.webp",
     alt: "Workshop participants seated in a meeting space, listening to Raluca Spataru presenting",
-    caption: "Raluca Spataru presenting the FOI initiative to participants.",
+    position: "object-center",
   },
 ];
 
@@ -139,22 +139,20 @@ export default async function FreedomOfInformationPage() {
 
       {/* Photos */}
       <section className="bg-brand-navy/[0.04] px-8 md:px-16 py-20 md:py-28 border-t border-brand-black/10">
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
           {photos.map((photo) => (
-            <figure key={photo.src} className="flex flex-col gap-3">
-              <div className="relative w-full aspect-[4/3] rounded-sm overflow-hidden">
-                <Image
-                  src={photo.src}
-                  alt={photo.alt}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 448px"
-                />
-              </div>
-              <figcaption className="text-base font-light text-brand-navy/80">
-                {photo.caption}
-              </figcaption>
-            </figure>
+            <div
+              key={photo.src}
+              className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
+            >
+              <Image
+                src={photo.src}
+                alt={photo.alt}
+                fill
+                className={`object-cover ${photo.position}`}
+                sizes="(max-width: 768px) 100vw, 326px"
+              />
+            </div>
           ))}
         </div>
       </section>
