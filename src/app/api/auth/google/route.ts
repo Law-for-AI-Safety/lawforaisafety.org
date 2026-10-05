@@ -1,6 +1,11 @@
 import { looksLikeBot } from "@/lib/abuse-protection";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { createApplicationDraft, ValidationError } from "@/lib/applicant-flow";
+import {
+  createApplicationDraft,
+  parseSource,
+  returnPathFor,
+  ValidationError,
+} from "@/lib/applicant-flow";
 import { oauthHandoffResponse } from "@/lib/oauth-handoff";
 import { setOAuthStateCookie } from "@/lib/oauth-state-cookie";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -8,7 +13,10 @@ import { signupClosedRedirect } from "@/lib/feature-flags";
 import { seeOther } from "@/lib/redirect";
 
 export async function POST(request: Request) {
-  const closed = await signupClosedRedirect();
+  const formData = await request.formData();
+  const returnPath = returnPathFor(parseSource(formData));
+
+  const closed = await signupClosedRedirect(returnPath);
   if (closed) return closed;
 
   const ip = getClientIp(request);
@@ -19,17 +27,15 @@ export async function POST(request: Request) {
   if (!allowed) {
     // This route is reached by a browser form post, so a JSON body would be
     // shown to the visitor as a raw page. Send them back with a message instead.
-    return seeOther("/?error=ratelimit#contact");
+    return seeOther(`${returnPath}?error=ratelimit#contact`);
   }
 
-  const formData = await request.formData();
-
   if (!(await verifyTurnstile(formData, ip))) {
-    return seeOther("/?error=verification#contact");
+    return seeOther(`${returnPath}?error=verification#contact`);
   }
 
   if (looksLikeBot(formData)) {
-    return seeOther("/?applied=1#contact");
+    return seeOther(`${returnPath}?applied=1#contact`);
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -50,7 +56,7 @@ export async function POST(request: Request) {
     return oauthHandoffResponse(authorizeUrl, "Google");
   } catch (err) {
     if (err instanceof ValidationError) {
-      return seeOther(`/?error=${err.code}#contact`);
+      return seeOther(`${returnPath}?error=${err.code}#contact`);
     }
     throw err;
   }

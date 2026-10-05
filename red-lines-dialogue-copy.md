@@ -164,7 +164,7 @@ For sponsorship and institutional support enquiries, please contact the project 
 
 Interested in contributing, reviewing the report, joining the expert dialogue, discussing institutional cooperation, or supporting the project?
 
-Contact: redlinesdialogue@lawforaisafety.org
+Contact: redlines@lawforaisafety.org
 
 For media enquiries, please contact media@lawforaisafety.org, with “Media enquiry — Red Lines Dialogues” in the subject line.
 

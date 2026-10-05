@@ -1,0 +1,4 @@
+CREATE TYPE "public"."application_audience" AS ENUM('individual', 'organisation');--> statement-breakpoint
+ALTER TABLE "applications" ADD COLUMN "audience" "application_audience" DEFAULT 'individual' NOT NULL;--> statement-breakpoint
+ALTER TABLE "applications" ADD CONSTRAINT "applications_has_credential_chk" CHECK ("applications"."linkedin_url" IS NOT NULL OR "applications"."cv_blob_key" IS NOT NULL OR "applications"."position_statement" IS NOT NULL);--> statement-breakpoint
+ALTER TABLE "applications" ADD CONSTRAINT "applications_organisation_name_chk" CHECK ("applications"."audience" <> 'organisation' OR ("applications"."organisation" IS NOT NULL AND "applications"."organisation" <> ''));

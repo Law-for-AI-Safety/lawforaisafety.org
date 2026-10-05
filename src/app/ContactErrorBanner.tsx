@@ -12,6 +12,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   name: "Please enter your name without special characters like < or >.",
   email: "That email address doesn't look right. Please check it and try again below.",
   cv: "Your CV must be a PDF of 5 MB or less.",
+  organisation: "Enter your organisation's name to apply as an organisation.",
   sendfailed:
     "We couldn't send your confirmation email. Please try again below in a few minutes.",
   invalid: "That verification link isn't valid. Please try again below.",

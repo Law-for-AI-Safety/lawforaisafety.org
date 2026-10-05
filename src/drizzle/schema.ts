@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   pgTable,
   pgEnum,
+  check,
   uuid,
   text,
   boolean,
@@ -49,6 +50,22 @@ export const processedOutcome = pgEnum("processed_outcome", [
   "rejected",
 ]);
 
+// Which public page the applicant used — the general "Work with us" form on
+// the homepage, or one of the workstream pages that embeds the same form.
+// Purely a tag for admin triage; it doesn't change validation or the flow.
+export const applicationSource = pgEnum("application_source", [
+  "homepage",
+  "mep_outreach",
+  "council_of_europe",
+  "field_building",
+]);
+
+// Who is applying, as opposed to why (which is the page, see application-pages.ts).
+export const applicationAudience = pgEnum("application_audience", [
+  "individual",
+  "organisation",
+]);
+
 export const redLinesArea = pgEnum("red_lines_area", [
   "legal_governance",
   "technical",
@@ -86,6 +103,8 @@ export const applications = pgTable(
     comments: text("comments"),
 
     newsletterOptIn: boolean("newsletter_opt_in").notNull().default(false),
+    source: applicationSource("source").notNull().default("homepage"),
+    audience: applicationAudience("audience").notNull().default("individual"),
 
     // OAuth-verified (null until callback completes)
     authProvider: authProvider("auth_provider").notNull(),
@@ -120,6 +139,16 @@ export const applications = pgTable(
     uniqueIndex("applications_provider_id_pending_idx")
       .on(table.providerId)
       .where(sql`${table.status} = 'pending'`),
+    // Every application says something about itself: a LinkedIn profile, a CV, or a statement.
+    check(
+      "applications_has_credential_chk",
+      sql`${table.linkedinUrl} IS NOT NULL OR ${table.cvBlobKey} IS NOT NULL OR ${table.positionStatement} IS NOT NULL`,
+    ),
+    // An organisation applying must name the organisation.
+    check(
+      "applications_organisation_name_chk",
+      sql`${table.audience} <> 'organisation' OR (${table.organisation} IS NOT NULL AND ${table.organisation} <> '')`,
+    ),
   ],
 );
 
@@ -144,6 +173,7 @@ export const redLinesApplications = pgTable("red_lines_applications", {
   availableOct12: boolean("available_oct_12").notNull().default(false),
   availableNov9: boolean("available_nov_9").notNull().default(false),
   availableDec7: boolean("available_dec_7").notNull().default(false),
+  availableJan11: boolean("available_jan_11").notNull().default(false),
   euParliamentInterest: redLinesEuInterest("eu_parliament_interest"),
   affiliation: text("affiliation"),
   publicationExample: text("publication_example"),

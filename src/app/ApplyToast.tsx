@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const AUTO_DISMISS_MS = 10000;
 
 export default function ApplyToast() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   // "1": application is with reviewers. "confirm": email-only path, parked
   // until the applicant uses the link we just emailed them.
   const appliedParam = searchParams.get("applied");
@@ -22,8 +23,13 @@ export default function ApplyToast() {
   useEffect(() => {
     if (!applied) return;
 
-    // Strip the query param so a refresh doesn't re-show the toast.
-    router.replace("/#contact", { scroll: false });
+    // Strip the query param so a refresh doesn't re-show the toast. This
+    // component is now shared across the homepage and the workstream pages
+    // (mep-outreach, council-of-europe, field-building) — each applies via
+    // the same form, redirected back to whichever page it started on (see
+    // returnPathFor in applicant-flow.ts) — so this has to stay on that page
+    // rather than hardcoding "/".
+    router.replace(`${pathname}#contact`, { scroll: false });
 
     const timer = setTimeout(() => setVisible(false), AUTO_DISMISS_MS);
     return () => clearTimeout(timer);

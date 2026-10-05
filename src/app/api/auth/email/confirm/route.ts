@@ -1,4 +1,8 @@
-import { confirmManualApplication } from "@/lib/applicant-flow";
+import {
+  confirmManualApplication,
+  getApplicationSourceByToken,
+  returnPathFor,
+} from "@/lib/applicant-flow";
 import { signupClosedRedirect } from "@/lib/feature-flags";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { seeOther } from "@/lib/redirect";
@@ -10,7 +14,14 @@ import { seeOther } from "@/lib/redirect";
  * let a scanner submit the application on the applicant's behalf.
  */
 export async function POST(request: Request) {
-  const closed = await signupClosedRedirect();
+  const formData = await request.formData();
+  const token = formData.get("token");
+
+  const returnPath = returnPathFor(
+    await getApplicationSourceByToken(typeof token === "string" ? token : null),
+  );
+
+  const closed = await signupClosedRedirect(returnPath);
   if (closed) return closed;
 
   const { allowed } = await checkRateLimit("auth-confirm", getClientIp(request), {
@@ -20,13 +31,11 @@ export async function POST(request: Request) {
   if (!allowed) {
     // This route is reached by a browser form post, so a JSON body would be
     // shown to the visitor as a raw page. Send them back with a message instead.
-    return seeOther("/?error=ratelimit#contact");
+    return seeOther(`${returnPath}?error=ratelimit#contact`);
   }
 
-  const formData = await request.formData();
-  const token = formData.get("token");
   if (typeof token !== "string" || token === "") {
-    return seeOther("/?error=invalid#contact");
+    return seeOther(`${returnPath}?error=invalid#contact`);
   }
 
   const redirectTo = await confirmManualApplication(token);

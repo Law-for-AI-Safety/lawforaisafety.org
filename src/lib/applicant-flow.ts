@@ -10,10 +10,18 @@ import {
 } from "@/lib/oauth";
 import type { ApplicantAuthProvider } from "@/lib/applicant-types";
 import { deleteCv, storeCv, validatePdf } from "@/lib/cv-storage";
-import { sendApplicationConfirmationEmail } from "@/lib/email";
+import { sendAdminNewApplicationEmail, sendApplicationConfirmationEmail } from "@/lib/email";
 import { isProductionDeploy } from "@/lib/deploy-context";
 import { hashEmail } from "@/lib/email-hash";
 import { notifyReviewersOfNewApplication } from "@/lib/slack";
+import {
+  APPLICATION_SOURCES,
+  APPLY_PAGES,
+  AUDIENCE_LABELS,
+  purposeFor,
+  resolveAudience,
+  type ApplicationSource,
+} from "@/lib/application-pages";
 
 /** `code` is the `?error=` value the contact section shows a message for — see ContactErrorBanner. */
 export type ValidationErrorCode =
@@ -23,6 +31,7 @@ export type ValidationErrorCode =
   | "name"
   | "email"
   | "cv"
+  | "organisation"
   | "sendfailed";
 
 export class ValidationError extends Error {
@@ -97,13 +106,58 @@ function parseLinkedinUrl(value: string | null): string | null {
   return url.toString();
 }
 
+/** The hidden `source` field is set by our own pages, but never trust a POST body — fall back rather than insert whatever string arrives. */
+export function parseSource(formData: FormData): ApplicationSource {
+  const value = str(formData.get("source"));
+  return (APPLICATION_SOURCES as readonly string[]).includes(value ?? "")
+    ? (value as ApplicationSource)
+    : "homepage";
+}
+
+/**
+ * Where to send the applicant back to once this request is done — so a
+ * submission from /field-building ends up back on /field-building, not the
+ * homepage. The OAuth `redirectUri` itself (registered with LinkedIn/Google)
+ * never changes; only this post-callback destination does, carried via the
+ * draft row's `source`, keyed by the same `state`/token used throughout.
+ */
+export function returnPathFor(source: ApplicationSource): string {
+  return APPLY_PAGES[source].path;
+}
+
+/** For routes that only have a token (retry, OAuth callback `state`) and no draft object yet. */
+export async function getApplicationSourceByToken(
+  token: string | null,
+): Promise<ApplicationSource> {
+  if (!token) return "homepage";
+  const [row] = await db
+    .select({ source: applications.source })
+    .from(applications)
+    .where(eq(applications.stateToken, token));
+  return row?.source ?? "homepage";
+}
+
+function authProviderLabel(provider: ApplicantAuthProvider): string {
+  if (provider === "linkedin") return "LinkedIn";
+  if (provider === "google") return "Google";
+  return "email link";
+}
+
 function parseSelfReportedFields(formData: FormData) {
+  const source = parseSource(formData);
+  const audience = resolveAudience(source, str(formData.get("audience")));
+  const organisation = text(formData, "organisation");
+  if (audience === "organisation" && !organisation) {
+    throw new ValidationError("Organisation name is required", "organisation");
+  }
   return {
     linkedinUrl: parseLinkedinUrl(text(formData, "linkedinUrl")),
     positionStatement: text(formData, "positionStatement"),
-    organisation: text(formData, "organisation"),
+    organisation,
     comments: text(formData, "comments"),
     newsletterOptIn: formData.get("newsletterOptIn") === "on",
+    source,
+    audience,
   };
 }
 
@@ -132,7 +186,7 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
-async function notifySlackBestEffort(
+async function notifyAdminsBestEffort(
   row: typeof applications.$inferSelect,
   provider: ApplicantAuthProvider,
 ): Promise<void> {
@@ -145,6 +199,19 @@ async function notifySlackBestEffort(
     });
   } catch {
     // Best-effort — a Slack outage shouldn't fail the applicant-facing flow.
+  }
+
+  try {
+    await sendAdminNewApplicationEmail({
+      applicantName: row.name ?? "Unknown",
+      organisation: row.organisation,
+      authProviderLabel: authProviderLabel(provider),
+      purposeLabel: purposeFor(row.source),
+      audienceLabel: AUDIENCE_LABELS[row.audience],
+      applicationId: row.id,
+    });
+  } catch (err) {
+    console.error(`Admin notification email failed for application ${row.id}:`, err);
   }
 }
 
@@ -270,6 +337,8 @@ async function completeApplication(
     linkedinUrl: draft.linkedinUrl,
     cvBlobKey: draft.cvBlobKey,
     newsletterOptIn: draft.newsletterOptIn,
+    source: draft.source,
+    audience: draft.audience,
   };
 
   const findPending = async () => {
@@ -316,7 +385,7 @@ async function completeApplication(
     if (processed?.outcome === "approved") {
       if (draft.cvBlobKey) await deleteCv(draft.cvBlobKey);
       await db.delete(applications).where(eq(applications.id, draft.id));
-      return "/?applied=1#contact";
+      return `${returnPathFor(draft.source)}?applied=1#contact`;
     }
 
     try {
@@ -348,9 +417,9 @@ async function completeApplication(
     .select()
     .from(applications)
     .where(eq(applications.id, resultApplicationId));
-  if (finalRow) await notifySlackBestEffort(finalRow, provider);
+  if (finalRow) await notifyAdminsBestEffort(finalRow, provider);
 
-  return "/?applied=1#contact";
+  return `${returnPathFor(draft.source)}?applied=1#contact`;
 }
 
 export async function handleOAuthCallback(
@@ -379,9 +448,11 @@ export async function handleOAuthCallback(
     return "/?error=invalid#contact";
   }
 
+  const returnPath = returnPathFor(draft.source);
+
   const staleCutoff = new Date(Date.now() - 60 * 60 * 1000);
   if (draft.createdAt < staleCutoff) {
-    return "/?error=expired#contact";
+    return `${returnPath}?error=expired#contact`;
   }
 
   const sendToRetry = async (authError: string) => {
@@ -393,7 +464,7 @@ export async function handleOAuthCallback(
   };
 
   if (error) return sendToRetry(error);
-  if (!code) return "/?error=invalid#contact";
+  if (!code) return `${returnPath}?error=invalid#contact`;
 
   let userInfo;
   try {
@@ -456,7 +527,7 @@ export async function submitManualApplication(formData: FormData): Promise<strin
   }
 
   const normalizedEmail = email.toLowerCase();
-  const confirmRedirect = "/?applied=confirm#contact";
+  const confirmRedirect = `${returnPathFor(fields.source)}?applied=confirm#contact`;
 
   // Same response whether or not we send — says nothing about the address,
   // and a flood aimed at one inbox stops at three.
@@ -523,7 +594,7 @@ export async function confirmManualApplication(token: string): Promise<string> {
   if (!draft || !draft.email || !draft.name) return "/?error=invalid#contact";
 
   if (draft.createdAt < new Date(Date.now() - EMAIL_CONFIRM_TTL_MS)) {
-    return "/?error=expired#contact";
+    return `${returnPathFor(draft.source)}?error=expired#contact`;
   }
 
   // No OAuth `sub` to key on — the normalised email is the stable identity

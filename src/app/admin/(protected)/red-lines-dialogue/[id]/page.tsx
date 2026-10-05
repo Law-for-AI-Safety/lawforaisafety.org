@@ -45,6 +45,7 @@ export default async function AdminRedLinesDetailPage({
         availableOct12: application.availableOct12,
         availableNov9: application.availableNov9,
         availableDec7: application.availableDec7,
+        availableJan11: application.availableJan11,
         euParliamentInterest: application.euParliamentInterest,
         affiliation: application.affiliation,
         publicationExample: application.publicationExample,

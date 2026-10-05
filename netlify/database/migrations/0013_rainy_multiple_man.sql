@@ -1,0 +1,1 @@
+ALTER TABLE "red_lines_applications" ADD COLUMN "available_jan_11" boolean DEFAULT false NOT NULL;

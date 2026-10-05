@@ -16,6 +16,7 @@ type Application = {
   availableOct12: boolean;
   availableNov9: boolean;
   availableDec7: boolean;
+  availableJan11: boolean;
   euParliamentInterest: "yes" | "maybe" | "no" | null;
   affiliation: string | null;
   publicationExample: string | null;
@@ -356,6 +357,7 @@ export default function RedLinesApplicationDetail({
           <li>12 October 2026: {application.availableOct12 ? "Yes" : "No"}</li>
           <li>9 November 2026: {application.availableNov9 ? "Yes" : "No"}</li>
           <li>7 December 2026: {application.availableDec7 ? "Yes" : "No"}</li>
+          <li>11 January 2027: {application.availableJan11 ? "Yes" : "No"}</li>
         </ul>
       </DetailField>
 
