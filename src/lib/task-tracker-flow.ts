@@ -99,7 +99,7 @@ async function validateDependencies(
     const current = stack.pop()!;
     if (current === taskId) {
       throw new ValidationError(
-        "That dependency would create a loop: one of those tasks is already waiting on this one",
+        "That dependency would create a loop — one of those tasks is already waiting on this one",
       );
     }
     if (seen.has(current)) continue;
@@ -360,7 +360,7 @@ export async function rescheduleDependents(
       (change.plannedEnd !== null && !ISO_DATE.test(change.plannedEnd)) ||
       (change.plannedEnd !== null && change.plannedEnd < change.plannedStart)
     ) {
-      throw new ValidationError("Those dates don't make sense. Reload and try again.");
+      throw new ValidationError("Those dates don't make sense — reload and try again.");
     }
   }
 

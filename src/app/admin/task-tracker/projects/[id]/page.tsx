@@ -168,7 +168,7 @@ export default async function ProjectDetailPage({
         <div className="flex flex-col items-start gap-3 border border-brand-black/10 px-4 py-6">
           <p className="text-brand-black">This project has no tasks yet.</p>
           <p className="text-sm text-brand-black/70">
-            Break the work into steps someone can pick up, for example
+            Break the work into steps someone can pick up — for example
             &ldquo;Draft policy&rdquo;, &ldquo;Legal review&rdquo;, &ldquo;Publish&rdquo;.
           </p>
           <Link href={newTaskHref} className="bg-brand-navy px-5 py-2 text-brand-white">

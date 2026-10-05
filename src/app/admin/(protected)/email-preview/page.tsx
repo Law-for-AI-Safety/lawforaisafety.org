@@ -15,7 +15,7 @@ export default function EmailPreviewPage() {
         <h1 className="font-sans text-3xl text-brand-black">Email preview</h1>
         <p className="mt-1 text-brand-black/60">
           Renders exactly what each transactional email sends, including the
-          real footer logo (only loads correctly here; the actual
+          real footer logo (only loads correctly here — the actual
           `NEXT_PUBLIC_SITE_URL`-based image URL isn&apos;t reachable from a
           real inbox when testing against localhost).
         </p>

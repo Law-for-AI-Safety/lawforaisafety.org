@@ -213,7 +213,7 @@ export default function ApplicationDetail({
             {application.failedNotification === "approved"
               ? "approved"
               : "rejected"}
-            , but the notification email failed to send. The applicant
+            , but the notification email failed to send — the applicant
             hasn&apos;t been told yet, so nothing&apos;s been deleted.
           </p>
           <p className="mt-1 text-brand-black/80">
@@ -323,7 +323,7 @@ export default function ApplicationDetail({
         </span>
         <span className="text-sm text-brand-black/60">
           {application.failedNotification === "rejected"
-            ? "Retrying the notification email reuses the notes saved with the original decision. Editing here won't change them."
+            ? "Retrying the notification email reuses the notes saved with the original decision — editing here won't change them."
             : "Do not include names or other identifying details. Notes are retained after rejection."}
         </span>
         <textarea

@@ -55,7 +55,7 @@ export function startSuggestionCopy(
   const date = formatDate(suggestion.date);
   return {
     date: suggestion.date,
-    label: `Use ${date}, the day after ${suggestion.blockerName} ends`,
+    label: `Use ${date} — the day after ${suggestion.blockerName} ends`,
     note: `Can't start before ${date}, when ${suggestion.blockerName} ends.`,
   };
 }

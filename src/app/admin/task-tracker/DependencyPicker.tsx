@@ -35,8 +35,8 @@ const STATUS_ORDER: Record<TaskTrackerStatus, number> = {
 };
 
 function dependencyNote(status: TaskTrackerStatus): string | null {
-  if (status === "done") return "Done: no longer holding this up";
-  if (status === "cancelled") return "Cancelled: no longer holding this up";
+  if (status === "done") return "Done — no longer holding this up";
+  if (status === "cancelled") return "Cancelled — no longer holding this up";
   return null;
 }
 
@@ -135,7 +135,7 @@ export default function DependencyPicker({
 
       {chosen.length === 0 ? (
         <p className="text-sm text-brand-black/70">
-          Nothing. This task can start any time.
+          Nothing — this task can start any time.
         </p>
       ) : (
         <ul className="flex flex-col divide-y divide-brand-black/10 border border-brand-black/10">

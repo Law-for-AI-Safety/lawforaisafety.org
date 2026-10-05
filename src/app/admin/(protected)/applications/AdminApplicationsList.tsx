@@ -58,7 +58,7 @@ export default function AdminApplicationsList({
               <div className="min-w-0">
                 {application.needsNotificationRetry && (
                   <p className="truncate text-sm font-semibold text-brand-red">
-                    Notification failed: retry
+                    Notification failed — retry
                   </p>
                 )}
                 <p className="truncate text-brand-black">
