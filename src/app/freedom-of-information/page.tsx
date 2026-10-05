@@ -161,9 +161,11 @@ export default async function FreedomOfInformationPage() {
             Help us file in every Member State
           </h2>
           <p className="text-lg md:text-xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-            We need translators and legal volunteers who can help with
-            translation and submission in their country, organisations in EU
-            Member States willing to co-sign, and funders for the work.
+            We are already funded to get this started. To take it to every
+            Member State, we need translators and legal volunteers who can
+            help with translation and submission in their country,
+            organisations in EU Member States willing to co-sign, and funders
+            to extend the work.
           </p>
 
           <Suspense fallback={null}>
