@@ -123,37 +123,30 @@ export default async function FreedomOfInformationPage() {
         </div>
       </section>
 
-      {/* Beyond Europe, and funding */}
+      {/* Workshops */}
       <section className="bg-brand-white px-8 md:px-16 py-20 md:py-28 border-t border-brand-black/10">
-        <div className="max-w-4xl mx-auto flex flex-col gap-6">
+        <div className="max-w-4xl mx-auto flex flex-col gap-10">
           <p className="text-lg md:text-xl font-light text-brand-black/85 leading-relaxed max-w-2xl">
             Our Legal Advisor, Raluca Spataru, has also facilitated workshops
             on the FOI initiative, which has sparked interest in starting
             similar initiatives in the US and Canada.
           </p>
-          <p className="text-lg md:text-xl font-light text-brand-black/85 leading-relaxed max-w-2xl">
-            The project received a $20K grant.
-          </p>
-        </div>
-      </section>
-
-      {/* Photos */}
-      <section className="bg-brand-navy/[0.04] px-8 md:px-16 py-20 md:py-28 border-t border-brand-black/10">
-        <div className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-          {photos.map((photo) => (
-            <div
-              key={photo.src}
-              className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
-            >
-              <Image
-                src={photo.src}
-                alt={photo.alt}
-                fill
-                className={`object-cover ${photo.position}`}
-                sizes="(max-width: 768px) 100vw, 326px"
-              />
-            </div>
-          ))}
+          <div className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+            {photos.map((photo) => (
+              <div
+                key={photo.src}
+                className="relative w-full aspect-[4/3] rounded-sm overflow-hidden"
+              >
+                <Image
+                  src={photo.src}
+                  alt={photo.alt}
+                  fill
+                  className={`object-cover ${photo.position}`}
+                  sizes="(max-width: 768px) 100vw, 326px"
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
