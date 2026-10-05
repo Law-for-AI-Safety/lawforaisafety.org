@@ -59,12 +59,12 @@ export default async function FreedomOfInformationPage() {
             className="text-4xl md:text-6xl font-light text-brand-black leading-[1.1] tracking-tight"
             style={{ textWrap: "balance" }}
           >
-            <WavyUnderline>Freedom of Information</WavyUnderline> requests on AI risk
+            Freedom of Information requests on AI risk
           </h1>
           <Rule />
           <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
             Effective AI governance depends on transparency, robust oversight,
-            and meaningful accountability. We are filing Freedom of Information requests with EU
+            and meaningful accountability. We are filing <WavyUnderline>Freedom of Information</WavyUnderline> requests with EU
             Member States about catastrophic and existential risks from AI.
           </p>
         </div>
@@ -113,9 +113,9 @@ export default async function FreedomOfInformationPage() {
       <section className="bg-brand-white px-8 md:px-16 py-20 md:py-28 border-t border-brand-black/10">
         <div className="max-w-4xl mx-auto flex flex-col gap-6">
           <p className="text-lg md:text-xl font-light text-brand-black/85 leading-relaxed max-w-2xl">
-            Our Legal Advisor has also given workshops on the FOI initiative,
-            which has sparked interest in starting similar initiatives in the
-            US and Canada.
+            Our Legal Advisor, Raluca Spataru, has also facilitated workshops
+            on the FOI initiative, which has sparked interest in starting
+            similar initiatives in the US and Canada.
           </p>
           <p className="text-lg md:text-xl font-light text-brand-black/85 leading-relaxed max-w-2xl">
             The project received a $20K grant.
