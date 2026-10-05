@@ -5,6 +5,14 @@ import {
   FORM_RENDERED_AT_FIELD_NAME,
   HONEYPOT_FIELD_NAME,
 } from "@/lib/abuse-protection";
+import {
+  APPLICATION_AUDIENCES,
+  APPLY_PAGES,
+  AUDIENCE_LABELS,
+  type ApplicationAudience,
+  type ApplicationSource,
+  type AudienceCopy,
+} from "@/lib/application-pages";
 import FormSubmissionTabs from "../FormSubmissionTabs";
 import Checkbox from "./Checkbox";
 import CvFileField from "./CvFileField";
@@ -13,84 +21,23 @@ import { FIELD_CLASSES, LABEL_CLASSES } from "./field-styles";
 
 type CredentialTab = "linkedin" | "cv" | "statement";
 
-type ApplicationSource =
-  | "homepage"
-  | "mep_outreach"
-  | "council_of_europe"
-  | "field_building";
-
 /**
- * "individual" is the default volunteer/applicant shape (CV, LinkedIn,
- * position statement). "institutional" is for pages asking orgs for
- * funding or partnership, not a person's credentials — no CV tab, and the
- * statement field is reframed around what the org can offer rather than
- * the applicant's own role. "mixed" keeps the individual tabs but asks what
- * the applicant is interested in, for pages that take both individuals and
- * funders/organisations.
+ * The page owns the copy and purpose (see application-pages.ts). This
+ * component only renders the form for the page it is given, and posts that
+ * page's identifier. The server decides the audience it stores.
  */
-type ApplyFormVariant = "individual" | "institutional" | "mixed";
-
-const VARIANT_COPY: Record<
-  ApplyFormVariant,
-  {
-    heading: string;
-    tabs: { id: CredentialTab; label: string }[];
-    statementLabel: string;
-    statementPlaceholder: string;
-    commentsPlaceholder: string;
-    validationMessage: string;
-  }
-> = {
-  individual: {
-    heading: "Show your credentials",
-    tabs: [
-      { id: "linkedin", label: "LinkedIn URL" },
-      { id: "cv", label: "CV / résumé" },
-      { id: "statement", label: "Position statement" },
-    ],
-    statementLabel: "Position statement",
-    statementPlaceholder: "Describe your current role and why you're relevant",
-    commentsPlaceholder: "Anything else you'd like us to know",
-    validationMessage:
-      "Provide at least one of: LinkedIn profile URL, CV upload, or a position statement.",
-  },
-  institutional: {
-    heading: "Tell us about your organisation",
-    tabs: [
-      { id: "linkedin", label: "LinkedIn URL" },
-      { id: "statement", label: "Tell us more" },
-    ],
-    statementLabel: "How would you like to support this work?",
-    statementPlaceholder:
-      "Funding, partnership, in-kind support, or something else. Tell us what you have in mind",
-    commentsPlaceholder: "Anything else about funding, partnership, or timing we should know",
-    validationMessage: "Provide a LinkedIn profile URL or a short statement.",
-  },
-  mixed: {
-    heading: "Tell us about you",
-    tabs: [
-      { id: "linkedin", label: "LinkedIn URL" },
-      { id: "cv", label: "CV / résumé" },
-      { id: "statement", label: "About you" },
-    ],
-    statementLabel: "Tell us about yourself",
-    statementPlaceholder:
-      "Your background, and anything that helps us understand who you are",
-    commentsPlaceholder:
-      "What would you like to help with? For example, a meet-up, contributing research, funding this work, or starting something similar elsewhere",
-    validationMessage:
-      "Provide at least one of: LinkedIn profile URL, CV upload, or a short statement about yourself.",
-  },
-};
-
 export default function ApplyForm({
   source = "homepage",
-  variant = "individual",
 }: {
   source?: ApplicationSource;
-  variant?: ApplyFormVariant;
 }) {
-  const copy = VARIANT_COPY[variant];
+  const page = APPLY_PAGES[source];
+  const [chosenAudience, setChosenAudience] = useState<ApplicationAudience>("individual");
+  const audience: ApplicationAudience =
+    page.audience === "choice" ? chosenAudience : page.audience;
+  const copy: AudienceCopy =
+    page.audience === "choice" ? page.copy[audience] : page.copy;
+
   const [error, setError] = useState<string | null>(null);
   // Which submit button is mid-flight (its formAction), or null. Submitting
   // uploads the CV and then leaves for LinkedIn/Google, which can take several
@@ -99,11 +46,18 @@ export default function ApplyForm({
   // on the rate limiter.
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
   const [renderedAt] = useState(() => Date.now());
-  const [activeCredentialTab, setActiveCredentialTab] =
-    useState<CredentialTab>("linkedin");
+  const [selectedTab, setSelectedTab] = useState<CredentialTab>("linkedin");
+
+  const tabs: { id: CredentialTab; label: string }[] = [
+    { id: "linkedin", label: "LinkedIn URL" },
+    ...(audience === "individual" ? [{ id: "cv" as const, label: "CV / résumé" }] : []),
+    { id: "statement", label: copy.statementTabLabel },
+  ];
+  const activeTab = tabs.some((tab) => tab.id === selectedTab) ? selectedTab : "linkedin";
 
   const linkedinUrlRef = useRef<HTMLInputElement>(null);
   const cvRef = useRef<HTMLInputElement>(null);
+  const organisationRef = useRef<HTMLInputElement>(null);
   const positionStatementRef = useRef<HTMLTextAreaElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -125,6 +79,11 @@ export default function ApplyForm({
 
     if (!hasLinkedin && !hasCv && !hasStatement) {
       setError(copy.validationMessage);
+      return false;
+    }
+
+    if (audience === "organisation" && !organisationRef.current?.value.trim()) {
+      setError("Enter your organisation's name to apply as an organisation.");
       return false;
     }
 
@@ -191,19 +150,40 @@ export default function ApplyForm({
       <input type="hidden" name={FORM_RENDERED_AT_FIELD_NAME} value={renderedAt} readOnly />
       <input type="hidden" name="source" value={source} readOnly />
 
+      {page.audience === "choice" ? (
+        <fieldset className="flex flex-col gap-3">
+          <legend className={LABEL_CLASSES}>Are you applying as an individual or an organisation?</legend>
+          {APPLICATION_AUDIENCES.map((option) => (
+            <label key={option} className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="audience"
+                value={option}
+                checked={audience === option}
+                onChange={() => setChosenAudience(option)}
+                className="h-5 w-5 accent-brand-navy"
+              />
+              <span className="text-lg text-brand-black">{AUDIENCE_LABELS[option]}</span>
+            </label>
+          ))}
+        </fieldset>
+      ) : (
+        <input type="hidden" name="audience" value={audience} readOnly />
+      )}
+
       <div className="flex flex-col gap-5">
         <h4 className="text-xl font-light text-brand-black">{copy.heading}</h4>
 
         <div className="flex gap-1 border-b border-brand-black/10" role="tablist">
-          {copy.tabs.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               role="tab"
-              aria-selected={activeCredentialTab === tab.id}
-              onClick={() => setActiveCredentialTab(tab.id)}
+              aria-selected={activeTab === tab.id}
+              onClick={() => setSelectedTab(tab.id)}
               className={`rounded-t-sm px-5 py-3 text-lg transition-colors ${
-                activeCredentialTab === tab.id
+                activeTab === tab.id
                   ? "bg-brand-navy text-brand-white"
                   : "text-brand-black/60 hover:text-brand-black"
               }`}
@@ -213,7 +193,7 @@ export default function ApplyForm({
           ))}
         </div>
 
-        {activeCredentialTab === "linkedin" && (
+        {activeTab === "linkedin" && (
           <label className="flex flex-col gap-2">
             <span className={LABEL_CLASSES}>LinkedIn profile URL</span>
             <input
@@ -227,32 +207,37 @@ export default function ApplyForm({
           </label>
         )}
 
-        {activeCredentialTab === "cv" && (
+        {activeTab === "cv" && (
           <label className="flex flex-col gap-2">
             <span className={LABEL_CLASSES}>CV / résumé</span>
             <CvFileField name="cv" inputRef={cvRef} />
           </label>
         )}
 
-        {activeCredentialTab === "statement" && (
-          <div className="flex flex-col gap-5">
-            <label className="flex flex-col gap-2">
-              <span className={LABEL_CLASSES}>Organisation / firm</span>
-              <input type="text" name="organisation" maxLength={200} className={FIELD_CLASSES} />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className={LABEL_CLASSES}>{copy.statementLabel}</span>
-              <textarea
-                ref={positionStatementRef}
-                name="positionStatement"
-                maxLength={5000}
-                rows={4}
-                placeholder={copy.statementPlaceholder}
-                className={FIELD_CLASSES}
-              />
-            </label>
-          </div>
+        {activeTab === "statement" && (
+          <label className="flex flex-col gap-2">
+            <span className={LABEL_CLASSES}>{copy.statementLabel}</span>
+            <textarea
+              ref={positionStatementRef}
+              name="positionStatement"
+              maxLength={5000}
+              rows={4}
+              placeholder={copy.statementPlaceholder}
+              className={FIELD_CLASSES}
+            />
+          </label>
         )}
+
+        <label className="flex flex-col gap-2">
+          <span className={LABEL_CLASSES}>{copy.organisationLabel}</span>
+          <input
+            ref={organisationRef}
+            type="text"
+            name="organisation"
+            maxLength={200}
+            className={FIELD_CLASSES}
+          />
+        </label>
       </div>
 
       <div className="flex flex-col gap-5">

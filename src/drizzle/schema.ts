@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   pgTable,
   pgEnum,
+  check,
   uuid,
   text,
   boolean,
@@ -59,6 +60,12 @@ export const applicationSource = pgEnum("application_source", [
   "field_building",
 ]);
 
+// Who is applying, as opposed to why (which is the page, see application-pages.ts).
+export const applicationAudience = pgEnum("application_audience", [
+  "individual",
+  "organisation",
+]);
+
 export const redLinesArea = pgEnum("red_lines_area", [
   "legal_governance",
   "technical",
@@ -97,6 +104,7 @@ export const applications = pgTable(
 
     newsletterOptIn: boolean("newsletter_opt_in").notNull().default(false),
     source: applicationSource("source").notNull().default("homepage"),
+    audience: applicationAudience("audience").notNull().default("individual"),
 
     // OAuth-verified (null until callback completes)
     authProvider: authProvider("auth_provider").notNull(),
@@ -131,6 +139,16 @@ export const applications = pgTable(
     uniqueIndex("applications_provider_id_pending_idx")
       .on(table.providerId)
       .where(sql`${table.status} = 'pending'`),
+    // Every application says something about itself: a LinkedIn profile, a CV, or a statement.
+    check(
+      "applications_has_credential_chk",
+      sql`${table.linkedinUrl} IS NOT NULL OR ${table.cvBlobKey} IS NOT NULL OR ${table.positionStatement} IS NOT NULL`,
+    ),
+    // An organisation applying must name the organisation.
+    check(
+      "applications_organisation_name_chk",
+      sql`${table.audience} <> 'organisation' OR (${table.organisation} IS NOT NULL AND ${table.organisation} <> '')`,
+    ),
   ],
 );
 

@@ -196,7 +196,7 @@ export default async function FieldBuildingPage() {
 
           {signupEnabled ? (
             <div className="max-w-2xl">
-              <ApplyForm source="field_building" variant="mixed" />
+              <ApplyForm source="field_building" />
             </div>
           ) : (
             <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">

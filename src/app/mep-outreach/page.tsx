@@ -181,7 +181,7 @@ export default async function MepOutreachPage() {
 
           {signupEnabled ? (
             <div className="max-w-2xl">
-              <ApplyForm source="mep_outreach" variant="institutional" />
+              <ApplyForm source="mep_outreach" />
             </div>
           ) : (
             <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">

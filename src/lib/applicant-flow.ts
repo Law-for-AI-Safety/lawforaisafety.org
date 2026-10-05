@@ -14,6 +14,14 @@ import { sendAdminNewApplicationEmail, sendApplicationConfirmationEmail } from "
 import { isProductionDeploy } from "@/lib/deploy-context";
 import { hashEmail } from "@/lib/email-hash";
 import { notifyReviewersOfNewApplication } from "@/lib/slack";
+import {
+  APPLICATION_SOURCES,
+  APPLY_PAGES,
+  AUDIENCE_LABELS,
+  purposeFor,
+  resolveAudience,
+  type ApplicationSource,
+} from "@/lib/application-pages";
 
 /** `code` is the `?error=` value the contact section shows a message for — see ContactErrorBanner. */
 export type ValidationErrorCode =
@@ -23,6 +31,7 @@ export type ValidationErrorCode =
   | "name"
   | "email"
   | "cv"
+  | "organisation"
   | "sendfailed";
 
 export class ValidationError extends Error {
@@ -97,14 +106,6 @@ function parseLinkedinUrl(value: string | null): string | null {
   return url.toString();
 }
 
-const APPLICATION_SOURCES = [
-  "homepage",
-  "mep_outreach",
-  "council_of_europe",
-  "field_building",
-] as const;
-export type ApplicationSource = (typeof APPLICATION_SOURCES)[number];
-
 /** The hidden `source` field is set by our own pages, but never trust a POST body — fall back rather than insert whatever string arrives. */
 export function parseSource(formData: FormData): ApplicationSource {
   const value = str(formData.get("source"));
@@ -112,13 +113,6 @@ export function parseSource(formData: FormData): ApplicationSource {
     ? (value as ApplicationSource)
     : "homepage";
 }
-
-const RETURN_PATHS: Record<ApplicationSource, string> = {
-  homepage: "/",
-  mep_outreach: "/mep-outreach",
-  council_of_europe: "/council-of-europe",
-  field_building: "/field-building",
-};
 
 /**
  * Where to send the applicant back to once this request is done — so a
@@ -128,7 +122,7 @@ const RETURN_PATHS: Record<ApplicationSource, string> = {
  * draft row's `source`, keyed by the same `state`/token used throughout.
  */
 export function returnPathFor(source: ApplicationSource): string {
-  return RETURN_PATHS[source];
+  return APPLY_PAGES[source].path;
 }
 
 /** For routes that only have a token (retry, OAuth callback `state`) and no draft object yet. */
@@ -143,15 +137,6 @@ export async function getApplicationSourceByToken(
   return row?.source ?? "homepage";
 }
 
-// Null for homepage — the admin notification email omits the "Applied via"
-// line for the default/general path, same as the admin UI does.
-const SOURCE_LABELS: Record<ApplicationSource, string | null> = {
-  homepage: null,
-  mep_outreach: "MEP Outreach",
-  council_of_europe: "Council of Europe Engagement",
-  field_building: "Field-building and Coordination",
-};
-
 function authProviderLabel(provider: ApplicantAuthProvider): string {
   if (provider === "linkedin") return "LinkedIn";
   if (provider === "google") return "Google";
@@ -159,13 +144,20 @@ function authProviderLabel(provider: ApplicantAuthProvider): string {
 }
 
 function parseSelfReportedFields(formData: FormData) {
+  const source = parseSource(formData);
+  const audience = resolveAudience(source, str(formData.get("audience")));
+  const organisation = text(formData, "organisation");
+  if (audience === "organisation" && !organisation) {
+    throw new ValidationError("Organisation name is required", "organisation");
+  }
   return {
     linkedinUrl: parseLinkedinUrl(text(formData, "linkedinUrl")),
     positionStatement: text(formData, "positionStatement"),
-    organisation: text(formData, "organisation"),
+    organisation,
     comments: text(formData, "comments"),
     newsletterOptIn: formData.get("newsletterOptIn") === "on",
-    source: parseSource(formData),
+    source,
+    audience,
   };
 }
 
@@ -214,7 +206,8 @@ async function notifyAdminsBestEffort(
       applicantName: row.name ?? "Unknown",
       organisation: row.organisation,
       authProviderLabel: authProviderLabel(provider),
-      sourceLabel: SOURCE_LABELS[row.source],
+      purposeLabel: purposeFor(row.source),
+      audienceLabel: AUDIENCE_LABELS[row.audience],
       applicationId: row.id,
     });
   } catch (err) {
@@ -345,6 +338,7 @@ async function completeApplication(
     cvBlobKey: draft.cvBlobKey,
     newsletterOptIn: draft.newsletterOptIn,
     source: draft.source,
+    audience: draft.audience,
   };
 
   const findPending = async () => {

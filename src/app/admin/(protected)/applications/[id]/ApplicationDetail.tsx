@@ -4,6 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PdfViewer from "./PdfViewer";
+import {
+  appliedVia,
+  purposeFor,
+  type ApplicationAudience,
+  type ApplicationSource,
+} from "@/lib/application-pages";
 import ReviewerChecklist, {
   REVIEWER_CHECKS,
   type ReviewerCheckId,
@@ -17,7 +23,8 @@ type Application = {
   authProvider: "linkedin" | "google" | "email";
   organisation: string | null;
   linkedinUrl: string | null;
-  source: "homepage" | "mep_outreach" | "council_of_europe" | "field_building";
+  source: ApplicationSource;
+  audience: ApplicationAudience;
   hasCv: boolean;
   positionStatement: string | null;
   comments: string | null;
@@ -251,19 +258,17 @@ export default function ApplicationDetail({
         <p className="text-brand-black/80">{application.email}</p>
       </DetailField>
 
-      {application.source !== "homepage" && (
-        <DetailField label="Applied via">
-          <p className="text-brand-black/80">
-            {
-              {
-                mep_outreach: "MEP Outreach",
-                council_of_europe: "Council of Europe Engagement",
-                field_building: "Field-building and Coordination",
-              }[application.source]
-            }
-          </p>
-        </DetailField>
-      )}
+      <DetailField label="Applied via">
+        <p className="text-brand-black/80">
+          {appliedVia(application.source, application.audience)}
+        </p>
+      </DetailField>
+
+      <DetailField label="Purpose">
+        <p className="text-brand-black/80">
+          {purposeFor(application.source)}
+        </p>
+      </DetailField>
 
       {application.organisation && (
         <DetailField label="Organisation / firm">

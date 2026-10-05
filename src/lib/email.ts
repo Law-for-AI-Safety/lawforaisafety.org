@@ -279,7 +279,8 @@ export async function sendAdminNewApplicationEmail(params: {
   applicantName: string;
   organisation: string | null;
   authProviderLabel: string;
-  sourceLabel: string | null;
+  purposeLabel: string;
+  audienceLabel: string;
   applicationId: string;
 }): Promise<void> {
   const { subject, bodyHtml } = adminNewApplicationEmail(params);
@@ -304,25 +305,25 @@ function adminNewApplicationEmail({
   applicantName,
   organisation,
   authProviderLabel,
-  sourceLabel,
+  purposeLabel,
+  audienceLabel,
   applicationId,
 }: {
   applicantName: string;
   organisation: string | null;
   authProviderLabel: string;
-  sourceLabel: string | null;
+  purposeLabel: string;
+  audienceLabel: string;
   applicationId: string;
 }) {
   const orgLine = organisation
     ? `<p style="margin:0 0 8px;">Organisation: ${escapeHtml(organisation)}</p>`
     : "";
-  const sourceLine = sourceLabel
-    ? `<p style="margin:0 0 8px;">Applied via: ${escapeHtml(sourceLabel)}</p>`
-    : "";
   return {
     subject: `New application: ${applicantName}`,
     bodyHtml: `<p style="margin:0 0 16px;">${escapeHtml(applicantName)} applied to work with Law for AI Safety, confirmed via ${escapeHtml(authProviderLabel)}.</p>
-     ${orgLine}${sourceLine}
+     ${orgLine}<p style="margin:0 0 8px;">Applying as: ${escapeHtml(audienceLabel)}</p>
+     <p style="margin:0 0 8px;">Purpose: ${escapeHtml(purposeLabel)}</p>
      <p style="margin:0;"><a href="${siteUrl()}/admin/applications/${applicationId}" style="color:#9b1c1f;">Review the application</a></p>`,
   };
 }
@@ -385,7 +386,8 @@ export function getEmailPreviews(): { label: string; subject: string; html: stri
         applicantName: "Alex Applicant",
         organisation: "Example Org",
         authProviderLabel: "LinkedIn",
-        sourceLabel: "Field-building and Coordination",
+        purposeLabel: "Volunteering, research, or funding for field-building",
+        audienceLabel: "Individual",
         applicationId: "preview-id",
       }),
     },

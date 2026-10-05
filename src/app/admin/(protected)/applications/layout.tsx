@@ -26,6 +26,7 @@ export default async function ApplicationsLayout({
       status: applications.status,
       notificationStatus: applications.notificationStatus,
       source: applications.source,
+      audience: applications.audience,
     })
     .from(applications)
     .where(
@@ -66,6 +67,7 @@ export default async function ApplicationsLayout({
               createdAtLabel: application.createdAt.toLocaleDateString(),
               needsNotificationRetry: application.notificationStatus === "failed",
               source: application.source,
+              audience: application.audience,
             }))}
           />
         </div>
