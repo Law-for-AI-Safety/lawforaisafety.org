@@ -62,7 +62,7 @@ const VARIANT_COPY: Record<
     ],
     statementLabel: "How would you like to support this work?",
     statementPlaceholder:
-      "Funding, partnership, in-kind support, or something else — tell us what you have in mind",
+      "Funding, partnership, in-kind support, or something else. Tell us what you have in mind",
     commentsPlaceholder: "Anything else about funding, partnership, or timing we should know",
     validationMessage: "Provide a LinkedIn profile URL or a short statement.",
   },

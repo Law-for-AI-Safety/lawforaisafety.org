@@ -120,7 +120,7 @@ export default function ErasureTool() {
           </button>
         </div>
         <p className="text-sm text-brand-black/50">
-          Verify the requester controls this address before erasing anything —
+          Verify the requester controls this address before erasing anything:
           a reply from the address itself, or a code you send to it. Never act
           on an address supplied by someone else.
         </p>

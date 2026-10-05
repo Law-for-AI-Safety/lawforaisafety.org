@@ -136,7 +136,7 @@ export default function PersonPicker({
             {options.length === 0 && (
               <li className="px-3 py-2 text-sm text-brand-black/70">
                 {people.length === 0
-                  ? "Nobody has signed in yet — type an email address."
+                  ? "Nobody has signed in yet. Type an email address."
                   : "No match. Type a full email address to use it anyway."}
               </li>
             )}

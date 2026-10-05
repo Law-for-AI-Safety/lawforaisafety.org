@@ -69,7 +69,7 @@ const researchAreas = [
   },
   {
     title: "Access to justice for large-scale societal harms",
-    body: "Ordinary standing doctrine is often built around individualised, concrete injury. AI existential and catastrophic risks, like environmental harms, often don't fit this — they are diffuse, collective, irreversible, and future-facing. Europe broadened access to justice in environmental matters via the Aarhus Convention to account for this; researching a similar broadening for AI would be a potentially impactful stream of research.",
+    body: "Ordinary standing doctrine is often built around individualised, concrete injury. AI existential and catastrophic risks, like environmental harms, often don't fit this: they are diffuse, collective, irreversible, and future-facing. Europe broadened access to justice in environmental matters via the Aarhus Convention to account for this; researching a similar broadening for AI would be a potentially impactful stream of research.",
   },
 ];
 
@@ -101,8 +101,8 @@ export default async function FieldBuildingPage() {
           <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
             Lawyers are a talent gap in the AI safety ecosystem. Many are
             committed to reducing AI risk, but struggle to find initiatives
-            that use their specific skills —{" "}
-            <WavyUnderline>there&apos;s no overview of the field</WavyUnderline>{" "}
+            that use their specific skills.{" "}
+            <WavyUnderline>There&apos;s no overview of the field</WavyUnderline>{" "}
             to help them find one.
           </p>
         </div>

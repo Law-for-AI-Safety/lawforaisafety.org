@@ -253,7 +253,7 @@ export default function ProjectTimeline({ tasks }: { tasks: TimelineTask[] }) {
       {undated.length > 0 && (
         <div className="text-sm text-brand-black/70">
           <p>
-            Not shown — {undated.length === 1 ? "this task has" : "these tasks have"} no
+            Not shown: {undated.length === 1 ? "this task has" : "these tasks have"} no
             planned start and end date:
           </p>
           <ul className="mt-1 flex flex-col gap-1">

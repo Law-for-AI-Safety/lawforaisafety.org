@@ -165,7 +165,7 @@ export default async function MyWorkPage() {
       />
       <Group
         title="Blocked"
-        description="Waiting on something — worth a nudge if it's been a while."
+        description="Waiting on something. Worth a nudge if it's been a while."
         tasks={blocked}
         blockedByDependency={blockedByDependency}
       />
