@@ -13,17 +13,29 @@ export const SIGNUP_FLAG = "signup";
 // its own timeline, independent of the volunteer signup feature above.
 export const RED_LINES_FLAG = "red_lines_applications";
 
-// Read at request time, never cached — a toggle from the admin panel takes
-// effect on the next request. Fails closed: if the DB can't be read, the
-// flag is treated as off (nothing could be saved in that state anyway).
+// Every marketing page checks a flag on every render, which was hitting the
+// database on nearly every page view. Cached in-memory for a short TTL —
+// long enough to cut that traffic down, short enough that an admin toggle
+// (see setFlagEnabled below, which clears the cache immediately) is never
+// stuck behind a stale read for more than this.
+const FLAG_CACHE_TTL_MS = 60_000;
+const flagCache = new Map<string, { enabled: boolean; expiresAt: number }>();
+
+// Fails closed: if the DB can't be read, the flag is treated as off
+// (nothing could be saved in that state anyway).
 async function isFlagEnabled(key: string): Promise<boolean> {
+  const cached = flagCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.enabled;
+
   try {
     const [row] = await db
       .select({ enabled: featureFlags.enabled })
       .from(featureFlags)
       .where(eq(featureFlags.key, key))
       .limit(1);
-    return row?.enabled ?? false;
+    const enabled = row?.enabled ?? false;
+    flagCache.set(key, { enabled, expiresAt: Date.now() + FLAG_CACHE_TTL_MS });
+    return enabled;
   } catch (err) {
     console.error(`Failed to read feature flag "${key}"`, err);
     return false;
@@ -61,6 +73,7 @@ async function setFlagEnabled(
       target: featureFlags.key,
       set: { enabled, updatedBy, updatedAt: new Date() },
     });
+  flagCache.delete(key);
 }
 
 export const isSignupEnabled = () => isFlagEnabled(SIGNUP_FLAG);

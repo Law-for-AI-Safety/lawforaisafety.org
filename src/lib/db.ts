@@ -10,14 +10,17 @@ declare global {
 // imports this module to collect route page-data at build time, before any
 // deploy-time env vars (e.g. Netlify Database's NETLIFY_DB_URL) are set. An
 // eager throw here would fail the build for routes that never even run.
+//
+// Cached on globalThis in every env, including production: each warm
+// serverless function instance reuses one Pool/connection across
+// invocations instead of opening a fresh one every time, which otherwise
+// kept the Neon compute from ever autosuspending.
 const pool =
   globalThis.__dbPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL ?? process.env.NETLIFY_DB_URL,
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__dbPool = pool;
-}
+globalThis.__dbPool = pool;
 
 export const db = drizzle(pool, { schema });
