@@ -38,11 +38,11 @@ const asks = [
 ];
 
 const signatories = [
-  "Future of Life Institute",
   "ControlAI",
   "Existential Risk Observatory",
   "London Futurists",
   "Global AI Governance Alliance",
+  "Anonymous Signatory"
 ];
 
 // Signup forms are toggled at runtime from the admin panel, so this page has
