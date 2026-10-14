@@ -23,6 +23,9 @@ export const metadata: Metadata = {
   title: "Red Lines Dialogues | Law for AI Safety",
   description:
     "A joint US, Chinese and EU expert dialogue on catastrophic risk from advanced AI, to be presented at the European Parliament.",
+  alternates: {
+    canonical: "/red-lines-dialogue",
+  },
 };
 
 const focusAreas = [

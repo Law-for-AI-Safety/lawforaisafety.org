@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "Council of Europe Engagement | Law for AI Safety",
   description:
     "Building a strategy for AI safety training for judges and a conference at the Council of Europe, with Dr. Anca Radu.",
+  alternates: {
+    canonical: "/council-of-europe",
+  },
 };
 
 const ambitions = [
