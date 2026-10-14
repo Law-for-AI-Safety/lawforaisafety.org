@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: "MEP Outreach on AI Containment Incidents | Law for AI Safety",
   description:
     "Briefing Members of the European Parliament on the Hugging Face incident and subsequent AI containment failures, and pressing for enforcement clarity under the AI Act.",
+  alternates: {
+    canonical: "/mep-outreach",
+  },
 };
 
 const asks = [

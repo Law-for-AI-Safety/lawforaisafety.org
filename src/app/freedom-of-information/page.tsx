@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "Freedom of Information Requests | Law for AI Safety",
   description:
     "Our Freedom of Information request on catastrophic and existential AI risks, aimed at EU Member States, and how to help translate, submit, or co-sign it.",
+  alternates: {
+    canonical: "/freedom-of-information",
+  },
 };
 
 const photos = [

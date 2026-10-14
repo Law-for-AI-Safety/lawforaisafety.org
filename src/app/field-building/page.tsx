@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "Field-building and Coordination | Law for AI Safety",
   description:
     "Building, coordinating, and mobilising a European legal field dedicated to reducing large-scale risks from AI.",
+  alternates: {
+    canonical: "/field-building",
+  },
 };
 
 const initiatives = [
