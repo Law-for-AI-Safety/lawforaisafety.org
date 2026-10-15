@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, vi } from "vitest";
-import { fakeFetch } from "./fakes/network";
+import { fakeFetch, routeOrigin } from "./fakes/network";
+import { github, GITHUB_API } from "./fakes/github";
 import { emails } from "./fakes/email";
 import { turnstile } from "./fakes/turnstile";
 
@@ -20,6 +21,10 @@ Object.assign(process.env, {
   TURNSTILE_SECRET_KEY: "test-turnstile-secret",
 });
 delete process.env.DEPLOY_CONTEXT;
+// Publishing is not set up unless a test points it at the fake GitHub (`githubEnv()`).
+for (const name of ["GITHUB_APP_ID", "GITHUB_APP_INSTALLATION_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME", "GITHUB_API_URL", "CMS_PREVIEW_SITE_NAME"]) {
+  delete process.env[name];
+}
 // Only `*.db.test.*` files get a database (test/setup-db.ts sets this for them). Anywhere
 // else the app's pool points at a host that cannot resolve, so a stray query fails visibly.
 process.env.DATABASE_URL = "postgres://no-database-in-unit-tests.invalid:5432/none";
@@ -27,10 +32,12 @@ delete process.env.NETLIFY_DB_URL;
 
 // The outside world is faked at `fetch`; see test/fakes/network.ts.
 globalThis.fetch = fakeFetch as typeof fetch;
+routeOrigin(GITHUB_API, (request) => github.handle(request));
 
 beforeEach(() => {
   emails.reset();
   turnstile.reset();
+  github.reset();
 });
 
 afterEach(() => {
