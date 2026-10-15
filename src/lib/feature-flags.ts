@@ -13,11 +13,14 @@ export const SIGNUP_FLAG = "signup";
 // its own timeline, independent of the volunteer signup feature above.
 export const RED_LINES_FLAG = "red_lines_applications";
 
-// Every marketing page checks a flag on every render, which was hitting the
-// database on nearly every page view. Cached in-memory for a short TTL —
-// long enough to cut that traffic down, short enough that an admin toggle
-// (see setFlagEnabled below, which clears the cache immediately) is never
-// stuck behind a stale read for more than this.
+// The public pages are prerendered and never read a flag: whether a page
+// shows its form is fixed in the page itself. The flags are an emergency stop
+// checked by the submit and OAuth routes below, so switching one off refuses
+// submissions while the form stays visible until a content change hides it.
+//
+// Reads are cached in-memory for a short TTL, short enough that an admin
+// toggle (see setFlagEnabled below, which clears this instance's cache
+// immediately) is never stuck behind a stale read for more than this.
 const FLAG_CACHE_TTL_MS = 60_000;
 const flagCache = new Map<string, { enabled: boolean; expiresAt: number }>();
 

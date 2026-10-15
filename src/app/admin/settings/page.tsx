@@ -91,9 +91,14 @@ export default async function AdminSettingsPage({
         <div className="flex flex-col gap-1">
           <h2 className="text-xl text-brand-black">Public signup</h2>
           <p className="text-brand-black/70">
-            Newsletter signup and apply-to-work-with-us on the homepage. When
-            off, the forms are hidden and their endpoints refuse requests.
-            Reviewing applications is not affected.
+            Newsletter signup and the apply-to-work-with-us forms on the
+            homepage and project pages. When off, their endpoints refuse
+            submissions. Reviewing applications is not affected.
+          </p>
+          <p className="text-brand-black/70">
+            Switching this off is an emergency stop: submissions are refused,
+            but the forms stay visible on the site until a content change
+            hides them.
           </p>
         </div>
 
@@ -107,8 +112,8 @@ export default async function AdminSettingsPage({
             }`}
           >
             {justChanged === "on"
-              ? "Done. Signup is now ON: the newsletter and application forms are live on the homepage."
-              : "Done. Signup is now OFF: the forms are hidden and their endpoints refuse requests."}
+              ? "Done. Signup is now ON: the newsletter and application forms accept submissions."
+              : "Done. Signup is now OFF: the forms' endpoints refuse submissions. The forms stay visible until a content change hides them."}
           </p>
         )}
 
@@ -136,9 +141,14 @@ export default async function AdminSettingsPage({
         <div className="flex flex-col gap-1">
           <h2 className="text-xl text-brand-black">Red Lines Dialogues applications</h2>
           <p className="text-brand-black/70">
-            The application form on /red-lines-dialogue. When off, the form is
-            hidden and its endpoints refuse requests. Reviewing applications is
-            not affected.
+            The application form on /red-lines-dialogue. When off, its
+            endpoints refuse submissions. Reviewing applications is not
+            affected.
+          </p>
+          <p className="text-brand-black/70">
+            Switching this off is an emergency stop: submissions are refused,
+            but the form stays visible on the page until a content change
+            hides it.
           </p>
         </div>
 
@@ -152,8 +162,8 @@ export default async function AdminSettingsPage({
             }`}
           >
             {redLinesJustChanged === "on"
-              ? "Done. Applications are now ON: the form is live on /red-lines-dialogue."
-              : "Done. Applications are now OFF: the form is hidden and its endpoint refuses requests."}
+              ? "Done. Applications are now ON: the form on /red-lines-dialogue accepts submissions."
+              : "Done. Applications are now OFF: its endpoints refuse submissions. The form stays visible until a content change hides it."}
           </p>
         )}
 
