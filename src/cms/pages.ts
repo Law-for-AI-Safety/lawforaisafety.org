@@ -51,6 +51,10 @@ export const PAGE_RULES: Record<string, PageRules> = {
   "council-of-europe": APPLY_PAGE,
   "freedom-of-information": APPLY_PAGE,
   "mep-outreach": APPLY_PAGE,
+  "red-lines-dialogue": {
+    blocks: { ...DEFAULT_RULES.blocks, applicationSection: 1 },
+    forms: ["redLines"],
+  },
   home: {
     blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 1, timeline: 1, milestones: 1, applicationSection: 1 },
     forms: ["apply"],

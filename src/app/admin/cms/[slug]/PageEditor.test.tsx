@@ -355,3 +355,27 @@ describe("publishing states", () => {
     expect(screen.getByText("Could not check whether this page has been approved yet. Reload the page to try again.")).toBeInTheDocument();
   });
 });
+
+describe("the document picker", () => {
+  it("offers the repo's PDFs for a text section's document, and keeps the pick in the draft", async () => {
+    const letter = "/documents/red-lines-dialogue-mep-beke-letter-2026-09-01.pdf";
+    const content = JSON.parse(fs.readFileSync("content/red-lines-dialogue.json", "utf8"));
+    const server = renderEditor(fakeServer(), { slug: "red-lines-dialogue", initialContent: content, documents: [letter, "/documents/other.pdf"] });
+    const picker = screen.getByLabelText("PDF") as HTMLSelectElement;
+    expect(picker.value).toBe(letter);
+    expect([...picker.options].map((o) => o.value)).toEqual(["", letter, "/documents/other.pdf"]);
+    fireEvent.change(picker, { target: { value: "/documents/other.pdf" } });
+    await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 3000 });
+    expect((server.saves[0].content as typeof content).blocks[1].documents[0].file).toBe("/documents/other.pdf");
+  });
+
+  it("shows a picked file that is no longer in the repo, and can clear it", () => {
+    const content = JSON.parse(fs.readFileSync("content/red-lines-dialogue.json", "utf8"));
+    content.blocks[1].documents[0].file = "/documents/gone.pdf";
+    renderEditor(fakeServer(), { slug: "red-lines-dialogue", initialContent: content });
+    const picker = screen.getByLabelText("PDF") as HTMLSelectElement;
+    expect([...picker.options].map((o) => o.value)).toEqual(["", "/documents/gone.pdf"]);
+    fireEvent.change(picker, { target: { value: "" } });
+    expect(picker.value).toBe("");
+  });
+});

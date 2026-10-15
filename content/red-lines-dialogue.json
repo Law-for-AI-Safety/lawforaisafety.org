@@ -1,0 +1,124 @@
+{
+  "title": "Red Lines Dialogues",
+  "description": "A joint US, Chinese and EU expert dialogue on catastrophic risk from advanced AI, to be presented at the European Parliament.",
+  "updatedAt": "2026-10-15",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "Red Lines Dialogues",
+      "lede": "A joint initiative by the AE4AI Network AI Governance Working Group and Law for AI Safety, bringing together US, Chinese and EU experts to produce a white paper operationalising ==AI red lines== in legal and technical terms, to be presented at the European Parliament."
+    },
+    {
+      "type": "textSection",
+      "body": "Red Lines Dialogues is a track-two international expert initiative bringing together researchers and institutions from the United States, China and Europe to explore how AI behavioural red lines; a specific and unacceptable behaviour that an AI system must not exhibit, with the onus on the developer to demonstrate with high confidence that its system will not cross it, can be operationalised, monitored, mitigated and, where possible, prevented.\n\nThe initiative is being developed at the written request of Wouter Beke, Member of the European Parliament who serves on the Committee on Foreign Affairs and the Committee on Security and Defence and also chairs the European Parliament's delegation for relations with the countries of Southeast Asia and ASEAN. The aim of the report is producing a joint expert report for presentation at the European Parliament in early 2027, together with representatives from the three regions.",
+      "documents": [
+        {
+          "file": "/documents/red-lines-dialogue-mep-beke-letter-2026-09-01.pdf",
+          "title": "Letter from MEP Wouter Beke, 1 September 2026",
+          "linkText": "Open Mr Beke’s letter in a new tab"
+        }
+      ]
+    },
+    {
+      "type": "quoteBand",
+      "quote": "How can the US, China, and the EU develop shared approaches to preventing catastrophic outcomes from advanced AI, including the risk of losing control over highly capable AI systems?"
+    },
+    {
+      "type": "textSection",
+      "body": "The dialogue is deliberately narrow in scope. Rather than attempting to address every risk associated with advanced AI, the project focuses on three connected areas."
+    },
+    {
+      "type": "cardList",
+      "style": "numbered",
+      "items": [
+        {
+          "title": "Risk of human extinction due to loss of control",
+          "body": "Understanding the specific pathways through which sufficiently advanced AI systems could create catastrophic or potentially existential risks, with a focus on loss of human control."
+        },
+        {
+          "title": "Legal vehicles for enforceable mitigation",
+          "body": "Exploring how international cooperation could translate technical and policy safeguards into legal or institutional mechanisms capable of implementation and enforcement across jurisdictions."
+        },
+        {
+          "title": "Technical verification of safety",
+          "body": "Examining how claims about the safety of advanced AI systems could be technically evaluated and verified, including what forms of evidence or assurance could support international cooperation."
+        }
+      ]
+    },
+    {
+      "type": "textSection",
+      "body": "The three sections are being developed sequentially so that the risk analysis informs the legal discussion, and the legal discussion informs the technical verification question.\n\n**The Red Lines Dialogues therefore operates as a track-two process:**\n\n- Participants contribute in their personal and academic capacities.\n- The dialogue does not represent any government and does not replace official diplomatic or governmental channels.\n- Meetings are conducted under a no-attribution convention to allow participants to discuss difficult questions openly.\n- The aim is to build shared understanding, practical options and trust between experts from the three regions, that we hope would spill over into broader cooperation."
+    },
+    {
+      "type": "textSection",
+      "heading": "Who is working on it?",
+      "body": "This is a joint initiative by the AI Governance Working Group of the Asia-Europe 4 Artificial Intelligence Network (AE4AI), which operates under the umbrella of the Asia-Europe Foundation (ASEF), and the Law for AI Safety Institute (LASI), coordinated by Raphaël Weuts, who is both AI Governance Working Group Coordinator at AE4AI and Partnerships Lead at LASI.\n\nBoth organisations extended invitations to experts from the EU, United States and China, with the goal of building a genuinely three-region expert process."
+    },
+    {
+      "type": "textSection",
+      "heading": "What is happening now?",
+      "body": "The project is currently in its expert-development phase.\n\nThe Working Group is preparing the scope and format of the report and inviting a limited number of researchers whose expertise is considered particularly relevant to one or more of the three sections."
+    },
+    {
+      "type": "timeline",
+      "heading": "Current timeline",
+      "entries": [
+        {
+          "date": "5 October 2026",
+          "text": "Working Group prepares scope and format"
+        },
+        {
+          "date": "12 October 2026",
+          "time": "09:00 CEST",
+          "utc": "2026-10-12T07:00:00Z",
+          "text": "Online consolidation meeting: recruitment and scope"
+        },
+        {
+          "date": "9 November 2026",
+          "time": "09:00 CET",
+          "utc": "2026-11-09T08:00:00Z",
+          "text": "Online consolidation meeting: content of the report"
+        },
+        {
+          "date": "7 December 2026",
+          "time": "09:00 CET",
+          "utc": "2026-12-07T08:00:00Z",
+          "text": "Online consolidation meeting: refinement of the content"
+        },
+        {
+          "date": "11 January 2027",
+          "time": "09:00 CET",
+          "utc": "2027-01-11T08:00:00Z",
+          "text": "Online consolidation meeting: finalising the content"
+        },
+        {
+          "date": "February 2027",
+          "text": "Editing and design of the report"
+        },
+        {
+          "date": "March 2027",
+          "text": "Presentation at the European Parliament with US, Chinese and European delegations"
+        }
+      ]
+    },
+    {
+      "type": "applicationSection",
+      "form": "redLines",
+      "heading": "How can experts contribute?",
+      "intro": "Are you a PhD expert or equivalent in AI safety, technology law or AI governance interested in being part of the project? Please fill in this application as soon as possible.",
+      "showForm": true,
+      "formNote": "Applying takes about five minutes. Everything is kept in your browser until you submit.",
+      "closedMessage": "Applications aren't open right now. Email [redlines@lawforaisafety.org](mailto:redlines@lawforaisafety.org) to register your interest and we'll let you know when they open."
+    },
+    {
+      "type": "textSection",
+      "heading": "Get in touch",
+      "body": "Have a question, or want to discuss institutional cooperation or supporting the project? To contribute to the report or join the expert dialogue, use the application form above instead.\n\n**Media enquiries**\n\nJournalists looking for background information, expert perspectives or clarification about the project are welcome to contact the team at [media@lawforaisafety.org](mailto:media@lawforaisafety.org).\n\nPlease use “Media enquiry - Red Lines Dialogues” in the subject line.\n\n**Sponsorship and institutional support**\n\nFor sponsorship and institutional support enquiries, please contact the project team at [redlines@lawforaisafety.org](mailto:redlines@lawforaisafety.org).\n\nPlease use “Partnership / Support - Red Lines Dialogues” in the subject line."
+    },
+    {
+      "type": "textSection",
+      "heading": "Project partners",
+      "body": "- AI Governance Working Group, Asia-Europe 4 Artificial Intelligence Network (AE4AI)\n- Asia-Europe Foundation (ASEF)\n- Law for AI Safety Institute (LASI)"
+    }
+  ]
+}
