@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
-import { defaultDirs } from "./content-files";
+import { defaultDirs, servedRedirects } from "./content-files";
 import { parseRedirects, printRedirects, readRedirects, redirectProblems, RedirectsError, REDIRECTS_FILE, type Redirect } from "./redirects";
 
 const routes = [[], ["about"], ["field-building"], ["images", "a.webp"]];
@@ -89,6 +89,29 @@ describe("reading the redirects file", () => {
     expect(() => parseRedirects("{")).toThrow(/is not valid JSON/);
     expect(() => parseRedirects('{"redirects":[{"from":"/a"}]}')).toThrow(/is invalid/);
     expect(() => parseRedirects('{"redirects":[],"extra":1}')).toThrow(/is invalid/);
+  });
+});
+
+describe("servedRedirects", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cms-served-"));
+  afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
+  const real = defaultDirs();
+  const dirs = { ...real, contentDir: path.join(root, "content") };
+  fs.mkdirSync(dirs.contentDir);
+  fs.writeFileSync(path.join(dirs.contentDir, "new-page.json"), "{}");
+  const serve = (list: Redirect[]) => {
+    fs.writeFileSync(path.join(dirs.contentDir, REDIRECTS_FILE), printRedirects(list));
+    return () => servedRedirects(dirs);
+  };
+
+  it("returns redirects that follow the rules", () => {
+    expect(serve([{ from: "/old", to: "/field-building" }])()).toEqual([{ from: "/old", to: "/field-building" }]);
+  });
+
+  it("throws on a broken rule, naming each problem, so the build fails", () => {
+    expect(serve([{ from: "/old", to: "/nowhere" }])).toThrow(RedirectsError);
+    expect(serve([{ from: "/old", to: "/nowhere" }])).toThrow(/cannot be served:\n.*\/nowhere is not a page on this site/);
+    expect(serve([{ from: "/new-page", to: "https://example.org" }])).toThrow(/new-page.json: \/new-page is also redirected/);
   });
 });
 

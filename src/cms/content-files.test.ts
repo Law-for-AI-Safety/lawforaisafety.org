@@ -216,6 +216,16 @@ describe("with a scratch directory", () => {
       expect(checkContent(dirs)).toEqual([
         "content/_redirects.json: /field-building → /nowhere: /field-building is reserved by the site and cannot be redirected",
         "content/_redirects.json: /field-building → /nowhere: /nowhere is not a page on this site",
+        "content/field-building.json: /field-building is also redirected in content/_redirects.json; remove the page or the redirect",
+      ]);
+    });
+
+    it("reports a content page whose address is also redirected", () => {
+      write("new-page", printContent({ ...valid, blocks: [valid.blocks[0]] }));
+      redirects(canonical([{ from: "/new-page", to: "https://example.org" }]));
+      expect(checkContent(dirs)).toEqual([
+        "content/_redirects.json: /new-page → https://example.org: /new-page is a page, so it cannot also be redirected",
+        "content/new-page.json: /new-page is also redirected in content/_redirects.json; remove the page or the redirect",
       ]);
     });
 

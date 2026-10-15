@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { readRedirects } from "./src/cms/redirects";
+import { defaultDirs, servedRedirects } from "./src/cms/content-files";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -58,10 +58,10 @@ const nextConfig: NextConfig = {
   env: {
     DEPLOY_CONTEXT: process.env.CONTEXT ?? "",
   },
-  // Old page addresses kept working after a page moves (content/_redirects.json). The rules
-  // they follow are checked by `npm run content:check`, in CI.
+  // Old page addresses kept working after a page moves (content/_redirects.json). They are
+  // checked here too, so a redirect that breaks the rules fails the build, not only CI.
   async redirects() {
-    return readRedirects("content").map(({ from, to }) => ({ source: from, destination: to, permanent: true }));
+    return servedRedirects(defaultDirs()).map(({ from, to }) => ({ source: from, destination: to, permanent: true }));
   },
   async headers() {
     return [

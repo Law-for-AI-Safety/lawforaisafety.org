@@ -4,7 +4,7 @@ import path from "node:path";
 import { z } from "zod";
 import { pagePath } from "./pages";
 import { problemPathKey, publishChecks } from "./publish-checks";
-import { parseRedirects, printRedirects, readRedirectsText, redirectProblems, REDIRECTS_FILE } from "./redirects";
+import { parseRedirects, printRedirects, readRedirects, readRedirectsText, redirectProblems, RedirectsError, REDIRECTS_FILE, type Redirect } from "./redirects";
 import { siteRoutes, type Route } from "./routes";
 import { DOCUMENT_PATH, IMAGE_PATH, pageSchema } from "./schema";
 import { reservedSlugs, slugProblems } from "./slugs";
@@ -154,8 +154,41 @@ export function checkContent(dirs: Dirs): string[] {
     ...slugs.flatMap((slug) =>
       checkContentText(slug, fs.readFileSync(path.join(dirs.contentDir, `${slug}.json`), "utf8"), dirs.publicDir, routes),
     ),
-    ...(redirects === null ? [] : checkRedirectsText(redirects, dirs, routes)),
+    ...(redirects === null ? [] : [...checkRedirectsText(redirects, dirs, routes), ...redirectedPages(redirectSources(redirects), slugs)]),
   ];
+}
+
+/**
+ * The redirects to serve, after checking them against the site: what `next.config.ts` uses,
+ * so a redirect that breaks the rules fails the build as well as CI. Throws a RedirectsError
+ * listing every problem.
+ */
+export function servedRedirects(dirs: Dirs): Redirect[] {
+  const redirects = readRedirects(dirs.contentDir);
+  const slugs = contentSlugs(dirs.contentDir);
+  const sources = new Set(redirects.map((r) => r.from));
+  const problems = [
+    ...redirectProblems(redirects, { reserved: reservedSlugs(dirs), routes: contentRoutes(dirs, slugs) }),
+    ...redirectedPages(sources, slugs),
+  ];
+  if (problems.length) throw new RedirectsError(`content/${REDIRECTS_FILE} cannot be served:\n${problems.join("\n")}`);
+  return redirects;
+}
+
+/** The old addresses in a redirects file's text; none when it does not parse (reported elsewhere). */
+function redirectSources(text: string): Set<string> {
+  try {
+    return new Set(parseRedirects(text).map((r) => r.from));
+  } catch {
+    return new Set();
+  }
+}
+
+/** One message per content page whose own address is also a redirect's old address. */
+function redirectedPages(sources: Set<string>, slugs: string[]): string[] {
+  return slugs
+    .filter((slug) => sources.has(pagePath(slug)))
+    .map((slug) => `content/${slug}.json: ${pagePath(slug)} is also redirected in content/${REDIRECTS_FILE}; remove the page or the redirect`);
 }
 
 /**
