@@ -54,6 +54,18 @@ describe("looksLikeBot", () => {
     expect(looksLikeBot(submission({ [FORM_RENDERED_AT_FIELD_NAME]: "yesterday" }))).toBe(true);
   });
 
+  // The prerendered HTML carries the field empty until the browser fills it in.
+  it.each([
+    ["empty", ""],
+    ["blank", "  "],
+    ["zero", "0"],
+    ["negative", String(-(NOW - 10_000))],
+    ["fractional", `${NOW - 10_000}.5`],
+    ["hexadecimal", `0x${(NOW - 10_000).toString(16)}`],
+  ])("flags a timestamp that is %s", (_, value) => {
+    expect(looksLikeBot(submission({ [FORM_RENDERED_AT_FIELD_NAME]: value }))).toBe(true);
+  });
+
   it("flags a timestamp sent as a file", () => {
     const form = new FormData();
     form.set(FORM_RENDERED_AT_FIELD_NAME, new Blob([String(NOW - 10_000)]));

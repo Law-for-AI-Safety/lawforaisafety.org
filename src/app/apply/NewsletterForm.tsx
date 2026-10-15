@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import {
-  FORM_RENDERED_AT_FIELD_NAME,
-  HONEYPOT_FIELD_NAME,
-} from "@/lib/abuse-protection";
+import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
+import RenderedAtField from "./RenderedAtField";
 import WipeSubmitButton from "../WipeSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
 import { FIELD_CLASSES } from "./field-styles";
@@ -12,7 +10,6 @@ import { FIELD_CLASSES } from "./field-styles";
 export default function NewsletterForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [renderedAt] = useState(() => Date.now());
 
   if (status === "done") {
     return (
@@ -65,7 +62,7 @@ export default function NewsletterForm() {
           <input type="text" name={HONEYPOT_FIELD_NAME} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <input type="hidden" name={FORM_RENDERED_AT_FIELD_NAME} value={renderedAt} readOnly />
+      <RenderedAtField />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <input

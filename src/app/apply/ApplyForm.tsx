@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  FORM_RENDERED_AT_FIELD_NAME,
-  HONEYPOT_FIELD_NAME,
-} from "@/lib/abuse-protection";
+import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
+import RenderedAtField from "./RenderedAtField";
 import {
   APPLICATION_AUDIENCES,
   APPLY_PAGES,
@@ -45,7 +43,6 @@ export default function ApplyForm({
   // again, and each press is another upload, another draft and another tick
   // on the rate limiter.
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
-  const [renderedAt] = useState(() => Date.now());
   const [selectedTab, setSelectedTab] = useState<CredentialTab>("linkedin");
 
   const tabs: { id: CredentialTab; label: string }[] = [
@@ -147,7 +144,7 @@ export default function ApplyForm({
           <input type="text" name={HONEYPOT_FIELD_NAME} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <input type="hidden" name={FORM_RENDERED_AT_FIELD_NAME} value={renderedAt} readOnly />
+      <RenderedAtField />
       <input type="hidden" name="source" value={source} readOnly />
 
       {page.audience === "choice" ? (

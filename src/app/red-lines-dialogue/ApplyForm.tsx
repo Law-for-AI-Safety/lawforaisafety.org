@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  FORM_RENDERED_AT_FIELD_NAME,
-  HONEYPOT_FIELD_NAME,
-} from "@/lib/abuse-protection";
+import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
+import RenderedAtField from "../apply/RenderedAtField";
 import Checkbox from "../apply/Checkbox";
 import TurnstileWidget from "../apply/TurnstileWidget";
 import { FIELD_CLASSES, HELPER_TEXT_CLASSES, LABEL_CLASSES } from "../apply/field-styles";
@@ -99,7 +97,6 @@ function RadioGroup<T extends string>({
 export default function RedLinesApplyForm() {
   const [error, setError] = useState<string | null>(null);
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
-  const [renderedAt] = useState(() => Date.now());
   const [area, setArea] = useState<Area | null>(null);
   const [euInterest, setEuInterest] = useState<EuInterest | null>(null);
 
@@ -186,7 +183,7 @@ export default function RedLinesApplyForm() {
           <input type="text" name={HONEYPOT_FIELD_NAME} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <input type="hidden" name={FORM_RENDERED_AT_FIELD_NAME} value={renderedAt} readOnly />
+      <RenderedAtField />
 
       <div className="flex flex-col gap-3">
         <span className={LABEL_CLASSES}>Area of expertise</span>
