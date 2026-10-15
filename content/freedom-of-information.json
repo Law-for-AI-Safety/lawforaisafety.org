@@ -1,0 +1,56 @@
+{
+  "title": "Freedom of Information Requests",
+  "description": "Our Freedom of Information request on catastrophic and existential AI risks, aimed at EU Member States, and how to help translate, submit, or co-sign it.",
+  "updatedAt": "2026-10-15",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "Freedom of Information requests on AI risk",
+      "lede": "Effective AI governance depends on transparency, robust oversight, and meaningful accountability. We are filing ==Freedom of Information== requests with EU Member States about catastrophic and existential risks from AI."
+    },
+    {
+      "type": "cardList",
+      "style": "numbered",
+      "items": [
+        {
+          "title": "Drafted and reviewed",
+          "body": "We have drafted a Freedom of Information request on catastrophic and existential risks from AI, aimed at EU Member States. The Future of Life Institute has reviewed it."
+        },
+        {
+          "title": "Being translated",
+          "body": "We are translating the request into the languages of EU Member States, with translation coordinated by our Legal Advisor, Raluca Spataru."
+        },
+        {
+          "title": "Submitted country by country",
+          "body": "Each request needs someone who can read the local language and submit it. Organisations in Member States can also co-sign."
+        }
+      ]
+    },
+    {
+      "type": "quoteBand",
+      "quote": "We believe this could increase cohesion on AI governance in the EU, support better-targeted advocacy, and potentially provide evidence in future legal actions."
+    },
+    {
+      "type": "textSection",
+      "body": "Our Legal Advisor, Raluca Spataru, has also facilitated workshops on the FOI initiative, which has sparked interest in starting similar initiatives in the US and Canada.",
+      "photos": [
+        {
+          "image": "/images/raluca-spataru-conference.webp",
+          "alt": "Raluca Spataru speaking with a microphone to a small group seated around a round table"
+        },
+        {
+          "image": "/images/foi-workshop-audience.webp",
+          "alt": "Workshop participants seated in a meeting space, listening to Raluca Spataru presenting"
+        }
+      ]
+    },
+    {
+      "type": "applicationSection",
+      "form": "apply",
+      "heading": "Help us file in every Member State",
+      "intro": "We are already funded to get this started. To take it to every Member State, we need translators and legal volunteers who can help with translation and submission in their country, organisations in EU Member States willing to co-sign, and funders to extend the work.",
+      "showForm": true,
+      "closedMessage": "Applications aren't open right now. Email [info@lawforaisafety.org](mailto:info@lawforaisafety.org) to register your interest."
+    }
+  ]
+}
