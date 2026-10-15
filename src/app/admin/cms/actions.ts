@@ -1,14 +1,17 @@
 "use server";
 
 import { z } from "zod";
-import { contentHash } from "@/cms/content-files";
+import { contentHash, contentRoutes, contentSlugs } from "@/cms/content-files";
 import { isValidDraft, pageState, parseDraft, type PageState } from "@/cms/drafts";
+import type { FieldChange } from "@/cms/field-diff";
+import { publishToGitHub, withdrawFromGitHub } from "@/cms/publish";
 import type { Problem } from "@/cms/publish-checks";
 import { recordAdminAction } from "@/lib/audit-log";
 import { recordDraftEdit } from "@/lib/cms-audit";
 import { requireCms } from "@/lib/cms-access";
-import { checkPage, loadCmsPage } from "@/lib/cms-pages";
-import { deleteDraft, writeDraft } from "@/lib/cms-store";
+import { checkPage, cmsDirs, loadCmsPage } from "@/lib/cms-pages";
+import { cmsGitHub } from "@/lib/cms-publishing";
+import { deleteDraft, insertSubmission, latestSubmission, lockDraft, unlockDraft, updateSubmission, writeDraft } from "@/lib/cms-store";
 
 /**
  * The CMS editor's server actions. Each is a public endpoint: it checks the caller's
@@ -22,7 +25,10 @@ const versionArg = z.number().int().min(0).max(2_147_483_647);
 const CONFLICT =
   "Someone else changed this page since you opened it. Reload the page to see their changes; edits you made since then were not saved.";
 
-type Refusal = { ok: false; reason: "signed_out" | "forbidden" | "invalid" | "conflict" | "not_found"; message: string };
+const LOCKED =
+  "This page has been sent for publishing, so it can't be changed until that is finished. To change it now, withdraw it first.";
+
+type Refusal = { ok: false; reason: "signed_out" | "forbidden" | "invalid" | "conflict" | "not_found" | "locked"; message: string };
 
 export type SaveDraftResult =
   | { ok: true; version: number; valid: boolean; state: PageState; problems: Problem[] }
@@ -41,6 +47,7 @@ export async function saveDraft(slug: unknown, content: unknown, version: unknow
 
   const current = await loadCmsPage(page);
   if (!current) return { ok: false, reason: "not_found", message: "There is no such page." };
+  if (current.draft?.lockedAt) return { ok: false, reason: "locked", message: LOCKED };
   const draft = parseDraft(page, content);
   if (!draft.ok) return { ok: false, reason: "invalid", message: draft.message };
 
@@ -78,20 +85,30 @@ export async function discardDraft(slug: unknown, version: unknown): Promise<Dis
   if (!args.success) return { ok: false, reason: "invalid", message: "The request was not understood." };
   const [page, at] = args.data;
 
+  const current = await loadCmsPage(page);
+  if (current?.draft?.lockedAt) return { ok: false, reason: "locked", message: LOCKED };
   if (!(await deleteDraft(page, at))) return { ok: false, reason: "conflict", message: CONFLICT };
   await recordAdminAction({ actorEmail: actor.email, action: "cms_draft_discard", detail: { page, version: at } });
   return { ok: true };
 }
 
 export type PublishDraftResult =
-  | { ok: false; reason: "unavailable"; message: string }
+  | { ok: true; message: string }
+  | { ok: false; reason: "unavailable" | "nothing" | "failed"; message: string }
   | { ok: false; reason: "checks"; message: string; problems: Problem[] }
-  | { ok: false; reason: "nothing"; message: string }
+  | { ok: false; reason: "stale"; message: string; changes: FieldChange[] }
   | Refusal;
 
+const NOT_SET_UP = "Publishing is not set up on this site yet. Your draft is saved.";
+const FAILED = "Publishing did not work this time, and nothing was sent. Your draft is saved; try again in a few minutes.";
+const STALE =
+  "The live page was changed by someone else since this draft was started, in the places listed below. Publishing this draft would undo those changes, so it was not sent. Copy your changes somewhere, discard the draft, and make them again on the current page.";
+
 /**
- * Publishes the page's draft at `version`. Publishing itself is not built yet: this checks the
- * permission, that the draft is the one the editor saw, and the publish checks, then says so.
+ * Sends the page's draft at `version` for publishing. Checks the permission, that the draft is
+ * the one the editor saw and not already sent, and the publish checks; then locks the draft and
+ * opens the pull request (`publishToGitHub`). Anything short of an opened and recorded pull
+ * request unlocks the draft again. Every attempt is in the audit log with its outcome.
  */
 export async function publishDraft(slug: unknown, version: unknown): Promise<PublishDraftResult> {
   const actor = await requireCms("publish");
@@ -102,17 +119,111 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
 
   const current = await loadCmsPage(page);
   if (!current) return { ok: false, reason: "not_found", message: "There is no such page." };
+  if (current.draft?.lockedAt) return { ok: false, reason: "locked", message: LOCKED };
   if (current.version !== at) return { ok: false, reason: "conflict", message: CONFLICT };
-  if (current.state === "live") return { ok: false, reason: "nothing", message: "There are no changes to publish." };
+  if (current.state === "live" || !current.draft) return { ok: false, reason: "nothing", message: "There are no changes to publish." };
+  const draft = current.draft;
+
+  const audit = (detail: Record<string, unknown>) =>
+    recordAdminAction({ actorEmail: actor.email, action: "cms_publish", detail: { page, version: at, ...detail } });
 
   const problems = checkPage(page, current.content);
-  await recordAdminAction({
-    actorEmail: actor.email,
-    action: "cms_publish",
-    detail: { page, version: at, outcome: problems.length ? "checks_failed" : "not_available" },
-  });
   if (problems.length) {
+    await audit({ outcome: "checks_failed" });
     return { ok: false, reason: "checks", message: "Fix the problems listed before publishing.", problems };
   }
-  return { ok: false, reason: "unavailable", message: "Publishing is not available yet. Your draft is saved." };
+  const github = cmsGitHub();
+  if (!github) {
+    await audit({ outcome: "not_set_up" });
+    return { ok: false, reason: "unavailable", message: NOT_SET_UP };
+  }
+  if (!(await lockDraft(page, at))) return { ok: false, reason: "conflict", message: CONFLICT };
+
+  let result;
+  try {
+    const dirs = cmsDirs();
+    result = await publishToGitHub(github, {
+      slug: page,
+      draft: current.content,
+      baseHash: draft.baseHash,
+      editorName: actor.name,
+      now: new Date(),
+      publicDir: dirs.publicDir,
+      routes: contentRoutes(dirs, contentSlugs(dirs.contentDir)),
+    });
+  } catch (e) {
+    await unlockDraft(page);
+    throw e;
+  }
+
+  if (!result.ok) {
+    await unlockDraft(page);
+    switch (result.reason) {
+      case "stale":
+        await audit({ outcome: "stale", fields: result.changes.map((c) => c.label) });
+        return { ok: false, reason: "stale", message: STALE, changes: result.changes };
+      case "checks":
+        await audit({ outcome: "checks_failed", problems: result.problems });
+        return { ok: false, reason: "checks", message: "Fix the problems listed before publishing.", problems: result.problems.map((message) => ({ path: [], message })) };
+      case "nothing":
+        await audit({ outcome: "nothing" });
+        return { ok: false, reason: "nothing", message: "The live page already has these changes. There is nothing to publish." };
+      case "missing":
+        await audit({ outcome: "missing" });
+        return { ok: false, reason: "failed", message: "This page is not on the live site any more, so it cannot be published. Ask a developer." };
+      case "github":
+        if (result.leftBranch) console.error(`[cms] Publishing "${page}" failed and its branch ${result.leftBranch} could not be deleted`);
+        await audit({ outcome: "failed", step: result.step, error: result.message, ...(result.leftBranch ? { cleanup: "failed", leftBranch: result.leftBranch } : {}) });
+        return { ok: false, reason: "failed", message: FAILED };
+    }
+  }
+
+  try {
+    await insertSubmission({ page, prNumber: result.number, branch: result.branch, submittedBy: actor.email, submittedAt: new Date(), baseHash: draft.baseHash, draftVersion: at });
+  } catch (e) {
+    // Without a record the page could never leave Publishing, so the request is taken back.
+    console.error(`[cms] Could not record the submission of "${page}"; withdrawing it`, e);
+    const undone = await withdrawFromGitHub(github, result.number, result.branch);
+    await unlockDraft(page);
+    await audit({ outcome: "failed", step: "record", number: result.number, cleanup: undone.ok && !undone.leftBranch ? "done" : "failed" });
+    return { ok: false, reason: "failed", message: FAILED };
+  }
+  await audit({ outcome: "sent", number: result.number, branch: result.branch, ...(result.bodyUpdated ? {} : { previewLink: "not_added" }) });
+  return { ok: true, message: "Sent for publishing. The page goes live once it is approved." };
+}
+
+export type WithdrawResult = { ok: true } | { ok: false; reason: "unavailable" | "failed" | "not_publishing"; message: string } | Refusal;
+
+/**
+ * Takes back a page sent for publishing: closes its pull request, deletes its branch, and
+ * unlocks the draft. Needs the publish permission, like sending it.
+ */
+export async function withdrawPublish(slug: unknown): Promise<WithdrawResult> {
+  const actor = await requireCms("publish");
+  if (!actor.ok) return actor;
+  const args = slugArg.safeParse(slug);
+  if (!args.success) return { ok: false, reason: "invalid", message: "The request was not understood." };
+  const page = args.data;
+
+  const latest = await latestSubmission(page);
+  if (latest?.state !== "open") return { ok: false, reason: "not_publishing", message: "This page is not waiting to be published. Reload the page to see where it stands." };
+  const github = cmsGitHub();
+  if (!github) return { ok: false, reason: "unavailable", message: NOT_SET_UP };
+
+  const result = await withdrawFromGitHub(github, latest.prNumber, latest.branch);
+  if (!result.ok) {
+    await recordAdminAction({ actorEmail: actor.email, action: "cms_withdraw", detail: { page, number: latest.prNumber, outcome: result.reason } });
+    return result.reason === "merged"
+      ? { ok: false, reason: "not_publishing", message: "This page has just been approved, so it can no longer be withdrawn. Reload the page to see where it stands." }
+      : { ok: false, reason: "failed", message: "Withdrawing did not work this time. Try again in a few minutes." };
+  }
+  await updateSubmission(latest.id, "open", { state: "withdrawn", resolvedAt: new Date() });
+  await unlockDraft(page);
+  if (result.leftBranch) console.error(`[cms] Withdrew "${page}" but could not delete its branch ${result.leftBranch}`);
+  await recordAdminAction({
+    actorEmail: actor.email,
+    action: "cms_withdraw",
+    detail: { page, number: latest.prNumber, outcome: "withdrawn", ...(result.leftBranch ? { cleanup: "failed", leftBranch: result.leftBranch } : {}) },
+  });
+  return { ok: true };
 }

@@ -111,7 +111,8 @@ describe("permission matrix", () => {
       await signInAs(who);
       const result = await publishDraft(SLUG, version);
       if (canPublish) {
-        expect(result).toEqual({ ok: false, reason: "unavailable", message: "Publishing is not available yet. Your draft is saved." });
+        // Publishing is not set up in this file (no GitHub settings); publishing.db.test.tsx sets it up.
+        expect(result).toEqual({ ok: false, reason: "unavailable", message: "Publishing is not set up on this site yet. Your draft is saved." });
         expect(await auditActions()).toEqual(["cms_publish"]);
       } else {
         expect(result).toMatchObject({ ok: false, reason: refusal(who) });

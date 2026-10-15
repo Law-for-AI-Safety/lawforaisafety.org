@@ -1,7 +1,8 @@
 import { contentRoutes, contentSlugs, defaultDirs, readContentFile, siteImages } from "@/cms/content-files";
 import { pageState, type PageState } from "@/cms/drafts";
 import { publishChecks, type Problem } from "@/cms/publish-checks";
-import { getDraft, listDrafts, type DraftRow } from "@/lib/cms-store";
+import { editorState, type EditorState } from "@/cms/publish-status";
+import { getDraft, latestSubmissions, listDrafts, type DraftRow } from "@/lib/cms-store";
 
 /**
  * What the CMS admin pages and actions read about a page: its content file (from the deployed
@@ -32,22 +33,30 @@ export function cmsImages(): string[] {
 export type CmsPageSummary = {
   slug: string;
   title: string;
-  state: PageState;
+  /** From the database alone: the editor page is where the status is read from GitHub. */
+  state: EditorState;
   draft: { authorEmail: string; updatedAt: Date; valid: boolean } | null;
 };
 
 export async function listCmsPages(): Promise<CmsPageSummary[]> {
   const dirs = cmsDirs();
   const drafts = new Map((await listDrafts()).map((d) => [d.page, d]));
+  const submissions = await latestSubmissions();
   return contentSlugs(dirs.contentDir).map((slug) => {
     const file = readContentFile(dirs.contentDir, slug)!;
     const draft = drafts.get(slug) ?? null;
-    const state = pageState(slug, draft?.content ?? null, file.text);
+    const latest = submissions.get(slug);
+    const state = editorState({
+      pageState: pageState(slug, draft?.content ?? null, file.text),
+      locked: Boolean(draft?.lockedAt),
+      draftVersion: draft?.version ?? 0,
+      latest: latest ? { state: latest.state, draftVersion: latest.draftVersion ?? -1 } : null,
+    });
     return {
       slug,
       title: (JSON.parse(file.text) as { title: string }).title,
       state,
-      draft: draft && state === "draft" ? { authorEmail: draft.authorEmail, updatedAt: draft.updatedAt, valid: draft.valid } : null,
+      draft: draft && state !== "live" ? { authorEmail: draft.authorEmail, updatedAt: draft.updatedAt, valid: draft.valid } : null,
     };
   });
 }

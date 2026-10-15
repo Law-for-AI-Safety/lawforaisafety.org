@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Problem } from "@/cms/publish-checks";
-import type { PublishDraftResult, SaveDraftResult } from "../actions";
+import type { PublishDraftResult, SaveDraftResult, WithdrawResult } from "../actions";
 import PageEditor, { type PageEditorProps } from "./PageEditor";
 
 const file = JSON.parse(fs.readFileSync("content/field-building.json", "utf8"));
@@ -21,6 +21,7 @@ function fakeServer() {
     }),
     discard: vi.fn(async () => ({ ok: true as const })),
     publish: vi.fn(async (): Promise<PublishDraftResult> => ({ ok: false, reason: "unavailable", message: "Publishing is not available yet. Your draft is saved." })),
+    withdraw: vi.fn(async (): Promise<WithdrawResult> => ({ ok: true })),
   };
   return server;
 }
@@ -35,10 +36,14 @@ function renderEditor(server = fakeServer(), props: Partial<PageEditorProps> = {
       initialProblems={[]}
       baseChanged={false}
       canPublish={false}
+      publishSetUp={true}
+      publishing={{ sent: null, approved: false, note: null }}
+      statusChecked={true}
       images={["/images/team-group.webp"]}
       save={server.save}
       discard={server.discard}
       publish={server.publish}
+      withdraw={server.withdraw}
       {...props}
     />,
   );
@@ -276,4 +281,77 @@ it("links to the preview in a new tab", () => {
   const link = screen.getByRole("link", { name: "Preview (opens a new tab)" });
   expect(link).toHaveAttribute("href", "/admin/preview/field-building");
   expect(link).toHaveAttribute("target", "_blank");
+});
+
+describe("publishing states", () => {
+  const sent = { at: new Date("2026-10-15T12:00:00Z"), by: "pat@example.com" };
+
+  it("locks the page while it is Publishing, with Withdraw for a publisher", async () => {
+    const server = fakeServer();
+    server.withdraw.mockResolvedValueOnce({ ok: false, reason: "failed", message: "Withdrawing did not work this time." });
+    renderEditor(server, { initialState: "publishing", initialVersion: 3, canPublish: true, publishing: { sent, approved: false, note: null } });
+    expect(screen.getByText("Publishing")).toBeInTheDocument();
+    expect(screen.getByText(/^Sent for publishing on 15 Oct 2026, 12:00 UTC by pat@example\.com\./)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Page title")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Discard draft" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Preview (opens a new tab)" })).toBeInTheDocument();
+
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw from publishing" }));
+    expect(server.withdraw).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Withdraw from publishing" })));
+    expect(server.withdraw).toHaveBeenCalledWith("field-building");
+    expect(screen.getByRole("alert")).toHaveTextContent("Withdrawing did not work this time.");
+    expect(document.body.textContent).not.toMatch(/github|pull request/i);
+  });
+
+  it("says when it was approved and is going live, without Withdraw", () => {
+    renderEditor(fakeServer(), { initialState: "publishing", canPublish: true, publishing: { sent, approved: true, note: null } });
+    expect(screen.getByText(/^Approved\. The website is being updated/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Withdraw from publishing" })).toBeNull();
+  });
+
+  it("offers no Withdraw to someone who may only edit", () => {
+    renderEditor(fakeServer(), { initialState: "publishing", publishing: { sent: null, approved: false, note: null } });
+    expect(screen.getByText(/^Sent for publishing\. It goes live once it is approved\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Withdraw from publishing" })).toBeNull();
+  });
+
+  it("shows Not published with the reviewer's comment as plain text, and edits make it a Draft", async () => {
+    const server = fakeServer();
+    server.version = 2;
+    renderEditor(server, { initialState: "not_published", initialVersion: 2, publishing: { sent: null, approved: false, note: { by: "owner", text: "Too long. <b>Shorten</b> it." } } });
+    expect(screen.getByText("Not published")).toBeInTheDocument();
+    expect(document.querySelector("blockquote")!.textContent).toBe("owner: Too long. <b>Shorten</b> it.");
+    expect(document.querySelector("blockquote b")).toBeNull();
+    fireEvent.change(title(), { target: { value: "Shorter" } });
+    await waitFor(() => expect(screen.getByText("Draft")).toBeInTheDocument(), { timeout: 3000 });
+  });
+
+  it("lists what changed on the live page when publishing is refused for that", async () => {
+    const server = fakeServer();
+    server.publish.mockResolvedValue({
+      ok: false,
+      reason: "stale",
+      message: "The live page was changed by someone else since this draft was started.",
+      changes: [{ path: ["description"], label: "Description", before: "Old", after: "New" }],
+    });
+    renderEditor(server, { canPublish: true, initialState: "draft" });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Publish" })));
+    expect(screen.getByRole("alert")).toHaveTextContent("The live page was changed by someone else");
+    const list = screen.getByRole("list", { name: "Changed on the live page" });
+    expect(list).toHaveTextContent("Description");
+    expect(list).toHaveTextContent("Was: Old");
+    expect(list).toHaveTextContent("Now: New");
+  });
+
+  it("says when publishing is not set up, and when the status could not be checked", () => {
+    renderEditor(fakeServer(), { canPublish: true, initialState: "draft", publishSetUp: false, statusChecked: false });
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    expect(screen.getByText("Publishing is not set up on this site yet. Drafts are saved as usual.")).toBeInTheDocument();
+    expect(screen.getByText("Could not check whether this page has been approved yet. Reload the page to try again.")).toBeInTheDocument();
+  });
 });

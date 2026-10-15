@@ -127,6 +127,13 @@
       "when": 1792060185845,
       "tag": "0017_colossal_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792063267185,
+      "tag": "0018_closed_ben_grimm",
+      "breakpoints": true
     }
   ]
 }

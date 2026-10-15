@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Autosaver, type AutosaveStatus, type SaveResult } from "@/cms/autosave";
-import type { PageState } from "@/cms/drafts";
+import type { FieldChange } from "@/cms/field-diff";
+import type { EditorState } from "@/cms/publish-status";
+import type { PublishingView } from "@/lib/cms-publishing";
 import { addableBlockTypes, canMoveBlock, isLockedBlock, moveBlock, removeBlock, setCardListStyle, setIn, type DraftBlock, type DraftPage } from "@/cms/editor-model";
 import { BLOCK_LABELS, blockFields, describePath, newBlock, PAGE_FIELDS } from "@/cms/fields";
 import type { BlockType } from "@/cms/pages";
 import type { Problem } from "@/cms/publish-checks";
-import type { DiscardDraftResult, PublishDraftResult, SaveDraftResult } from "../actions";
+import type { DiscardDraftResult, PublishDraftResult, SaveDraftResult, WithdrawResult } from "../actions";
 import PageStateBadge from "../PageStateBadge";
 import { Fields, type FieldContext, type Path } from "./FieldEditor";
 
@@ -15,16 +17,24 @@ export type PageEditorProps = {
   slug: string;
   initialContent: unknown;
   initialVersion: number;
-  initialState: PageState;
+  initialState: EditorState;
   initialProblems: Problem[];
   /** The live page changed after the draft was started. */
   baseChanged: boolean;
   canPublish: boolean;
+  /** Whether this site can publish at all (the publishing settings are present). */
+  publishSetUp: boolean;
+  publishing: PublishingView;
+  /** False when the publishing status could not be checked on this load. */
+  statusChecked: boolean;
   images: string[];
   save: (slug: string, content: unknown, version: number) => Promise<SaveDraftResult>;
   discard: (slug: string, version: number) => Promise<DiscardDraftResult>;
   publish: (slug: string, version: number) => Promise<PublishDraftResult>;
+  withdraw: (slug: string) => Promise<WithdrawResult>;
 };
+
+const DATE_FORMAT: Intl.DateTimeFormatOptions = { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" };
 
 const STATUS_TEXT: Record<"saved" | "pending" | "saving", string> = {
   saved: "All changes saved",
@@ -49,7 +59,9 @@ export default function PageEditor(props: PageEditorProps) {
   const { slug, canPublish, images } = props;
   const [page, setPage] = useState(props.initialContent as DraftPage);
   const [version, setVersion] = useState(props.initialVersion);
-  const [pageState, setPageState] = useState(props.initialState);
+  const [pageState, setPageState] = useState<EditorState>(props.initialState);
+  const [staleChanges, setStaleChanges] = useState<FieldChange[]>([]);
+  const locked = pageState === "publishing";
   const [problems, setProblems] = useState(props.initialProblems);
   const [status, setStatus] = useState<AutosaveStatus>({ state: "saved" });
   const [notice, setNotice] = useState<{ tone: "info" | "error"; text: string } | null>(null);
@@ -70,6 +82,7 @@ export default function PageEditor(props: PageEditorProps) {
           }
           if (result.reason === "signed_out") return { ok: false, reason: "retry", message: result.message };
           if (result.reason === "not_found") return { ok: false, reason: "invalid", message: result.message };
+          if (result.reason === "locked") return { ok: false, reason: "forbidden", message: result.message };
           return { ok: false, reason: result.reason, message: result.message };
         },
       }),
@@ -109,10 +122,27 @@ export default function PageEditor(props: PageEditorProps) {
     if (!window.confirm("Publishing makes this page's text public on the website. Check the preview first. Publish now?")) return;
     await saver.flush();
     if (saver.dirty) return;
+    setStaleChanges([]);
     const result = await props.publish(slug, saver.version);
+    if (result.ok) {
+      saver.dispose();
+      window.location.reload();
+      return;
+    }
     if (result.reason === "checks") setProblems(result.problems);
+    if (result.reason === "stale") setStaleChanges(result.changes);
     setNotice({ tone: result.reason === "unavailable" ? "info" : "error", text: result.message });
   };
+
+  const withdraw = async () => {
+    if (!window.confirm("Withdraw this page from publishing? The changes stay in the draft, and you can edit and publish again.")) return;
+    setNotice(null);
+    const result = await props.withdraw(slug);
+    if (result.ok) window.location.reload();
+    else setNotice({ tone: "error", text: result.message });
+  };
+
+  const { sent, approved, note } = props.publishing;
 
   const discard = async () => {
     if (!window.confirm("Throw away every unpublished change to this page? This cannot be undone.")) return;
@@ -137,7 +167,7 @@ export default function PageEditor(props: PageEditorProps) {
           <a href={`/admin/preview/${slug}`} target="_blank" rel="noopener" className="underline">
             Preview (opens a new tab)
           </a>
-          {version > 0 && (
+          {version > 0 && !locked && (
             <button type="button" onClick={discard} className="text-sm text-brand-red underline">
               Discard draft
             </button>
@@ -161,13 +191,48 @@ export default function PageEditor(props: PageEditorProps) {
             )}
           </p>
         )}
-        {props.baseChanged && (
+        {!props.statusChecked && (
+          <p role="status" className="border border-brand-black/30 px-3 py-2 text-sm text-brand-black/80">
+            Could not check whether this page has been approved yet. Reload the page to try again.
+          </p>
+        )}
+        {locked && (
+          <div role="status" className="flex flex-col gap-2 border border-brand-navy bg-brand-navy/5 px-3 py-3 text-brand-black">
+            {approved ? (
+              <p>Approved. The website is being updated, which takes a few minutes; then this page shows as Live.</p>
+            ) : (
+              <p>
+                Sent for publishing{sent ? ` on ${sent.at.toLocaleString("en-GB", DATE_FORMAT)} UTC by ${sent.by}` : ""}. It goes live once it is
+                approved. The page can&apos;t be changed until then.
+              </p>
+            )}
+            {canPublish && !approved && (
+              <button type="button" onClick={withdraw} className="self-start text-sm text-brand-red underline">
+                Withdraw from publishing
+              </button>
+            )}
+          </div>
+        )}
+        {pageState === "not_published" && (
+          <div role="status" className="flex flex-col gap-2 border border-brand-red px-3 py-3 text-brand-black">
+            <p>The last changes sent were not published. The draft is open for editing again.</p>
+            {note && (
+              <blockquote className="whitespace-pre-wrap border-l-2 border-brand-black/30 pl-3 text-brand-black/80">
+                {note.by ? `${note.by}: ` : ""}
+                {note.text}
+              </blockquote>
+            )}
+          </div>
+        )}
+        {props.baseChanged && !locked && (
           <p className="border border-brand-black/30 px-3 py-2 text-sm text-brand-black/80">
             The live page has changed since this draft was started. Publishing will need the draft to be brought up to date.
           </p>
         )}
       </div>
 
+      {!locked && (
+      <>
       <section className="flex flex-col gap-4">
         <h2 className="text-xl text-brand-black">Page details</h2>
         <Fields fields={PAGE_FIELDS} value={page} path={[]} ctx={ctx} />
@@ -262,23 +327,39 @@ export default function PageEditor(props: PageEditorProps) {
             ))}
           </ul>
         )}
-        {notice && (
-          <p role={notice.tone === "error" ? "alert" : "status"} className={notice.tone === "error" ? "text-brand-red" : "text-brand-navy"}>
-            {notice.text}
-          </p>
+        {staleChanges.length > 0 && (
+          <ul aria-label="Changed on the live page" className="flex flex-col gap-2 text-sm text-brand-black/80">
+            {staleChanges.map((change, i) => (
+              <li key={i} className="border-l-2 border-brand-red pl-3">
+                <span className="text-brand-black">{change.label}</span>
+                <span className="block whitespace-pre-wrap">Was: {change.before}</span>
+                <span className="block whitespace-pre-wrap">Now: {change.after}</span>
+              </li>
+            ))}
+          </ul>
         )}
         {canPublish && (
-          <button
-            type="button"
-            onClick={publish}
-            // A live page has nothing to publish, unless a change is still on its way to the draft.
-            disabled={stopped || (pageState === "live" && status.state === "saved")}
-            className="self-start rounded-sm bg-brand-navy px-6 py-3 text-brand-white disabled:opacity-50"
-          >
-            Publish
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={publish}
+              // A live page has nothing to publish, unless a change is still on its way to the draft.
+              disabled={!props.publishSetUp || stopped || (pageState === "live" && status.state === "saved")}
+              className="self-start rounded-sm bg-brand-navy px-6 py-3 text-brand-white disabled:opacity-50"
+            >
+              Publish
+            </button>
+            {!props.publishSetUp && <p className="text-sm text-brand-black/70">Publishing is not set up on this site yet. Drafts are saved as usual.</p>}
+          </>
         )}
       </section>
+      </>
+      )}
+      {notice && (
+        <p role={notice.tone === "error" ? "alert" : "status"} className={notice.tone === "error" ? "text-brand-red" : "text-brand-navy"}>
+          {notice.text}
+        </p>
+      )}
     </main>
   );
 }

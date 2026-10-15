@@ -254,6 +254,8 @@ export const adminAuditAction = pgEnum("admin_audit_action", [
   "cms_draft_save",
   "cms_draft_discard",
   "cms_publish",
+  "cms_withdraw",
+  "cms_publish_outcome",
 ]);
 
 // Append-only record of who did what in the admin panel. The application row
@@ -410,7 +412,10 @@ export const cmsRoles = pgTable("cms_roles", {
 // One shared draft per page. `version` goes up on every save, and a save names the version it
 // started from, so a save made from a stale copy is refused instead of overwriting another
 // editor's work. `baseHash` is the git blob id of the content file the draft started from.
-// `valid` says whether the draft passed the page schema when it was saved.
+// `valid` says whether the draft passed the page schema when it was saved. `lockedAt` is set
+// while the draft is sent for publishing (from just before its pull request is opened until it
+// is merged and deployed, closed, or withdrawn); a locked draft refuses saves, discards and
+// publishes.
 export const cmsDrafts = pgTable("cms_drafts", {
   page: text("page").primaryKey(),
   content: jsonb("content").notNull(),
@@ -419,6 +424,7 @@ export const cmsDrafts = pgTable("cms_drafts", {
   version: integer("version").notNull().default(1),
   authorEmail: text("author_email").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
 });
 
 export const cmsSubmissionState = pgEnum("cms_submission_state", [
@@ -429,6 +435,10 @@ export const cmsSubmissionState = pgEnum("cms_submission_state", [
 ]);
 
 // Each time a page was sent for publishing: the pull request it opened and what became of it.
+// `baseHash` is the blob id of the file on main it replaced and `draftVersion` the draft
+// version it sent. Once merged, `mergedHash` is the file's blob id in the merge commit; once
+// closed without merging, `closingNote` is the reviewer's last comment. `resolvedAt` is when it
+// was merged, closed or withdrawn.
 export const cmsSubmissions = pgTable(
   "cms_submissions",
   {
@@ -439,6 +449,12 @@ export const cmsSubmissions = pgTable(
     submittedBy: text("submitted_by").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
     state: cmsSubmissionState("state").notNull().default("open"),
+    baseHash: text("base_hash"),
+    draftVersion: integer("draft_version"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    mergedHash: text("merged_hash"),
+    closingNote: text("closing_note"),
+    closingNoteBy: text("closing_note_by"),
   },
   (table) => [index("cms_submissions_page_idx").on(table.page)],
 );
