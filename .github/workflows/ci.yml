@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Fork PRs get a read-only token whatever is written here; this keeps in-repo branches on the
+# same footing. Actions are pinned to commit SHAs so an upstream tag can't be moved under us,
+# and `persist-credentials: false` keeps the token out of the checkout. zizmor enforces that;
+# `test/ci-workflow.test.ts` checks the project-specific rules it can't know about.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-all:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Same major version as docker-compose.yml.
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lawforaisafety
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # The tests clone a database per file from this server; see test/pg.ts.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/lawforaisafety
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Typecheck, lint, and every test with coverage, including the database-backed ones.
+      - run: npm run check-all
+      - name: Coverage summary
+        if: always()
+        run: npm run --silent coverage:report >> "$GITHUB_STEP_SUMMARY"
+
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Static security audit of the workflows: dangerous triggers, template injection,
+      # unpinned actions, broad permissions, leaked credentials.
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: 1.30.1
+          advanced-security: false
+          annotations: true
+          min-severity: low
