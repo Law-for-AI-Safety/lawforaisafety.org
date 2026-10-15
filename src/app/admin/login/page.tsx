@@ -34,6 +34,11 @@ export default async function AdminLoginPage({
       >
         Log in with LinkedIn
       </a>
+      {process.env.NODE_ENV === "development" && (
+        <a href="/api/admin/auth/dev-login" className="text-sm text-brand-black/60 underline">
+          Dev login (skip LinkedIn)
+        </a>
+      )}
     </main>
   );
 }

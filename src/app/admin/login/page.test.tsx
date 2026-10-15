@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import AdminLoginPage from "./page";
 
@@ -24,4 +24,20 @@ describe("the admin login page", () => {
       expect(screen.getByRole("link", { name: "Log in with LinkedIn" })).toHaveAttribute("href", "/api/admin/auth/linkedin");
     },
   );
+
+  it("shows no dev login shortcut outside development (the default under Vitest)", async () => {
+    await renderWith();
+    expect(screen.queryByRole("link", { name: "Dev login (skip LinkedIn)" })).toBeNull();
+  });
+
+  it("shows the dev login shortcut in development", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    await renderWith();
+
+    expect(screen.getByRole("link", { name: "Dev login (skip LinkedIn)" })).toHaveAttribute(
+      "href",
+      "/api/admin/auth/dev-login",
+    );
+  });
 });
