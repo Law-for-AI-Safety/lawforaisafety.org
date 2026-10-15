@@ -35,7 +35,7 @@ That's the only command needed — `predev` (`npm run db:ensure`, i.e. `scripts/
 
 The container listens on host port **5440** (not 5432, to avoid clashing with other local Postgres instances). To use another port, set `DB_PORT` in `.env.local` and change the port in `DATABASE_URL` to match.
 
-`npm run db:down` stops the container (data persists in a Docker volume). `npm run db:reset` wipes it and starts clean — use when migrations get out of sync. `npm run db:migrate` on its own reads `.env.local` too. For DB-backed tests there's a separate, throwaway `db-test` container on port 5441 (`TEST_DATABASE_URL`): `npm run db:up:test` starts it, `npm run db:reset:test` recreates it empty, and neither touches the dev data.
+`npm run db:down` stops the container (data persists in a Docker volume). `npm run db:reset` wipes it and starts clean — use when migrations get out of sync. `npm run db:migrate` on its own reads `.env.local` too.
 
 `npm run db:seed` inserts 9 sample pending applications into the admin queue — one for every combination of verification method (LinkedIn / Google / no-verification name+email) and credential type (LinkedIn URL / CV / position statement), so every badge and banner state in `/admin` is reachable without doing a real OAuth round trip. CV rows get a minimal placeholder PDF written to the local blob fallback so the PDF.js viewer has something to render. Re-running it is safe — same fixed IDs, old rows are deleted and replaced.
 
