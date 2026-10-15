@@ -124,7 +124,7 @@ describe("ci.yml", () => {
 
   it("runs check-all on pull requests and pushes to main, against Postgres", () => {
     expect(ci).toBeDefined();
-    expect(ci!.doc.on).toEqual({ pull_request: { branches: ["main"] }, push: { branches: ["main"] } });
+    expect(ci!.doc.on).toEqual({ pull_request: null, push: { branches: ["main"] } });
     const [, job] = jobs(ci!.doc).find(([, j]) => j.services) ?? [];
     expect(Object.keys((job?.services ?? {}) as Yaml)).toContain("postgres");
     expect((job?.env as Yaml | undefined)?.TEST_DATABASE_URL).toMatch(/^postgres:\/\/[^@]+@localhost:/);
