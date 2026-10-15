@@ -1,10 +1,11 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { pagePath } from "./pages";
-import { parseRichTextLoose } from "./rich-text";
-import { isSiteRoute, siteRoutes, type Route } from "./routes";
-import { pageSchema, type PageContent } from "./schema";
+import { problemPathKey, publishChecks } from "./publish-checks";
+import { siteRoutes, type Route } from "./routes";
+import { IMAGE_PATH, pageSchema } from "./schema";
 
 /**
  * Reading, formatting and checking the files in `content/`. Used by `npm run content:format`
@@ -61,36 +62,26 @@ export function formatContent(slug: string, text: string): string {
   return printContent(result.data);
 }
 
-/** Every link target in a content value, found in any string that reads as rich text. */
-export function linksIn(value: unknown): string[] {
-  if (typeof value === "string") {
-    let doc;
-    try {
-      doc = parseRichTextLoose(value);
-    } catch {
-      return [];
-    }
-    const runs = doc.flatMap((block) => (block.type === "paragraph" ? block.runs : block.items.flat()));
-    return runs.flatMap((run) => (run.marks.link === undefined ? [] : [run.marks.link]));
-  }
-  if (Array.isArray(value)) return value.flatMap(linksIn);
-  if (value && typeof value === "object") return Object.values(value).flatMap(linksIn);
-  return [];
+/**
+ * The hash a draft records of the file it started from: the file's git blob id, so the
+ * publish step can compare it with the id GitHub reports for the file on `main`.
+ */
+export function contentHash(text: string): string {
+  return createHash("sha1").update(`blob ${Buffer.byteLength(text)}\0`).update(text).digest("hex");
 }
 
-/** Every repo image a page uses: its share image and team photos. */
-export function imagesIn(page: PageContent): string[] {
-  const photos = page.blocks.flatMap((block) =>
-    block.type === "teamGrid" ? block.members.flatMap((m) => (m.photo ? [m.photo] : [])) : [],
-  );
-  return [...(page.shareImage ? [page.shareImage] : []), ...photos];
+/** A content file's text and hash, or null when the page has no file. */
+export function readContentFile(contentDir: string, slug: string): { text: string; hash: string } | null {
+  if (!contentSlugs(contentDir).includes(slug)) return null;
+  const text = fs.readFileSync(path.join(contentDir, `${slug}.json`), "utf8");
+  return { text, hash: contentHash(text) };
 }
 
 /**
- * Checks one content file's text as it would be committed: valid, in canonical form, every
- * image present in public/, and every site link leading to a real route. `routes` should
- * include the content pages (see `contentRoutes`). Returns one message per problem; none
- * means the file may be committed. The publish step calls this on the file it generates.
+ * Checks one content file's text as it would be committed: valid, in canonical form, and
+ * passing the publish checks (`./publish-checks`). `routes` should include the content pages
+ * (see `contentRoutes`). Returns one message per problem; none means the file may be
+ * committed. The publish step calls this on the file it generates.
  */
 export function checkContentText(slug: string, text: string, publicDir: string, routes: Route[]): string[] {
   const file = `content/${slug}.json`;
@@ -101,22 +92,25 @@ export function checkContentText(slug: string, text: string, publicDir: string, 
     return [(e as Error).message];
   }
   if (formatted !== text) return [`${file} is not in canonical form; run npm run content:format`];
-  const page = pageSchema(slug).parse(JSON.parse(text));
-  const problems: string[] = [];
-  for (const image of imagesIn(page)) {
-    if (!fs.existsSync(path.join(publicDir, image))) problems.push(`${file}: image ${image} is not in public/`);
-  }
-  for (const href of linksIn(page)) {
-    if (href.startsWith("/") && !isSiteRoute(href, routes)) {
-      problems.push(`${file}: link ${href} does not lead to a page on this site`);
-    }
-  }
-  return problems;
+  return publishChecks(slug, JSON.parse(text), { publicDir, routes }).map(
+    (problem) => `${file}: ${[problemPathKey(problem.path), problem.message].filter(Boolean).join(": ")}`,
+  );
 }
 
 /** The routes content may link to: app pages, public files, and the given content pages. */
 export function contentRoutes(dirs: Dirs, slugs: string[]): Route[] {
   return siteRoutes({ appDir: dirs.appDir, publicDir: dirs.publicDir, contentPaths: slugs.map(pagePath) });
+}
+
+/** The images content may use: every file in `public/images/` an image field accepts, as site paths, sorted. */
+export function siteImages(publicDir: string): string[] {
+  const dir = path.join(publicDir, "images");
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .map((name) => `/images/${name}`)
+    .filter((image) => IMAGE_PATH.test(image))
+    .sort();
 }
 
 /** Checks every file in the content directory with `checkContentText`. */

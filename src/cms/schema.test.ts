@@ -223,3 +223,38 @@ describe("page rules", () => {
     expect(applySourceFor("/nowhere")).toBeUndefined();
   });
 });
+
+describe("draft mode", () => {
+  const drafts = blockSchema("draft");
+
+  it("accepts unfinished text, empty lists and unchecked links", () => {
+    for (const block of [
+      { ...hero, heading: "", lede: "[x](javascript:alert)" },
+      { type: "cardList", style: "bullets", heading: " untrimmed ", items: [] },
+      { type: "teamGrid", heading: "", members: [{ name: "", role: "", bio: "", linkedin: "nope", photo: "x", }] },
+      { type: "timeline", heading: "", entries: [{ date: "a", text: "" }, { date: "a", text: "", utc: "soon" }] },
+    ]) {
+      expect(problems(drafts.safeParse(block))).toEqual([]);
+    }
+  });
+
+  it("still refuses anything outside the page's shape or over a limit", () => {
+    expect(problems(drafts.safeParse({ type: "unknown" }))[0]).toMatch(/^type: Invalid discriminator value/);
+    expect(problems(drafts.safeParse({ ...hero, colour: "red" }))).toEqual([': Unrecognized key: "colour"']);
+    expect(problems(drafts.safeParse({ ...hero, lede: 5 }))).toEqual(["lede: Invalid input: expected string, received number"]);
+    expect(problems(drafts.safeParse({ ...hero, heading: "x".repeat(201) }))).toEqual(["heading: At most 200 characters"]);
+    expect(problems(drafts.safeParse({ type: "cardList", style: "numbered", items: Array(13).fill({ title: "", body: "" }) }))).toEqual([
+      "items: At most 12 items",
+    ]);
+  });
+
+  it("does not apply page rules", () => {
+    const value = page([{ type: "quoteBand", quote: "" }, hero, hero]);
+    expect(pageSchema("field-building", "draft").safeParse(value).success).toBe(true);
+    expect(pageSchema("field-building").safeParse(value).success).toBe(false);
+  });
+
+  it("caps the number of blocks", () => {
+    expect(problems(pageSchema("x", "draft").safeParse(page(Array(101).fill(hero))))).toEqual(["blocks: At most 100 blocks"]);
+  });
+});

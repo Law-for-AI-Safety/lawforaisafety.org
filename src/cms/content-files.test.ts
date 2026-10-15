@@ -11,7 +11,9 @@ import {
   defaultDirs,
   formatContent,
   formatContentFiles,
-  linksIn,
+  contentHash,
+  readContentFile,
+  siteImages,
   printContent,
   type Dirs,
 } from "./content-files";
@@ -136,9 +138,9 @@ describe("with a scratch directory", () => {
       }),
     );
     expect(checkContent(dirs)).toEqual([
-      "content/field-building.json: image /images/missing.webp is not in public/",
-      "content/field-building.json: link /no-such-page does not lead to a page on this site",
-      "content/field-building.json: link /admin does not lead to a page on this site",
+      "content/field-building.json: shareImage: The image /images/missing.webp does not exist",
+      "content/field-building.json: blocks.0.lede: The link /no-such-page does not lead to a page on this site",
+      "content/field-building.json: blocks.0.lede: The link /admin does not lead to a page on this site",
     ]);
   });
 
@@ -155,7 +157,9 @@ describe("with a scratch directory", () => {
     write("team", printContent(team("/images/karolina-gruzel.webp")));
     expect(checkContent(dirs)).toEqual([]);
     write("team", printContent(team("/images/nobody.webp")));
-    expect(checkContent(dirs)).toEqual(["content/team.json: image /images/nobody.webp is not in public/"]);
+    expect(checkContent(dirs)).toEqual([
+      "content/team.json: blocks.1.members.0.photo: The image /images/nobody.webp does not exist",
+    ]);
   });
 
   it("checks one file's text before it is committed, against the repo's routes", () => {
@@ -166,7 +170,7 @@ describe("with a scratch directory", () => {
       "content/draft-page.json is not in canonical form; run npm run content:format",
     ]);
     expect(checkContentText("draft-page", draft, real.publicDir, contentRoutes(real, []))).toEqual([
-      "content/draft-page.json: link /draft-page does not lead to a page on this site",
+      "content/draft-page.json: blocks.0.lede: The link /draft-page does not lead to a page on this site",
     ]);
   });
 
@@ -182,12 +186,39 @@ describe("with a scratch directory", () => {
   });
 });
 
-describe("linksIn", () => {
-  it("finds every link target in rich text anywhere in the value", () => {
-    expect(linksIn(valid)).toEqual(["/freedom-of-information", "mailto:a@b.org", "/#contact", "https://example.org"]);
+describe("content hashes", () => {
+  it("are the file's git blob id", () => {
+    // `printf 'hello\n' | git hash-object --stdin`
+    expect(contentHash("hello\n")).toBe("ce013625030ba8dba906f756967f9e9ca394464a");
+    // Counts bytes, not characters: `printf '\xc3\xa9' | git hash-object --stdin`
+    expect(contentHash("\u00e9")).toBe("4b04fff51468d8ab5201ab02b725dc477bc7cb45");
   });
 
-  it("skips strings that are not rich text and values that are not strings", () => {
-    expect(linksIn({ a: "<b>not rich</b>", b: 3, c: null, d: true })).toEqual([]);
+  it("are read with the file, and a page with no file has none", () => {
+    const file = readContentFile(real.contentDir, "field-building")!;
+    expect(file.text).toBe(fs.readFileSync(path.join(real.contentDir, "field-building.json"), "utf8"));
+    expect(file.hash).toBe(contentHash(file.text));
+    expect(readContentFile(real.contentDir, "no-such-page")).toBeNull();
+    expect(readContentFile(real.contentDir, "../package")).toBeNull();
+  });
+});
+
+describe("siteImages", () => {
+  it("lists the images an image field accepts, as site paths", () => {
+    const images = siteImages(real.publicDir);
+    expect(images).toContain("/images/team-group.webp");
+    expect(images).toEqual([...images].sort());
+  });
+
+  it("leaves out files an image field would refuse, and copes with no images folder", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cms-images-"));
+    try {
+      expect(siteImages(root)).toEqual([]);
+      fs.mkdirSync(path.join(root, "images"));
+      for (const name of ["b.webp", "a.png", "Upper.jpg", "notes.txt"]) fs.writeFileSync(path.join(root, "images", name), "");
+      expect(siteImages(root)).toEqual(["/images/a.png", "/images/b.webp"]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });
