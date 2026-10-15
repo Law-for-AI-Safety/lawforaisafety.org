@@ -1,8 +1,8 @@
 name: CI
 
 on:
+  # Every PR, not only those into main: CMS work lands as stacked PRs.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
