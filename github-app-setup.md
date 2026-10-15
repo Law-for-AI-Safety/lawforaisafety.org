@@ -9,7 +9,7 @@ Until the settings below are in Netlify, the editor works as before (drafts, pre
 | Where | What you do there |
 | --- | --- |
 | [Create the App (pre-filled)](https://github.com/organizations/Law-for-AI-Safety/settings/apps/new?name=lawforaisafety-cms&url=https%3A%2F%2Flawforaisafety.org&webhook_active=false&public=false&contents=write&pull_requests=write&metadata=read) | Step 1: check the fields, then **Create GitHub App** |
-| [App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms) | Step 1: App ID, **Generate a private key** |
+| [App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms) | Step 1: App ID (General → About); private key (Credentials → **Key pairs**, not Client secrets) |
 | [Install the App](https://github.com/apps/lawforaisafety-cms/installations/new) | Step 1: install on `lawforaisafety.org` only |
 | [Org installations](https://github.com/organizations/Law-for-AI-Safety/settings/installations) | Step 1: open the installation; its ID is the number at the end of the URL |
 | [Netlify environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env) | Step 2: add the variables |
@@ -47,7 +47,7 @@ GitHub has no "contents write but no merge" permission: the merge API also count
 
 Then:
 
-1. **Generate a private key** ([App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms) → Private keys). A `.pem` file downloads. Keep it only long enough to paste it into Netlify, then delete it.
+1. **Generate a private key** ([App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms) → **Credentials** → **Key pairs** tab; not Client secrets, which are for OAuth). A `.pem` file downloads. Keep it only long enough to paste it into Netlify, then delete it.
 2. [**Install App**](https://github.com/apps/lawforaisafety-cms/installations/new) → this organisation → **Only select repositories** → `lawforaisafety.org`. Install it on this repo only.
 3. Note the **App ID** ([App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms), "About") and the **installation ID** (open it from the [org installations](https://github.com/organizations/Law-for-AI-Safety/settings/installations); it is the number at the end of the URL, `…/settings/installations/<id>`).
 
