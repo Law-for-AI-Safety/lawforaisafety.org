@@ -99,6 +99,7 @@ const partners = [
 // message. The page is prerendered, so this is fixed at build time and changed
 // by a code (later a content) change. The admin Red Lines toggle is an
 // emergency stop enforced by the submit routes; it does not hide the form.
+// The closed branch stays, unused while this is true: W3 makes this a content field.
 const APPLICATIONS_OPEN = true;
 
 export default function RedLinesDialoguePage() {

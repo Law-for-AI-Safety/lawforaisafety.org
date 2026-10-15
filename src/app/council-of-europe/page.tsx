@@ -34,6 +34,7 @@ const ambitions = [
 // message. The page is prerendered, so this is fixed at build time and changed
 // by a code (later a content) change. The admin signup toggle is an emergency
 // stop enforced by the submit routes; it does not hide the form.
+// The closed branch stays, unused while this is true: W3 makes this a content field.
 const SIGNUP_OPEN = true;
 
 export default function CouncilOfEuropePage() {
