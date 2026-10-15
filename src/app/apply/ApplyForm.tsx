@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
 import RenderedAtField, { useRenderedAt } from "./RenderedAtField";
+import { keepInput, useKeptInput, type KeptInput } from "./kept-input";
 import {
   APPLICATION_AUDIENCES,
   APPLY_PAGES,
@@ -45,6 +46,19 @@ export default function ApplyForm({
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
   const renderedAt = useRenderedAt();
   const [selectedTab, setSelectedTab] = useState<CredentialTab>("linkedin");
+
+  // What the visitor typed before the server refused their last submission, if it did.
+  const formKey = `apply:${source}`;
+  const kept = useKeptInput(formKey);
+  const [restored, setRestored] = useState<KeptInput | null>(null);
+  if (kept !== restored) {
+    setRestored(kept);
+    if (kept) {
+      const keptAudience = kept.values.audience;
+      if (keptAudience === "individual" || keptAudience === "organisation") setChosenAudience(keptAudience);
+      if (!kept.values.linkedinUrl && kept.values.positionStatement) setSelectedTab("statement");
+    }
+  }
 
   const tabs: { id: CredentialTab; label: string }[] = [
     { id: "linkedin", label: "LinkedIn URL" },
@@ -127,6 +141,7 @@ export default function ApplyForm({
           );
           return;
         }
+        keepInput(formKey, form);
         setSubmittingTo(submitter?.getAttribute("formaction") ?? "");
       }}
     >
@@ -199,6 +214,7 @@ export default function ApplyForm({
               type="url"
               name="linkedinUrl"
               maxLength={300}
+              defaultValue={kept?.values.linkedinUrl}
               placeholder="https://www.linkedin.com/in/…"
               className={FIELD_CLASSES}
             />
@@ -219,6 +235,7 @@ export default function ApplyForm({
               ref={positionStatementRef}
               name="positionStatement"
               maxLength={5000}
+              defaultValue={kept?.values.positionStatement}
               rows={4}
               placeholder={copy.statementPlaceholder}
               className={FIELD_CLASSES}
@@ -233,6 +250,7 @@ export default function ApplyForm({
             type="text"
             name="organisation"
             maxLength={200}
+            defaultValue={kept?.values.organisation}
             className={FIELD_CLASSES}
           />
         </label>
@@ -244,6 +262,7 @@ export default function ApplyForm({
           <textarea
             name="comments"
             maxLength={5000}
+            defaultValue={kept?.values.comments}
             rows={3}
             placeholder={copy.commentsPlaceholder}
             className={FIELD_CLASSES}
@@ -254,6 +273,9 @@ export default function ApplyForm({
       </div>
 
       <FormSubmissionTabs
+        // Opens on the name and email tab when that is what was kept.
+        key={kept ? "kept" : "new"}
+        kept={kept?.values}
         linkedinAction="/api/auth/linkedin"
         googleAction="/api/auth/google"
         emailAction="/api/auth/email"

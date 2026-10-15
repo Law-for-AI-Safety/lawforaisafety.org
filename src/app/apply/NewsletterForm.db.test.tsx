@@ -84,6 +84,8 @@ describe("NewsletterForm", () => {
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Subscribe" })).toBeEnabled();
     expect(await db.select().from(newsletterSignups)).toEqual([]);
+    // The form posts with fetch and stays on the page, so the address is still there to retry.
+    expect(screen.getByPlaceholderText("you@example.com")).toHaveValue(READER);
   });
 
   it("stores nothing while signups are closed", async () => {
@@ -93,6 +95,7 @@ describe("NewsletterForm", () => {
 
     expect(await screen.findByText("Something went wrong. Please try again.")).toBeVisible();
     expect(turnstile.verifications).toEqual([]);
+    expect(screen.getByPlaceholderText("you@example.com")).toHaveValue(READER);
     expect(await db.select().from(newsletterSignups)).toEqual([]);
   });
 });

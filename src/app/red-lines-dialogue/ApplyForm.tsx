@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
 import RenderedAtField, { useRenderedAt } from "../apply/RenderedAtField";
+import { keepInput, useKeptInput, type KeptInput } from "../apply/kept-input";
 import Checkbox from "../apply/Checkbox";
 import TurnstileWidget from "../apply/TurnstileWidget";
 import { FIELD_CLASSES, HELPER_TEXT_CLASSES, LABEL_CLASSES } from "../apply/field-styles";
@@ -16,6 +17,8 @@ const AREA_OPTIONS: { id: Area; label: string }[] = [
   { id: "legal_governance", label: "Legal / governance" },
   { id: "technical", label: "Technical" },
 ];
+
+const FORM_KEY = "red-lines";
 
 const EU_INTEREST_OPTIONS: { id: EuInterest; label: string }[] = [
   { id: "yes", label: "Yes" },
@@ -101,6 +104,17 @@ export default function RedLinesApplyForm() {
   const [area, setArea] = useState<Area | null>(null);
   const [euInterest, setEuInterest] = useState<EuInterest | null>(null);
 
+  // What the visitor typed before the server refused their last submission, if it did.
+  const kept = useKeptInput(FORM_KEY);
+  const [restored, setRestored] = useState<KeptInput | null>(null);
+  if (kept !== restored) {
+    setRestored(kept);
+    const keptArea = AREA_OPTIONS.find((o) => o.id === kept?.values.areaOfExpertise);
+    if (keptArea) setArea(keptArea.id);
+    const keptInterest = EU_INTEREST_OPTIONS.find((o) => o.id === kept?.values.euParliamentInterest);
+    if (keptInterest) setEuInterest(keptInterest.id);
+  }
+
   const motivationRef = useRef<HTMLTextAreaElement>(null);
   const affiliationRef = useRef<HTMLInputElement>(null);
   const hoursRef = useRef<HTMLInputElement>(null);
@@ -172,6 +186,7 @@ export default function RedLinesApplyForm() {
           );
           return;
         }
+        keepInput(FORM_KEY, form, MEETINGS.map((meeting) => meeting.name));
         setSubmittingTo(submitter?.getAttribute("formaction") ?? "");
       }}
     >
@@ -198,6 +213,7 @@ export default function RedLinesApplyForm() {
           ref={motivationRef}
           name="motivation"
           maxLength={900}
+          defaultValue={kept?.values.motivation}
           rows={4}
           className={FIELD_CLASSES}
         />
@@ -210,6 +226,7 @@ export default function RedLinesApplyForm() {
           ref={hoursRef}
           type="number"
           name="availableHours"
+          defaultValue={kept?.values.availableHours}
           min={0}
           max={1000}
           inputMode="numeric"
@@ -225,6 +242,7 @@ export default function RedLinesApplyForm() {
             <Checkbox
               key={meeting.name}
               name={meeting.name}
+              defaultChecked={kept?.checked.includes(meeting.name)}
               label={
                 <>
                   {meeting.date}, {meeting.time}
@@ -255,6 +273,7 @@ export default function RedLinesApplyForm() {
           type="text"
           name="affiliation"
           maxLength={200}
+          defaultValue={kept?.values.affiliation}
           className={FIELD_CLASSES}
         />
       </label>
@@ -266,6 +285,7 @@ export default function RedLinesApplyForm() {
           type="url"
           name="linkedinUrl"
           maxLength={300}
+          defaultValue={kept?.values.linkedinUrl}
           placeholder="https://www.linkedin.com/in/…"
           className={FIELD_CLASSES}
         />
@@ -277,12 +297,16 @@ export default function RedLinesApplyForm() {
         <textarea
           name="publicationExample"
           maxLength={500}
+          defaultValue={kept?.values.publicationExample}
           rows={2}
           className={FIELD_CLASSES}
         />
       </label>
 
       <FormSubmissionTabs
+        // Opens on the name and email tab when that is what was kept.
+        key={kept ? "kept" : "new"}
+        kept={kept?.values}
         linkedinAction="/api/red-lines-dialogue/apply/linkedin"
         googleAction="/api/red-lines-dialogue/apply/google"
         emailAction="/api/red-lines-dialogue/apply/email"

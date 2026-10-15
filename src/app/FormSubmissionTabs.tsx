@@ -33,6 +33,7 @@ export default function FormSubmissionTabs({
   disabled,
   nameInputRef,
   emailInputRef,
+  kept,
 }: {
   heading?: string;
   linkedinAction: string;
@@ -43,8 +44,10 @@ export default function FormSubmissionTabs({
   disabled: boolean;
   nameInputRef: RefObject<HTMLInputElement | null>;
   emailInputRef: RefObject<HTMLInputElement | null>;
+  /** Name and email kept from a refused submission; the name and email tab opens with them. */
+  kept?: { name?: string; email?: string };
 }) {
-  const [activeTab, setActiveTab] = useState<VerifyTabId>("linkedin");
+  const [activeTab, setActiveTab] = useState<VerifyTabId>(() => (kept?.name || kept?.email ? "email" : "linkedin"));
 
   return (
     <div className="flex flex-col gap-5">
@@ -124,6 +127,7 @@ export default function FormSubmissionTabs({
               type="text"
               name="name"
               maxLength={200}
+              defaultValue={kept?.name}
               className={FIELD_CLASSES}
             />
           </label>
@@ -134,6 +138,7 @@ export default function FormSubmissionTabs({
               type="email"
               name="email"
               maxLength={320}
+              defaultValue={kept?.email}
               className={FIELD_CLASSES}
             />
           </label>
