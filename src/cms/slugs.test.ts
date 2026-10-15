@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { defaultDirs } from "./content-files";
-import { contentRouteSlugs, FIXED_RESERVED, hasDedicatedRoute, reservedSlugs, slugProblem, slugProblems } from "./slugs";
+import { contentRouteSlugs, FIXED_RESERVED, hasDedicatedRoute, importedModules, reservedSlugs, slugProblem, slugProblems } from "./slugs";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "cms-slugs-"));
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -13,12 +13,17 @@ function write(file: string, text = "") {
   fs.writeFileSync(path.join(root, file), text);
 }
 
-write("app/page.tsx", 'import c from "../../content/home.json";');
+write("app/page.tsx", 'import c from "../content/home.json";');
 write("app/layout.tsx");
 write("app/sitemap.ts");
 write("app/Nav.tsx");
 write("app/about/page.tsx", "export default function About() {}");
-write("app/guide/page.tsx", 'import content from "../../../content/guide.json";');
+write("app/guide/page.tsx", 'import content from "../../content/guide.json";');
+// Routes that only mention their content file, or import something else.
+write("app/commented/page.tsx", '// Renders content/commented.json one day.\n/* import c from "../../content/commented.json"; */\nexport default function P() {}');
+write("app/quoted/page.tsx", 'const note = "import x from \'../../content/quoted.json\'";\nexport default note;');
+write("app/other/page.tsx", 'import c from "../../content/guide.json";\nimport d from "../../not-content/other.json";');
+write("app/aliased/page.tsx", 'import type { Metadata } from "next";\nimport * as content from "@/content/aliased.json";');
 write("app/flow/step/page.tsx");
 write("app/(group)/grouped/page.tsx");
 write("app/_private/page.tsx");
@@ -32,7 +37,7 @@ const dirs = { appDir: path.join(root, "app"), publicDir: path.join(root, "publi
 describe("reservedSlugs", () => {
   it("takes the fixed names, the homepage's, and every top-level name of the app and public folders", () => {
     expect([...reservedSlugs(dirs)].sort()).toEqual(
-      [...FIXED_RESERVED, "home", "page", "layout", "sitemap", "Nav", "about", "guide", "flow", "grouped", "images"].sort(),
+      [...FIXED_RESERVED, "home", "page", "layout", "sitemap", "Nav", "about", "guide", "commented", "quoted", "other", "aliased", "flow", "grouped", "images"].sort(),
     );
   });
 
@@ -45,17 +50,33 @@ describe("reservedSlugs", () => {
 });
 
 describe("hasDedicatedRoute", () => {
-  it("is true only when the route's own page file reads the content file", () => {
-    expect(hasDedicatedRoute(dirs.appDir, "guide")).toBe(true);
-    expect(hasDedicatedRoute(dirs.appDir, "home")).toBe(true);
-    expect(hasDedicatedRoute(dirs.appDir, "about")).toBe(false);
-    expect(hasDedicatedRoute(dirs.appDir, "flow")).toBe(false);
-    expect(hasDedicatedRoute(dirs.appDir, "sitemap")).toBe(false);
-    expect(hasDedicatedRoute(dirs.appDir, "missing")).toBe(false);
+  it("is true only when the route's own page file imports the content file", () => {
+    expect(hasDedicatedRoute(dirs, "guide")).toBe(true);
+    expect(hasDedicatedRoute(dirs, "home")).toBe(true);
+    expect(hasDedicatedRoute(dirs, "aliased")).toBe(true);
+    for (const slug of ["about", "flow", "sitemap", "missing", "commented", "quoted", "other"]) {
+      expect(hasDedicatedRoute(dirs, slug), slug).toBe(false);
+    }
   });
 
-  it("finds field-building's own route on the real site", () => {
-    expect(hasDedicatedRoute(defaultDirs().appDir, "field-building")).toBe(true);
+  it("finds the real site's dedicated routes", () => {
+    const { appDir, publicDir } = defaultDirs();
+    for (const slug of ["home", "field-building", "red-lines-dialogue"]) expect(hasDedicatedRoute({ appDir, publicDir }, slug), slug).toBe(true);
+  });
+});
+
+describe("importedModules", () => {
+  it("reads import specifiers and skips comments", () => {
+    const source = [
+      'import a from "./a";',
+      "import * as b from '../b';",
+      'import type { C } from "c";',
+      'import "./side-effect.css";',
+      'const url = "https://example.org"; import d from "./d";',
+      '// import e from "./e";',
+      '/* import f from "./f"; */',
+    ].join("\n");
+    expect(importedModules(source)).toEqual(["./a", "../b", "c", "./side-effect.css", "./d"]);
   });
 });
 

@@ -61,12 +61,36 @@ function routeFile(appDir: string, slug: string): string | null {
   return file ? path.join(dir, file) : null;
 }
 
-/** Whether `slug` has its own route that renders `content/<slug>.json`. */
-export function hasDedicatedRoute(appDir: string, slug: string): boolean {
+/** The module specifiers a source file imports, with comments left out. */
+export function importedModules(source: string): string[] {
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    // A line comment starts the line or follows a space, so `https://` in a string survives.
+    .replace(/(^|\s)\/\/.*$/gm, "$1");
+  const specifiers: string[] = [];
+  for (const match of code.matchAll(/(?:^|[;\s])import\s+(?:[\w*{}\s,]+\s+from\s+)?["']([^"']+)["']/g)) {
+    specifiers.push(match[1]);
+  }
+  return specifiers;
+}
+
+/**
+ * Whether `slug` has its own route that renders `content/<slug>.json`: its page file imports
+ * a file at `content/<slug>.json` (by a relative path, or by `@/` for `src/`). A mention in a
+ * comment or a string does not count.
+ */
+export function hasDedicatedRoute({ appDir }: SlugDirs, slug: string): boolean {
   const file = routeFile(appDir, slug);
+  if (file === null) return false;
+  const target = `${path.sep}${path.join("content", `${slug}.json`)}`;
+  const srcDir = path.dirname(appDir);
   // Read only at build time (and by the checks); the comment stops Turbopack tracing the
   // whole project into the server functions because of this one dynamic path.
-  return file !== null && fs.readFileSync(/*turbopackIgnore: true*/ file, "utf8").includes(`content/${slug}.json`);
+  const source = fs.readFileSync(/*turbopackIgnore: true*/ file, "utf8");
+  return importedModules(source).some((specifier) => {
+    if (specifier.startsWith("@/")) return path.join(srcDir, specifier.slice(2)).endsWith(target);
+    return specifier.startsWith(".") && path.resolve(path.dirname(file), specifier).endsWith(target);
+  });
 }
 
 /** Why `slug` cannot be a content page, or null when it can. */
@@ -75,7 +99,7 @@ export function slugProblem(slug: string, dirs: SlugDirs, reserved = reservedSlu
   if (!SLUG.test(slug)) {
     return `The page address "${slug}" may use only lowercase letters, digits and single hyphens between them`;
   }
-  if (reserved.has(slug) && !hasDedicatedRoute(dirs.appDir, slug)) {
+  if (reserved.has(slug) && !hasDedicatedRoute(dirs, slug)) {
     return `The page address "/${slug}" is already used by the site`;
   }
   return null;
