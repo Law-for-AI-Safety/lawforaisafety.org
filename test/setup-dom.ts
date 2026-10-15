@@ -27,6 +27,19 @@ globalThis.IntersectionObserver ??= class {
   }
 };
 
+// Under vitest's jsdom environment, TextEncoder hands back a Uint8Array made in another realm,
+// so `bytes instanceof Uint8Array` is false here, unlike in Node or a browser. Libraries that
+// check it, such as jose when it signs the admin session cookie, then refuse their input. The
+// stand-in returns this realm's Uint8Array; the bytes are the same.
+if (!(new TextEncoder().encode("") instanceof Uint8Array)) {
+  const RealmTextEncoder = globalThis.TextEncoder;
+  globalThis.TextEncoder = class extends RealmTextEncoder {
+    encode(input?: string): Uint8Array<ArrayBuffer> {
+      return new Uint8Array(super.encode(input));
+    }
+  };
+}
+
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");
