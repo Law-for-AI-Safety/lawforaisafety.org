@@ -11,7 +11,6 @@ import ContactErrorBanner from "./ContactErrorBanner";
 import ApplyToast from "./ApplyToast";
 import NewsletterForm from "./apply/NewsletterForm";
 import ApplyForm from "./apply/ApplyForm";
-import { isSignupEnabled } from "@/lib/feature-flags";
 
 function Rule() {
   return (
@@ -185,13 +184,13 @@ const mechanisms = [
 
 const linkedin = "https://www.linkedin.com/company/law-for-ai-safety/";
 
-// The signup forms are toggled at runtime from the admin panel, so this page
-// has to render per request rather than being prerendered at build time.
-export const dynamic = "force-dynamic";
+// Whether the contact section shows the newsletter and application forms. The
+// page is prerendered, so this is fixed at build time and changed by a code
+// (later a content) change. The admin signup toggle is an emergency stop
+// enforced by the submit routes; it does not hide the forms.
+const SIGNUP_OPEN = true;
 
-export default async function Home() {
-  const signupEnabled = await isSignupEnabled();
-
+export default function Home() {
   return (
     <main className="flex flex-col font-sans">
       <Nav />
@@ -729,7 +728,7 @@ export default async function Home() {
             <ContactErrorBanner />
           </Suspense>
 
-          {signupEnabled && (
+          {SIGNUP_OPEN && (
             <>
               <div className="flex flex-col gap-4 pt-12 border-t border-brand-black/10">
                 <h3 className="text-2xl md:text-3xl font-light text-brand-black">
