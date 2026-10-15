@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
-import RenderedAtField from "./RenderedAtField";
+import RenderedAtField, { useRenderedAt } from "./RenderedAtField";
 import WipeSubmitButton from "../WipeSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
 import { FIELD_CLASSES } from "./field-styles";
@@ -10,6 +10,7 @@ import { FIELD_CLASSES } from "./field-styles";
 export default function NewsletterForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
+  const renderedAt = useRenderedAt();
 
   if (status === "done") {
     return (
@@ -62,7 +63,7 @@ export default function NewsletterForm() {
           <input type="text" name={HONEYPOT_FIELD_NAME} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <RenderedAtField />
+      <RenderedAtField value={renderedAt} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <input
@@ -74,8 +75,10 @@ export default function NewsletterForm() {
         />
         <WipeSubmitButton
           type="submit"
-          disabled={status === "submitting"}
-          className="bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden disabled:opacity-60"
+          disabled={!renderedAt || status === "submitting"}
+          className={`bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden${
+            status === "submitting" ? " opacity-60" : ""
+          }`}
           hoverBg="rgba(255,255,255,0.15)"
         >
           {status === "submitting" ? "Subscribing…" : "Subscribe"}

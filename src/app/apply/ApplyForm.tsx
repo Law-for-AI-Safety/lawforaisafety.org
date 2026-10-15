@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
-import RenderedAtField from "./RenderedAtField";
+import RenderedAtField, { useRenderedAt } from "./RenderedAtField";
 import {
   APPLICATION_AUDIENCES,
   APPLY_PAGES,
@@ -43,6 +43,7 @@ export default function ApplyForm({
   // again, and each press is another upload, another draft and another tick
   // on the rate limiter.
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
+  const renderedAt = useRenderedAt();
   const [selectedTab, setSelectedTab] = useState<CredentialTab>("linkedin");
 
   const tabs: { id: CredentialTab; label: string }[] = [
@@ -144,7 +145,7 @@ export default function ApplyForm({
           <input type="text" name={HONEYPOT_FIELD_NAME} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <RenderedAtField />
+      <RenderedAtField value={renderedAt} />
       <input type="hidden" name="source" value={source} readOnly />
 
       {page.audience === "choice" ? (
@@ -257,6 +258,7 @@ export default function ApplyForm({
         googleAction="/api/auth/google"
         emailAction="/api/auth/email"
         submittingTo={submittingTo}
+        disabled={!renderedAt}
         nameInputRef={nameRef}
         emailInputRef={emailRef}
       />

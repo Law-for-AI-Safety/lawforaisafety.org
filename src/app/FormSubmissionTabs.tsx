@@ -30,6 +30,7 @@ export default function FormSubmissionTabs({
   googleAction,
   emailAction,
   submittingTo,
+  disabled,
   nameInputRef,
   emailInputRef,
 }: {
@@ -38,6 +39,8 @@ export default function FormSubmissionTabs({
   googleAction: string;
   emailAction: string;
   submittingTo: string | null;
+  /** Holds the submit buttons off (with no change in their look) until the form can submit. */
+  disabled: boolean;
   nameInputRef: RefObject<HTMLInputElement | null>;
   emailInputRef: RefObject<HTMLInputElement | null>;
 }) {
@@ -77,6 +80,7 @@ export default function FormSubmissionTabs({
           <WipeSubmitButton
             type="submit"
             formAction={linkedinAction}
+            disabled={disabled}
             busy={submittingTo !== null}
             className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
             hoverBg="rgba(255,255,255,0.15)"
@@ -99,6 +103,7 @@ export default function FormSubmissionTabs({
           <WipeSubmitButton
             type="submit"
             formAction={googleAction}
+            disabled={disabled}
             busy={submittingTo !== null}
             className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
             hoverBg="rgba(255,255,255,0.15)"
@@ -139,6 +144,7 @@ export default function FormSubmissionTabs({
           <WipeSubmitButton
             type="submit"
             formAction={emailAction}
+            disabled={disabled}
             busy={submittingTo !== null}
             className="self-start bg-brand-black px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
             hoverBg="rgba(255,255,255,0.15)"

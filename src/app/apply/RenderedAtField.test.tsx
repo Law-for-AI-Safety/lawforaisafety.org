@@ -7,12 +7,13 @@ import { FORM_RENDERED_AT_FIELD_NAME } from "@/lib/abuse-protection";
 import RedLinesApplyForm from "../red-lines-dialogue/ApplyForm";
 import ApplyForm from "./ApplyForm";
 import NewsletterForm from "./NewsletterForm";
-import RenderedAtField from "./RenderedAtField";
+import RenderedAtField, { useRenderedAt } from "./RenderedAtField";
 
 const BUILT = new Date("2026-10-01T09:00:00Z").getTime();
 const OPENED = new Date("2026-10-15T12:00:00Z").getTime();
 
 function TestForm({ onSubmit }: { onSubmit: (data: FormData) => void }) {
+  const renderedAt = useRenderedAt();
   return (
     <form
       aria-label="test"
@@ -21,10 +22,23 @@ function TestForm({ onSubmit }: { onSubmit: (data: FormData) => void }) {
         onSubmit(new FormData(event.currentTarget));
       }}
     >
-      <RenderedAtField />
-      <button type="submit">Send</button>
+      <RenderedAtField value={renderedAt} />
+      <button type="submit" disabled={!renderedAt}>
+        Send
+      </button>
     </form>
   );
+}
+
+const FORMS = [
+  ["newsletter", () => <NewsletterForm />],
+  ["apply", () => <ApplyForm />],
+  ["Red Lines Dialogues apply", () => <RedLinesApplyForm />],
+] as const;
+
+/** The form's submit controls, as a browser would use them to post it. */
+function submitControls(root: ParentNode) {
+  return [...root.querySelectorAll<HTMLButtonElement>('button[type="submit"]')];
 }
 
 function renderedAtOf(form: HTMLFormElement) {
@@ -77,11 +91,7 @@ describe("RenderedAtField", () => {
     expect(onSubmit.mock.calls[0][0].get(FORM_RENDERED_AT_FIELD_NAME)).toBe(String(OPENED));
   });
 
-  it.each([
-    ["newsletter", () => <NewsletterForm />],
-    ["apply", () => <ApplyForm />],
-    ["Red Lines Dialogues apply", () => <RedLinesApplyForm />],
-  ])("is part of the %s form", (_, form) => {
+  it.each(FORMS)("is part of the %s form", (_, form) => {
     const { container } = render(form());
 
     const forms = container.querySelectorAll("form");
@@ -89,5 +99,36 @@ describe("RenderedAtField", () => {
     for (const element of forms) {
       expect(renderedAtOf(element)).toBe(String(OPENED));
     }
+  });
+});
+
+// Turnstile can hand out its token before React hydrates; a post then would carry no time
+// and be dropped as a bot, so the controls wait for it.
+describe("submit controls", () => {
+  it.each(FORMS)("are disabled in the prerendered %s form", (_, form) => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(form());
+
+    const controls = submitControls(container);
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) expect(control).toBeDisabled();
+    expect(renderedAtOf(container.querySelector("form")!)).toBe("");
+  });
+
+  it.each(FORMS)("are enabled once the %s form has hydrated", async (_, form) => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(form());
+    document.body.append(container);
+    const onRecoverableError = vi.fn();
+
+    const root = await act(async () => hydrateRoot(container, form(), { onRecoverableError }));
+
+    const controls = submitControls(container);
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) expect(control).toBeEnabled();
+    expect(renderedAtOf(container.querySelector("form")!)).toBe(String(OPENED));
+    expect(onRecoverableError).not.toHaveBeenCalled();
+    act(() => root.unmount());
+    container.remove();
   });
 });

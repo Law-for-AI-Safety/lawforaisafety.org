@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
-import RenderedAtField from "../apply/RenderedAtField";
+import RenderedAtField, { useRenderedAt } from "../apply/RenderedAtField";
 import Checkbox from "../apply/Checkbox";
 import TurnstileWidget from "../apply/TurnstileWidget";
 import { FIELD_CLASSES, HELPER_TEXT_CLASSES, LABEL_CLASSES } from "../apply/field-styles";
@@ -97,6 +97,7 @@ function RadioGroup<T extends string>({
 export default function RedLinesApplyForm() {
   const [error, setError] = useState<string | null>(null);
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
+  const renderedAt = useRenderedAt();
   const [area, setArea] = useState<Area | null>(null);
   const [euInterest, setEuInterest] = useState<EuInterest | null>(null);
 
@@ -183,7 +184,7 @@ export default function RedLinesApplyForm() {
           <input type="text" name={HONEYPOT_FIELD_NAME} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <RenderedAtField />
+      <RenderedAtField value={renderedAt} />
 
       <div className="flex flex-col gap-3">
         <span className={LABEL_CLASSES}>Area of expertise</span>
@@ -286,6 +287,7 @@ export default function RedLinesApplyForm() {
         googleAction="/api/red-lines-dialogue/apply/google"
         emailAction="/api/red-lines-dialogue/apply/email"
         submittingTo={submittingTo}
+        disabled={!renderedAt}
         nameInputRef={nameRef}
         emailInputRef={emailRef}
       />
