@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import PageView from "@/cms/PageView";
+import { FormPreview } from "@/app/apply/form-preview";
 import { isValidDraft } from "@/cms/drafts";
 import { parsePage } from "@/cms/schema";
 import { requireCms } from "@/lib/cms-access";
@@ -45,7 +46,9 @@ export default async function CmsPreviewPage({ params }: { params: Promise<{ slu
 
   return (
     <>
-      <PageView slug={slug} page={parsePage(slug, page.content)} />
+      <FormPreview>
+        <PageView slug={slug} page={parsePage(slug, page.content)} />
+      </FormPreview>
       <p
         role="note"
         className="fixed inset-x-0 bottom-0 z-50 bg-brand-red px-4 py-2 text-center font-sans text-brand-white"

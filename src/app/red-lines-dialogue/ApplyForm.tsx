@@ -8,6 +8,7 @@ import Checkbox from "../apply/Checkbox";
 import TurnstileWidget from "../apply/TurnstileWidget";
 import { FIELD_CLASSES, HELPER_TEXT_CLASSES, LABEL_CLASSES } from "../apply/field-styles";
 import FormSubmissionTabs from "../FormSubmissionTabs";
+import { FormPreviewNote, useFormPreview } from "../apply/form-preview";
 import LocalTime from "./LocalTime";
 
 type Area = "legal_governance" | "technical";
@@ -101,6 +102,8 @@ export default function RedLinesApplyForm() {
   const [error, setError] = useState<string | null>(null);
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
   const renderedAt = useRenderedAt();
+  // In the CMS preview the form shows but never submits.
+  const preview = useFormPreview();
   const [area, setArea] = useState<Area | null>(null);
   const [euInterest, setEuInterest] = useState<EuInterest | null>(null);
 
@@ -169,6 +172,10 @@ export default function RedLinesApplyForm() {
       method="post"
       className="flex flex-col gap-8"
       onSubmit={(event) => {
+        if (preview) {
+          event.preventDefault();
+          return;
+        }
         const submitter = (event.nativeEvent as SubmitEvent)
           .submitter as HTMLElement | null;
         if (submittingTo !== null || !validate(submitter)) {
@@ -311,10 +318,12 @@ export default function RedLinesApplyForm() {
         googleAction="/api/red-lines-dialogue/apply/google"
         emailAction="/api/red-lines-dialogue/apply/email"
         submittingTo={submittingTo}
-        disabled={!renderedAt}
+        disabled={!renderedAt || preview}
         nameInputRef={nameRef}
         emailInputRef={emailRef}
       />
+
+      <FormPreviewNote />
 
       <TurnstileWidget />
 

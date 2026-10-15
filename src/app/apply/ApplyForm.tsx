@@ -13,6 +13,7 @@ import {
   type AudienceCopy,
 } from "@/lib/application-pages";
 import FormSubmissionTabs from "../FormSubmissionTabs";
+import { FormPreviewNote, useFormPreview } from "./form-preview";
 import Checkbox from "./Checkbox";
 import CvFileField from "./CvFileField";
 import TurnstileWidget from "./TurnstileWidget";
@@ -45,6 +46,8 @@ export default function ApplyForm({
   // on the rate limiter.
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
   const renderedAt = useRenderedAt();
+  // In the CMS preview the form shows but never submits.
+  const preview = useFormPreview();
   const [selectedTab, setSelectedTab] = useState<CredentialTab>("linkedin");
 
   // What the visitor typed before the server refused their last submission, if it did.
@@ -120,6 +123,10 @@ export default function ApplyForm({
       method="post"
       className="flex flex-col gap-12"
       onSubmit={(event) => {
+        if (preview) {
+          event.preventDefault();
+          return;
+        }
         const submitter = (event.nativeEvent as SubmitEvent)
           .submitter as HTMLElement | null;
         if (submittingTo !== null || !validate(submitter)) {
@@ -280,10 +287,12 @@ export default function ApplyForm({
         googleAction="/api/auth/google"
         emailAction="/api/auth/email"
         submittingTo={submittingTo}
-        disabled={!renderedAt}
+        disabled={!renderedAt || preview}
         nameInputRef={nameRef}
         emailInputRef={emailRef}
       />
+
+      <FormPreviewNote />
 
       <TurnstileWidget />
 
