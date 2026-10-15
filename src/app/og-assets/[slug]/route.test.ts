@@ -21,6 +21,11 @@ describe("the share cards made from page titles", () => {
   });
 
   it("are a 404 for any other page", async () => {
-    await expect(GET(new Request("http://localhost/og-assets/home"), params("home"))).rejects.toThrow();
+    // notFound() in this Next version: the 404 fallback (once NEXT_NOT_FOUND), not any other error.
+    for (const slug of ["home", "no-such-page"]) {
+      await expect(GET(new Request(`http://localhost/og-assets/${slug}`), params(slug)), slug).rejects.toMatchObject({
+        digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+      });
+    }
   });
 });
