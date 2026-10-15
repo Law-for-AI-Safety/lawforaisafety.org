@@ -1,4 +1,9 @@
 import type { Config } from "drizzle-kit";
+import { existsSync } from "node:fs";
+
+// Read .env.local like Next.js does, so `npm run db:migrate` finds the local
+// DATABASE_URL without exporting it first. Existing env vars win.
+if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 // `out` is Netlify Database's migrations directory, not a Drizzle default:
 // Netlify applies every SQL file in it, in filename order, just before a
@@ -11,7 +16,7 @@ import type { Config } from "drizzle-kit";
 //
 // `generate` only diffs schema.ts against the migration history and never
 // connects, so a placeholder is fine there. `migrate` needs a real
-// DATABASE_URL in the environment.
+// DATABASE_URL (from .env.local or the environment).
 export default {
   schema: "./src/drizzle/schema.ts",
   out: "./netlify/database/migrations",

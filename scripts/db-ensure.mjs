@@ -1,27 +1,17 @@
-// Ensures the local Postgres container is up and migrated before `next dev`
-// starts — so `npm run dev` is the only command needed for local work on the
-// signup & vetting feature. See README → "Signup & vetting feature — local dev".
+// Ensures the local database is up and migrated before `next dev` starts — so
+// `npm run dev` is the only command needed for local work on the signup &
+// vetting feature. See README → "Signup & vetting feature — local dev".
+//
+// Uses whatever Postgres DATABASE_URL (from .env.local) points at. If nothing
+// answers there and it's a local address, starts this repo's Docker Compose
+// `db` container first. So a database run some other way (your own Postgres,
+// or a container started by tooling outside this repo) is used as is, and
+// Docker is only needed when this script has to start one.
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import pg from "pg";
 
 const ENV_FILE = ".env.local";
-
-function run(command, options = {}) {
-  const result = execSync(command, { stdio: "pipe", ...options });
-  return result ? result.toString() : "";
-}
-
-function loadEnvFile(path) {
-  const env = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex === -1) continue;
-    env[trimmed.slice(0, eqIndex).trim()] = trimmed.slice(eqIndex + 1).trim();
-  }
-  return env;
-}
 
 if (!existsSync(ENV_FILE)) {
   console.error(
@@ -29,41 +19,60 @@ if (!existsSync(ENV_FILE)) {
   );
   process.exit(1);
 }
+process.loadEnvFile(ENV_FILE);
 
-try {
-  run("docker info");
-} catch {
-  console.error(
-    "\nDocker doesn't appear to be running. Start Docker Desktop, then try again.\n",
-  );
+const url = process.env.DATABASE_URL;
+if (!url) {
+  console.error(`\nDATABASE_URL isn't set in ${ENV_FILE}. See .env.example.\n`);
   process.exit(1);
 }
+const { hostname } = new URL(url);
 
-console.log("Starting local Postgres (npm run db:up)...");
-run(`docker compose --env-file ${ENV_FILE} up -d db`, { stdio: "inherit" });
-
-console.log("Waiting for Postgres to accept connections...");
-const deadline = Date.now() + 30_000;
-let ready = false;
-while (Date.now() < deadline) {
+async function canConnect() {
+  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 2000 });
   try {
-    run(`docker compose --env-file ${ENV_FILE} exec -T db pg_isready -U postgres`);
-    ready = true;
-    break;
+    await client.connect();
+    await client.query("select 1");
+    return true;
   } catch {
-    execSync("sleep 1");
+    return false;
+  } finally {
+    await client.end().catch(() => {});
   }
 }
-if (!ready) {
-  console.error("\nPostgres didn't become ready in time. Check `docker compose logs db`.\n");
-  process.exit(1);
+
+if (!(await canConnect())) {
+  if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) {
+    console.error(`\nCan't connect to the database at ${hostname} (DATABASE_URL in ${ENV_FILE}).\n`);
+    process.exit(1);
+  }
+
+  try {
+    execSync("docker info", { stdio: "ignore" });
+  } catch {
+    console.error(
+      "\nNo database is running at DATABASE_URL, and Docker doesn't appear to be running to start one. Start Docker Desktop, then try again.\n",
+    );
+    process.exit(1);
+  }
+
+  console.log("Starting local Postgres (npm run db:up)...");
+  execSync(`docker compose --env-file ${ENV_FILE} up -d db`, { stdio: "inherit" });
+
+  console.log("Waiting for Postgres to accept connections...");
+  const deadline = Date.now() + 30_000;
+  let ready = false;
+  while (!ready && Date.now() < deadline) {
+    ready = await canConnect();
+    if (!ready) await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  if (!ready) {
+    console.error("\nPostgres didn't become ready in time. Check `docker compose logs db`.\n");
+    process.exit(1);
+  }
 }
 
 console.log("Running migrations...");
-const envVars = loadEnvFile(ENV_FILE);
-run("npx drizzle-kit migrate", {
-  stdio: "inherit",
-  env: { ...process.env, ...envVars },
-});
+execSync("npx drizzle-kit migrate", { stdio: "inherit" });
 
 console.log("Database ready.");
