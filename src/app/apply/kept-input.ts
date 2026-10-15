@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
 
 /**
@@ -12,8 +12,9 @@ import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
  * (this tab only): text fields, choices, and any checkboxes the form names. It never keeps
  * hidden fields (the bot-check time, Turnstile's token, the page source), files, passwords or
  * the honeypot, and never a checkbox the form does not name, so consent is always ticked
- * again. When the page loads with an error code, `useKeptInput` hands the entries back; any
- * other load (a success, a fresh visit) deletes them.
+ * again. When the page loads with an error code within 30 minutes, `useKeptInput` hands the
+ * entries back once and deletes them (the next submission keeps its own). Any other load (a
+ * success, a fresh visit, an expired entry) deletes them.
  *
  * The entries arrive in the render after hydration, as `RenderedAtField`'s time does, so the
  * prerendered HTML and the first browser render match. Storage that is unavailable or throws
@@ -22,11 +23,14 @@ import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
 
 export type KeptInput = { values: Record<string, string>; checked: string[] };
 
+/** How long kept entries may be restored after the submission that kept them. */
+export const KEPT_INPUT_TTL_MS = 30 * 60 * 1000;
+
 const PREFIX = "kept-form-input:";
 const TEXT_TYPES = new Set(["text", "email", "url", "number", "tel", "search"]);
 
 export function keepInput(formKey: string, form: HTMLFormElement, keepCheckboxes: readonly string[] = []): void {
-  const kept: KeptInput = { values: {}, checked: [] };
+  const kept: KeptInput & { savedAt: number } = { savedAt: Date.now(), values: {}, checked: [] };
   for (const element of Array.from(form.elements)) {
     if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) continue;
     const { name } = element;
@@ -57,7 +61,9 @@ const cache = new Map<string, { raw: string; kept: KeptInput | null }>();
 
 function parse(raw: string): KeptInput | null {
   try {
-    const value = JSON.parse(raw) as Partial<KeptInput>;
+    const value = JSON.parse(raw) as Partial<KeptInput & { savedAt: unknown }>;
+    const age = Date.now() - Number(value.savedAt);
+    if (!(age >= 0 && age <= KEPT_INPUT_TTL_MS)) return null;
     const values = value.values && typeof value.values === "object" ? value.values : {};
     return {
       values: Object.fromEntries(Object.entries(values).filter(([, v]) => typeof v === "string")),
@@ -78,7 +84,8 @@ function read(formKey: string): KeptInput | null {
   }
   if (raw === null) return null;
   const hit = cache.get(formKey);
-  if (hit?.raw === raw) return hit.kept;
+  // A cached entry is checked again, as it may have expired since.
+  if (hit?.raw === raw && (hit.kept === null || parse(raw) !== null)) return hit.kept;
   const kept = parse(raw);
   cache.set(formKey, { raw, kept });
   return kept;
@@ -86,18 +93,24 @@ function read(formKey: string): KeptInput | null {
 
 /** The entries kept from a refused submission of this form, or null (always null before hydration). */
 export function useKeptInput(formKey: string): KeptInput | null {
-  const kept = useSyncExternalStore(
+  const stored = useSyncExternalStore(
     subscribe,
     () => read(formKey),
     () => null,
   );
+  // Held for the life of the form, so deleting the stored copy does not empty the fields.
+  const [held, setHeld] = useState<KeptInput | null>(null);
+  if (held === null && stored !== null) setHeld(stored);
+  const kept = held ?? stored;
+
   useEffect(() => {
-    if (hasErrorCode()) return;
+    // Entries still waiting to be restored (in the render after hydration) are left alone.
+    if (kept === null && read(formKey) !== null) return;
     try {
       sessionStorage.removeItem(PREFIX + formKey);
     } catch {
       // Nothing to clear.
     }
-  }, [formKey]);
+  }, [formKey, kept]);
   return kept;
 }

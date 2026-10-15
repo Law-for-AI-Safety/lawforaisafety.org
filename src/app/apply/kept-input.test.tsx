@@ -71,6 +71,7 @@ describe("the apply form after a refused submission", () => {
 
     const stored = JSON.parse(sessionStorage.getItem("kept-form-input:apply:field_building")!);
     expect(stored).toEqual({
+      savedAt: Date.now(),
       values: {
         audience: "individual",
         linkedinUrl: "https://www.linkedin.com/in/ada/",
@@ -97,7 +98,7 @@ describe("the apply form after a refused submission", () => {
   it("reopens on the statement tab when that is what was typed", () => {
     sessionStorage.setItem(
       "kept-form-input:apply:field_building",
-      JSON.stringify({ values: { positionStatement: "We fund lawyers.", audience: "organisation", organisation: "Acme" }, checked: [] }),
+      JSON.stringify({ savedAt: Date.now(), values: { positionStatement: "We fund lawyers.", audience: "organisation", organisation: "Acme" }, checked: [] }),
     );
 
     reopenAt("/field-building?error=sendfailed#contact");
@@ -115,7 +116,7 @@ describe("the apply form after a refused submission", () => {
     expect(screen.getByLabelText("LinkedIn profile URL")).toHaveValue("");
     cleanup();
 
-    sessionStorage.setItem("kept-form-input:apply:field_building", JSON.stringify({ values: { linkedinUrl: 5, comments: "ok" }, checked: "x" }));
+    sessionStorage.setItem("kept-form-input:apply:field_building", JSON.stringify({ savedAt: Date.now(), values: { linkedinUrl: 5, comments: "ok" }, checked: "x" }));
     reopenAt("/field-building?error=closed");
     expect(screen.getByLabelText("LinkedIn profile URL")).toHaveValue("");
     expect(screen.getByLabelText("Comments")).toHaveValue("ok");
@@ -143,7 +144,7 @@ describe("the apply form after a refused submission", () => {
   });
 
   it("hydrates the prerendered form without a mismatch, then fills it in", async () => {
-    sessionStorage.setItem("kept-form-input:apply:field_building", JSON.stringify({ values: { comments: "Kept." }, checked: [] }));
+    sessionStorage.setItem("kept-form-input:apply:field_building", JSON.stringify({ savedAt: Date.now(), values: { comments: "Kept." }, checked: [] }));
     window.history.replaceState(null, "", "/field-building?error=closed");
     const container = document.createElement("div");
     container.innerHTML = renderToString(<ApplyForm source="field_building" />);
@@ -157,6 +158,53 @@ describe("the apply form after a refused submission", () => {
     expect(onRecoverableError).not.toHaveBeenCalled();
     act(() => root.unmount());
     container.remove();
+  });
+});
+
+describe("how long input is kept", () => {
+  const KEY = "kept-form-input:apply:field_building";
+  const store = (savedAt: number) =>
+    sessionStorage.setItem(KEY, JSON.stringify({ savedAt, values: { comments: "Kept." }, checked: [] }));
+
+  it("restores input kept within the last 30 minutes, once", () => {
+    store(Date.now() - 29 * 60 * 1000);
+    reopenAt("/field-building?error=closed");
+    expect(screen.getByLabelText("Comments")).toHaveValue("Kept.");
+    // Restored, so no longer kept: a reload, or the next refusal, does not bring it back.
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+    cleanup();
+    reopenAt("/field-building?error=closed");
+    expect(screen.getByLabelText("Comments")).toHaveValue("");
+  });
+
+  it("drops input kept more than 30 minutes ago", () => {
+    store(Date.now() - 31 * 60 * 1000);
+    reopenAt("/field-building?error=closed");
+    expect(screen.getByLabelText("Comments")).toHaveValue("");
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("drops input with no time, or a time in the future", () => {
+    sessionStorage.setItem(KEY, JSON.stringify({ values: { comments: "Kept." }, checked: [] }));
+    reopenAt("/field-building?error=closed");
+    expect(screen.getByLabelText("Comments")).toHaveValue("");
+    cleanup();
+    store(Date.now() + 60_000);
+    reopenAt("/field-building?error=closed");
+    expect(screen.getByLabelText("Comments")).toHaveValue("");
+  });
+
+  it("keeps a restored then resubmitted form's new input in its place", async () => {
+    const user = userEvent.setup();
+    store(Date.now());
+    reopenAt("/field-building?error=closed");
+    turnstile.solve();
+    await user.clear(screen.getByLabelText("Comments"));
+    await user.type(screen.getByLabelText("Comments"), "Second try.");
+    await user.type(screen.getByLabelText("LinkedIn profile URL"), "https://www.linkedin.com/in/b/");
+    vi.setSystemTime(Date.now() + HUMAN_FILL_MS);
+    await user.click(screen.getByRole("button", { name: "Sign in with LinkedIn & submit" }));
+    expect(JSON.parse(sessionStorage.getItem(KEY)!).values.comments).toBe("Second try.");
   });
 });
 
@@ -175,6 +223,7 @@ describe("the Red Lines form after a refused submission", () => {
     vi.setSystemTime(Date.now() + HUMAN_FILL_MS);
     await user.click(screen.getByRole("button", { name: "Sign in with LinkedIn & submit" }));
     cleanup();
+    const keptRedLines = JSON.parse(sessionStorage.getItem("kept-form-input:red-lines")!);
 
     reopenAt("/red-lines-dialogue?error=closed#apply", <RedLinesApplyForm />);
 
@@ -186,7 +235,7 @@ describe("the Red Lines form after a refused submission", () => {
     expect(screen.getByLabelText(/9 November 2026/)).toBeChecked();
     expect(screen.getByLabelText(/12 October 2026/)).not.toBeChecked();
     expect(screen.getByRole("tab", { name: "LinkedIn" })).toHaveAttribute("aria-selected", "true");
-    expect(Object.keys(JSON.parse(sessionStorage.getItem("kept-form-input:red-lines")!).values).sort()).toEqual([
+    expect(Object.keys(keptRedLines.values).sort()).toEqual([
       "affiliation",
       "areaOfExpertise",
       "availableHours",
@@ -196,7 +245,7 @@ describe("the Red Lines form after a refused submission", () => {
   });
 
   it("ignores a kept choice that is not one of the options", () => {
-    sessionStorage.setItem("kept-form-input:red-lines", JSON.stringify({ values: { areaOfExpertise: "magic", euParliamentInterest: "no" }, checked: [] }));
+    sessionStorage.setItem("kept-form-input:red-lines", JSON.stringify({ savedAt: Date.now(), values: { areaOfExpertise: "magic", euParliamentInterest: "no" }, checked: [] }));
     reopenAt("/red-lines-dialogue?error=closed#apply", <RedLinesApplyForm />);
     expect(screen.getByRole("radio", { name: "Technical" })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: "No" })).toBeChecked();
