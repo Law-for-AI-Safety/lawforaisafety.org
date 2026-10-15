@@ -9,16 +9,16 @@ Until the settings below are in Netlify, the editor works as before (drafts, pre
 | Step | API calls |
 | --- | --- |
 | Publish | Reads `content/<page>.json` on `main`, makes one commit that changes only that file, creates the branch `cms/<page>-<YYYY-MM-DD>` (with `-2`, `-3`, … if taken), opens a pull request into `main`, then adds the deploy preview link to its description. |
-| Status | When an editor opens a page that is waiting, reads that pull request (and, once it is closed, its last comment). No polling. |
+| Status | When an editor opens a page that is waiting, reads that pull request (and, once it is closed, its last comment from the repo's owner, a member or collaborator, or whoever closed it: the repo is public, so nobody else's comment is shown). No polling. |
 | Withdraw | Closes the pull request and deletes its branch. |
 
-It never merges, never approves, and never pushes to a branch after opening its pull request. Code: `src/cms/github.ts` (client), `src/cms/publish.ts` (the steps), `src/app/admin/cms/actions.ts` (permission checks and locking).
+It never merges, never approves, and never pushes to a branch after opening its pull request. Every request to GitHub has a time limit. Before it touches GitHub, a publish writes a record of itself, and the branch goes into that record before the pull request is opened, so there is never a pull request the site has no record of. Code: `src/cms/github.ts` (client), `src/cms/publish.ts` (the steps), `src/app/admin/cms/actions.ts` (permission checks and locking).
 
 ## 1. Create the App
 
 On the organisation (Settings → Developer settings → GitHub Apps → New GitHub App):
 
-- **Name:** anything, for example `LAIS website editor`. The bot account will be `<app-slug>[bot]`.
+- **Name:** `lawforaisafety-cms`. Its bot account is `lawforaisafety-cms[bot]`.
 - **Homepage URL:** `https://lawforaisafety.org`.
 - **Webhook:** untick **Active**. The site does not receive webhooks.
 - **Repository permissions:**
@@ -39,7 +39,9 @@ Then:
 
 ## 2. Netlify environment variables
 
-Site configuration → Environment variables. Mark the private key as a **secret** value. Set them for the production context, and for deploy previews only if you want to try publishing from a preview (see "Verify end to end").
+Site configuration → Environment variables. Mark the private key as a **secret** value. Set them for the **production** and **deploy preview** contexts.
+
+Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 5), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. **Revisit this as soon as anyone else gets write access**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy keeps the key out of builds of pull requests from forks; keep that setting on.
 
 | Variable | Value |
 | --- | --- |
@@ -48,7 +50,7 @@ Site configuration → Environment variables. Mark the private key as a **secret
 | `GITHUB_APP_PRIVATE_KEY` | The whole `.pem` file, including the `BEGIN` and `END` lines. Line breaks may be kept or written as `\n`. |
 | `GITHUB_REPO_OWNER` | `Law-for-AI-Safety` |
 | `GITHUB_REPO_NAME` | `lawforaisafety.org` |
-| `GITHUB_API_URL` | Leave unset (defaults to `https://api.github.com`). The end-to-end tests point it at a local fake. |
+| `GITHUB_API_URL` | Leave unset. Only `https://api.github.com` is accepted. The end-to-end tests point it at a fake on their own machine, which needs the test-only `CMS_TEST_LOCAL_GITHUB=1`; that flag is ignored on any Netlify deploy, so never set it there. |
 | `CMS_PREVIEW_SITE_NAME` | Optional. The Netlify site name used in the deploy preview link, `https://deploy-preview-<N>--<site>.netlify.app/<page>`. Defaults to `law-for-ai-safety-org`. |
 
 Env var changes apply from the next deploy. The server never logs the key or the tokens it gets with it. Each installation token it requests is limited to this repo and to contents and pull requests, and is reused until shortly before it expires (one hour).
@@ -57,46 +59,48 @@ Env var changes apply from the next deploy. The server never logs the key or the
 
 `.github/workflows/cms-guard.yml` runs on every pull request. It fails when a commit authored or committed by the App's bot changes a file outside `content/`, or when the bot opens a pull request from a branch outside `cms/`. Maintainers' commits are not restricted, so you can push layout fixes to a CMS branch before merging.
 
-The guard needs the bot's login: repo Settings → Secrets and variables → Actions → **Variables** → New repository variable:
+The guard needs the bot's login in the repository variable `CMS_BOT_LOGIN` (Settings → Secrets and variables → Actions → **Variables**). It is set to `lawforaisafety-cms[bot]`.
 
-- **Name:** `CMS_BOT_LOGIN`
-- **Value:** `<app-slug>[bot]`, for example `lais-website-editor[bot]`. The slug is the last part of the App's public page URL, `https://github.com/apps/<app-slug>`.
+The guard fails closed: it fails every pull request while the variable is unset, or set to anything that does not end in `[bot]` (a person's login there would let the bot's commits pass as a maintainer's). A guard that passed while it could not recognise the bot would let a leaked key change code with a green check.
 
-**Until this variable is set, the guard fails on every pull request.** It fails closed on purpose: a guard that passed while it could not recognise the bot would let a leaked key change code with a green check. Once it is set, add **CMS guard / cms-guard** to the required checks on `main`.
-
-The guard runs the copy of `scripts/cms-guard.mjs` on `main` with plain `node`, so a pull request cannot change the check that judges it. Its rules are tested in `scripts/cms-guard.test.ts`.
+Normally the guard runs the copy of `scripts/cms-guard.mjs` on `main`, with plain `node`, so a pull request cannot change the check that judges it. Until the pull request that adds the guard is merged, `main` has no copy, so each pull request runs its own. Once the workflow is on `main`, a `main` without the script fails the guard instead of falling back. It runs when a pull request is opened, updated, reopened or edited (an edit can change its base). Its rules are tested in `scripts/cms-guard.test.ts`.
 
 If repository variables turn out not to be passed to pull requests from forks, the guard fails on those too. Say so and it can skip pull requests whose head is in another repository, since the App is installed only on this one.
 
 ## 4. Protection on `main`
 
-Already applied (see `local-docs/cms-decisions.md`): 1 approving review with stale approvals dismissed, the `check-all` and `zizmor` checks required, no force pushes, no deletions, `enforce_admins` off.
+Already applied (see `local-docs/cms-decisions.md`): 1 approving review with stale approvals dismissed, approval of the most recent reviewable push, the `check-all` and `zizmor` checks required, no force pushes, no deletions, `enforce_admins` off. There is no ruleset.
 
 Why the App cannot get round it:
 
 - The App is not a repo admin, and is not in any bypass list, so the rules apply to it in full. `enforce_admins` off only exempts admins.
 - It cannot approve its own pull request, and a pull request needs one approval before it can merge.
 - With **Dismiss stale approvals** on, a commit pushed after an approval needs a new approval.
+- **Approval of the most recent reviewable push:** the App has pull requests write, so it can review someone else's pull request, but if it pushed last its approval does not count.
 - It has no Workflows permission, so it cannot edit the CI that checks it.
 
-Two optional extras, not applied:
+Contents write lets the App push to any unprotected branch; the CMS guard fails any pull request with its commits outside `content/`. Without a ruleset nothing stops the push itself; that was accepted.
 
-- **Require approval of the most recent reviewable push.** The App has pull requests write, so it can submit a review on someone else's pull request. With this rule, the person who pushed last cannot be the one whose approval counts.
-- **A ruleset restricting branch creation, updates and deletion to `cms/**` for the App.** Contents write lets the App push to any unprotected branch. The CMS guard catches its commits outside `content/` in any pull request, but a ruleset would stop the push itself.
+**Required checks to add once this is merged.** Add **CMS guard / cms-guard** and **CI / e2e** to the required checks on `main`. Not before: a required check that does not exist on `main` yet would block every pull request.
+
+**Code owners.** `.github/CODEOWNERS` assigns `.github/` (the workflows, including the guard) and the guard's script to `@hturnbull93`. Turning on **Require review from Code Owners** for `main` would make any change to them need that review, even when someone else approves the rest.
 
 Content validation already runs in `check-all` (its first step is `npm run content:check`), so a CMS pull request with an invalid or non-canonical content file fails CI.
+
+## Drafts the live page has moved past
+
+If the page's file on `main` changed after a draft was started (a developer edited it, or another publish was merged), publishing that draft is refused and the editor is shown which fields changed. The editor redoes their changes by hand: copy them, discard the draft, and make them again on the current page. There is no automatic merge.
 
 ## 5. Verify end to end, once, on a deploy preview
 
 Deploy previews are free; this uses no credits beyond the production build the final merge triggers.
 
-1. Set the variables above for the **deploy preview** context too, and run a deploy preview of any branch (for example the next CMS pull request).
+1. Run a deploy preview of any branch (for example the next CMS pull request), with the variables above set for deploy previews.
 2. In that preview, sign in to `/admin`, open **Website pages** → field-building, change one word, check **Preview**, and press **Publish**. The page shows *Publishing*.
 3. On GitHub: a pull request from `cms/field-building-<date>` changes only `content/field-building.json`. Its description lists the change before and after, says who sent it, and links to its own deploy preview. **CMS guard** and **CI** pass.
 4. Open the pull request's deploy preview link and check the page.
 5. Close the pull request with a comment. Reload the editor: the page shows *Not published* with your comment. Publish again, then press **Withdraw**: the pull request closes and its branch is deleted.
 6. Merging changes the live site and costs one production build, so try it with the first real edit rather than a test: approve and merge, and after the production deploy the page shows *Live* in the production editor. (In a deploy preview's editor a merged page stays *Publishing*, because the preview's own content file never becomes the merged one.)
-7. Remove the deploy preview context from the variables if you do not want previews to publish.
 
 Also check, the first time, that `/admin/cms` lists the pages on Netlify: the admin functions read `content/`, `src/app` page files and `public/` at run time (`outputFileTracingIncludes` in `next.config.ts`).
 
