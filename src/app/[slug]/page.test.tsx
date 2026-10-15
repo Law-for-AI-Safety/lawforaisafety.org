@@ -32,6 +32,7 @@ describe("the content route", () => {
       title: "CMS test page | Law for AI Safety",
       alternates: { canonical: "/cms-test-page" },
       openGraph: { images: [{ url: "/og-assets/cms-test-page", alt: "CMS test page" }] },
+      robots: { index: false, follow: false },
     });
   });
 

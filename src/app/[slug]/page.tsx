@@ -21,7 +21,9 @@ function load(slug: string) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  return pageMetadata(slug, load(slug).page);
+  const found = load(slug);
+  // Test pages (test builds only) are never indexed.
+  return { ...pageMetadata(slug, found.page), ...(found.test ? { robots: { index: false, follow: false } } : {}) };
 }
 
 export default async function ContentRoutePage({ params }: Props) {

@@ -15,7 +15,7 @@ function write(file: string, text = "") {
 const page = (title: string, updatedAt = "2026-10-01") =>
   JSON.stringify({ title, description: `About ${title}.`, updatedAt, blocks: [{ type: "hero", heading: title, lede: "Hello." }] });
 
-write("app/page.tsx", 'import c from "../../content/home.json";');
+write("app/page.tsx", 'import c from "../content/home.json";');
 write("app/guide/page.tsx", 'import c from "../../content/guide.json";');
 write("app/red-lines-dialogue/page.tsx");
 write("app/red-lines-dialogue/confirm/page.tsx");
@@ -38,9 +38,19 @@ const dirs: SiteDirs = { contentDir: path.join(root, "content"), appDir: path.jo
 const withExtra: SiteDirs = { ...dirs, extraContentDir: path.join(root, "extra") };
 
 describe("siteDirs", () => {
+  const extra = { CMS_EXTRA_CONTENT_DIR: "test/fixtures/content" };
+
   it("reads content/, src/app and public/, and adds the extra directory only when it is set", () => {
-    expect(siteDirs("/repo", {})).toEqual({ contentDir: "/repo/content", appDir: "/repo/src/app", publicDir: "/repo/public" });
-    expect(siteDirs("/repo", { CMS_EXTRA_CONTENT_DIR: "test/fixtures/content" }).extraContentDir).toBe("/repo/test/fixtures/content");
+    expect(siteDirs("/repo", { NODE_ENV: "production" })).toEqual({ contentDir: "/repo/content", appDir: "/repo/src/app", publicDir: "/repo/public" });
+    expect(siteDirs("/repo", extra).extraContentDir).toBe("/repo/test/fixtures/content");
+    expect(siteDirs("/repo", { ...extra, NODE_ENV: "production", CMS_TEST_BUILD: "1" }).extraContentDir).toBe("/repo/test/fixtures/content");
+    expect(siteDirs("/repo", { ...extra, NODE_ENV: "production", VITEST: "true" }).extraContentDir).toBe("/repo/test/fixtures/content");
+  });
+
+  it("refuses the extra directory on a production deploy, and in a production build that is not a test build", () => {
+    expect(() => siteDirs("/repo", { ...extra, CONTEXT: "production", CMS_TEST_BUILD: "1" })).toThrow(/only allowed in tests/);
+    expect(() => siteDirs("/repo", { ...extra, NODE_ENV: "production" })).toThrow(/only allowed in tests/);
+    expect(() => siteDirs("/repo", { ...extra, NODE_ENV: "production", CMS_TEST_BUILD: "true" })).toThrow(/only allowed in tests/);
   });
 });
 
@@ -54,8 +64,9 @@ describe("sitePages", () => {
     ]);
   });
 
-  it("adds the extra directory's pages, and refuses a slug in both", () => {
-    expect(sitePages(withExtra).map((p) => p.slug)).toContain("test-page");
+  it("adds the extra directory's pages, marked as test pages, and refuses a slug in both", () => {
+    expect(sitePages(withExtra).find((p) => p.slug === "test-page")?.test).toBe(true);
+    expect(sitePages(withExtra).find((p) => p.slug === "guide")?.test).toBeUndefined();
     expect(() => sitePages({ ...dirs, extraContentDir: path.join(root, "clash") })).toThrow(/new-page.json is in both/);
   });
 
@@ -83,13 +94,12 @@ describe("titleCardPages", () => {
 });
 
 describe("sitemapEntries", () => {
-  it("lists reachable content pages with their dates and other public pages without one, homepage first", () => {
+  it("lists reachable content pages with their dates and other public pages without one, homepage first, and no test pages", () => {
     expect(sitemapEntries(withExtra)).toEqual([
       { url: SITE_URL, lastModified: new Date("2026-09-01T00:00:00Z"), changeFrequency: "monthly", priority: 1 },
       { url: `${SITE_URL}/guide`, lastModified: new Date("2026-08-01T00:00:00Z"), changeFrequency: "monthly", priority: 0.6 },
       { url: `${SITE_URL}/new-page`, lastModified: new Date("2026-10-01T00:00:00Z"), changeFrequency: "monthly", priority: 0.6 },
       { url: `${SITE_URL}/red-lines-dialogue`, changeFrequency: "weekly", priority: 0.7 },
-      { url: `${SITE_URL}/test-page`, lastModified: new Date("2026-10-15T00:00:00Z"), changeFrequency: "monthly", priority: 0.6 },
     ]);
   });
 });

@@ -14,17 +14,28 @@ import { contentRouteSlugs, reservedSlugs, slugProblem } from "./slugs";
  *
  * `extraContentDir` adds the pages of a second directory, for test builds only: setting
  * `CMS_EXTRA_CONTENT_DIR=test/fixtures/content` builds the test page in that fixture without
- * putting it on the real site. A slug in both directories is an error.
+ * putting it on the real site. It is refused on a Netlify production deploy, and in any
+ * production build that is not a test build (`CMS_TEST_BUILD=1`) or a vitest run. Its pages
+ * are marked `test`: never indexed and left out of the sitemap. A slug in both directories is
+ * an error.
  */
 
 export type SiteDirs = Dirs & { extraContentDir?: string };
 
-export function siteDirs(root = process.cwd(), env: Record<string, string | undefined> = process.env): SiteDirs {
+type Env = Record<string, string | undefined>;
+
+export function siteDirs(root = process.cwd(), env: Env = process.env): SiteDirs {
   const extra = env.CMS_EXTRA_CONTENT_DIR;
-  return { ...defaultDirs(root), ...(extra ? { extraContentDir: path.resolve(root, extra) } : {}) };
+  if (!extra) return defaultDirs(root);
+  const testRun = env.VITEST === "true" || env.CMS_TEST_BUILD === "1";
+  if (env.CONTEXT === "production" || (env.NODE_ENV === "production" && !testRun)) {
+    throw new Error("CMS_EXTRA_CONTENT_DIR adds test pages and is only allowed in tests and test builds (CMS_TEST_BUILD=1)");
+  }
+  return { ...defaultDirs(root), extraContentDir: path.resolve(root, extra) };
 }
 
-export type SitePage = { slug: string; path: string; page: PageContent };
+/** `test` marks a page from the extra (test) directory. */
+export type SitePage = { slug: string; path: string; page: PageContent; test?: true };
 
 function readPage(dir: string, slug: string): SitePage {
   const value: unknown = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), "utf8"));
@@ -38,7 +49,7 @@ export function sitePages(dirs: SiteDirs): SitePage[] {
   const extra = dirs.extraContentDir;
   for (const slug of contentSlugs(extra)) {
     if (pages.some((p) => p.slug === slug)) throw new Error(`${slug}.json is in both ${dirs.contentDir} and ${extra}`);
-    pages.push(readPage(extra, slug));
+    pages.push({ ...readPage(extra, slug), test: true });
   }
   return pages;
 }
@@ -86,12 +97,12 @@ const HINTS: Record<string, Hint> = {
 };
 
 /**
- * The sitemap's page entries: every content page, dated by its file's `updatedAt`, and every
+ * The sitemap's page entries: every content page (but test pages), dated by its file's `updatedAt`, and every
  * other public page of the App Router. Those have no date of their own, so they carry none
  * rather than claim to change on every build. The homepage comes first, the rest by path.
  */
 export function sitemapEntries(dirs: SiteDirs): MetadataRoute.Sitemap {
-  const dated = new Map(servedPages(dirs).map((p) => [p.path, new Date(p.page.updatedAt)]));
+  const dated = new Map(servedPages(dirs).filter((p) => !p.test).map((p) => [p.path, new Date(p.page.updatedAt)]));
   const appPaths = appRoutes(dirs.appDir)
     .filter((route) => !route.some((segment) => segment.startsWith("[")))
     .map((route) => route.join("/"))
