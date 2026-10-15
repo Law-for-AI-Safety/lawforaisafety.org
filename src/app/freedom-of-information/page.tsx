@@ -7,7 +7,6 @@ import ApplyForm from "../apply/ApplyForm";
 import ApplyToast from "../ApplyToast";
 import ContactErrorBanner from "../ContactErrorBanner";
 import WavyUnderline from "../WavyUnderline";
-import { isSignupEnabled } from "@/lib/feature-flags";
 
 function Rule() {
   return (
@@ -54,13 +53,13 @@ const steps = [
   },
 ];
 
-// Signup forms are toggled at runtime from the admin panel, so this page has
-// to render per request rather than being prerendered at build time.
-export const dynamic = "force-dynamic";
+// Whether this page shows the application form or the "not open right now"
+// message. The page is prerendered, so this is fixed at build time and changed
+// by a code (later a content) change. The admin signup toggle is an emergency
+// stop enforced by the submit routes; it does not hide the form.
+const SIGNUP_OPEN = true;
 
-export default async function FreedomOfInformationPage() {
-  const signupEnabled = await isSignupEnabled();
-
+export default function FreedomOfInformationPage() {
   return (
     <main className="flex flex-col font-sans">
       <Nav />
@@ -175,7 +174,7 @@ export default async function FreedomOfInformationPage() {
             <ContactErrorBanner />
           </Suspense>
 
-          {signupEnabled ? (
+          {SIGNUP_OPEN ? (
             <div className="max-w-2xl">
               <ApplyForm source="foi" />
             </div>
