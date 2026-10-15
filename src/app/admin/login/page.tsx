@@ -17,7 +17,8 @@ export default async function AdminLoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const errorMessage = error ? ERROR_MESSAGES[error] : null;
+  // Own keys only: a code such as "toString" or "__proto__" must not reach Object.prototype.
+  const errorMessage = error && Object.hasOwn(ERROR_MESSAGES, error) ? ERROR_MESSAGES[error] : null;
 
   return (
     <main className="mx-auto flex max-w-md flex-col items-center gap-6 px-4 py-32 text-center">
