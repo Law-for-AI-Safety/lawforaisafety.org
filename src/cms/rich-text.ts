@@ -7,6 +7,8 @@
  *   a blank line between blocks, a single newline between bullet items
  *   backslash escapes for ASCII punctuation, e.g. \* \[ \= \\
  *
+ * Text is always written in Unicode NFC, so one spelling of each character is canonical.
+ *
  * The typed form is a list of blocks, each holding "runs": text with a flat set of marks.
  * That is the shape of a ProseMirror document, so the editor maps onto it directly, and
  * `inlineTree` nests the marks again for rendering.
@@ -53,11 +55,12 @@ export class RichTextError extends Error {
 // Text and links
 
 /**
- * Characters never allowed in text: control characters (tabs and carriage returns too),
- * the Unicode line and paragraph separators, byte order marks, and the bidirectional
- * controls that can make text read differently from how it is stored.
+ * Characters never allowed in text: every Unicode control, format and surrogate character
+ * (so tabs, carriage returns, zero-width spaces and joiners, soft hyphens, bidi controls,
+ * byte order marks, tag characters and lone surrogates), the line and paragraph separators,
+ * and variation selectors. All are invisible or change how text reads without showing.
  */
-const FORBIDDEN_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/;
+const FORBIDDEN_TEXT = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]/u;
 
 /** Whether text holds a character no content field may contain (see FORBIDDEN_TEXT). */
 export function hasForbiddenText(text: string): boolean {
@@ -207,7 +210,7 @@ type Step = { close: OpenMark[]; open: OpenMark[] };
  * keeps `*` runs unambiguous for the parser: bold never opens directly on top of italic.
  */
 function planLine(input: Run[]): { runs: Run[]; steps: Step[] } {
-  const runs = expelWhitespace(input);
+  const runs = expelWhitespace(input.map((r) => ({ text: r.text.normalize("NFC"), marks: r.marks })));
   if (runs.length === 0) throw new RichTextError("Empty line");
   for (const r of runs) {
     if (r.text.includes("\n")) throw new RichTextError("Line break inside a line");
@@ -440,6 +443,9 @@ export function parseRichTextLoose(input: string, options: ParseOptions = {}): R
 }
 
 export function parseRichText(input: string): RichText {
+  if (input !== input.normalize("NFC")) {
+    throw new RichTextError("Text is not in Unicode NFC form; run npm run content:format");
+  }
   const doc = parseRichTextLoose(input);
   const canonical = serializeRichText(doc);
   if (canonical !== input) {
@@ -449,10 +455,11 @@ export function parseRichText(input: string): RichText {
 }
 
 /**
- * Rewrites rich text into its canonical form: outer whitespace trimmed, `http:` links
- * upgraded, marks and escapes written the one canonical way. Throws for anything the
+ * Rewrites rich text into its canonical form: outer whitespace trimmed, text in Unicode
+ * NFC, `http:` links upgraded, marks and escapes written the one canonical way. Throws for anything the
  * grammar does not accept, including `*` runs that could be read in more than one way.
  */
 export function formatRichText(input: string): string {
-  return serializeRichText(parseRichTextLoose(input.trim(), { upgradeHttp: true }));
+  // Normalised before parsing: escapes depend on the characters, e.g. `<` before a letter.
+  return serializeRichText(parseRichTextLoose(input.trim().normalize("NFC"), { upgradeHttp: true }));
 }

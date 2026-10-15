@@ -17,6 +17,8 @@ import {
 } from "./rich-text";
 
 const ch = (code: number) => String.fromCharCode(code);
+/** A code point, or a lone surrogate, as a string. */
+const cp = (code: number) => (code >= 0xd800 && code <= 0xdfff ? String.fromCharCode(code) : String.fromCodePoint(code));
 const run = (text: string, marks: Marks = {}): Run => ({ text, marks });
 const para = (...runs: Run[]): RichText[number] => ({ type: "paragraph", runs });
 
@@ -256,16 +258,54 @@ describe("links", () => {
 });
 
 describe("text characters", () => {
-  it.each([0x00, 0x07, 0x09, 0x0d, 0x1b, 0x7f, 0x85, 0x2028, 0x2029, 0x200e, 0x200f, 0x202a, 0x202e, 0x2066, 0x2069, 0xfeff])(
-    "refuses U+%s",
-    (code) => {
-      expect(hasForbiddenText(`a${ch(code)}b`)).toBe(true);
-      expect(() => parseRichText(`a${ch(code)}b`)).toThrow("Control or invisible formatting character");
-    },
-  );
+  const FORBIDDEN = [
+    // C0 and C1 controls, tab, carriage return, delete
+    0x00, 0x07, 0x09, 0x0d, 0x1b, 0x7f, 0x85, 0x9f,
+    // format characters: soft hyphen, Arabic letter mark, Mongolian vowel separator,
+    // zero-width space, non-joiner and joiner, LRM/RLM, bidi embeddings and isolates,
+    // word joiner and invisible operators, byte order mark, tag characters
+    0xad, 0x61c, 0x180e, 0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x202a, 0x202e, 0x2060, 0x2061, 0x2064,
+    0x2066, 0x2069, 0xfeff, 0xe0001, 0xe0041, 0xe007f,
+    // line and paragraph separators
+    0x2028, 0x2029,
+    // variation selectors
+    0xfe00, 0xfe0f, 0xe0100,
+    // lone surrogates
+    0xd800, 0xdbff, 0xdc00, 0xdfff,
+  ];
 
-  it("allows ordinary non-ASCII text", () => {
-    expect(hasForbiddenText("Raphaël Weuts, Ondřej Kolář — “AI” ’s")).toBe(false);
+  it.each(FORBIDDEN)("refuses U+%s in text, in marks and in list items", (code) => {
+    const c = cp(code);
+    expect(hasForbiddenText(`a${c}b`)).toBe(true);
+    for (const text of [`a${c}b`, `**a${c}b**`, `[a${c}b](/field-building)`, `- ok\n- a${c}b`]) {
+      expect(() => parseRichText(text)).toThrow("Control or invisible formatting character");
+      expect(() => formatRichText(text)).toThrow("Control or invisible formatting character");
+    }
+    expect(() => serializeRichText([para(run(`a${c}b`))])).toThrow("control or invisible");
+  });
+
+  it("allows ordinary non-ASCII text, emoji and no-break spaces", () => {
+    for (const text of ["Raphaël Weuts, Ondřej Kolář — “AI” ’s", `${cp(0x1f600)} ok`, `15${ch(0xa0)}September`]) {
+      expect(hasForbiddenText(text)).toBe(false);
+      expect(parseRichText(text)).toEqual([para(run(text))]);
+    }
+  });
+});
+
+describe("Unicode normalisation", () => {
+  const nfc = "Raphaël Kolář";
+  const nfd = nfc.normalize("NFD");
+
+  it("refuses text not in NFC", () => {
+    expect(nfd).not.toBe(nfc);
+    expect(() => parseRichText(nfd)).toThrow("not in Unicode NFC form");
+    expect(() => parseRichText(`**${nfd}**`)).toThrow("not in Unicode NFC form");
+  });
+
+  it("formats and serialises text as NFC", () => {
+    expect(formatRichText(nfd)).toBe(nfc);
+    expect(formatRichText(`- ==${nfd}==`)).toBe(`- ==${nfc}==`);
+    expect(serializeRichText([para(run(nfd, { italic: true }))])).toBe(`*${nfc}*`);
   });
 });
 
@@ -276,6 +316,9 @@ describe("formatRichText", () => {
     ["\\(needless\\) escapes", "(needless) escapes"],
     ["**a****b**", "**ab**"],
     ["**a **b", "**a** b"],
+    ["**==a==**", "==**a**=="],
+    ["*==a==* and [**==b==**](/x)", "==*a*== and [==**b**==](/x)"],
+    ["==ab====cd==", "==abcd=="],
     ["", ""],
   ])("%j becomes %j", (input, output) => {
     expect(formatRichText(input)).toBe(output);
@@ -345,7 +388,7 @@ function random(seed: number) {
 
 const TEXT_PIECES = [
   "a", "b", "word", " ", " ", "  ", "*", "**", "=", "==", "[", "]", "(", ")", "\\", "_", "__", "~", "~~",
-  "<", "<b", "</", "!", "#", ">", "- ", "-", "+ ", "1. ", "2) ", "`", "&", "&amp;", "&#1;", ".", ",", "é", "’", ch(0xa0),
+  "<", "<b", "</", "!", "#", ">", "- ", "-", "+ ", "1. ", "2) ", "`", "&", "&amp;", "&#1;", ".", ",", "é", "Å", "ñ", "’", ch(0xa0),
 ];
 const HREFS = ["/", "/field-building", "/#contact", "mailto:info@lawforaisafety.org", "https://example.org/a?b=1"];
 
@@ -434,14 +477,34 @@ describe("random documents", () => {
     expect(accepted).toBeGreaterThan(100);
   });
 
-  it("formatting is idempotent and always gives canonical text", () => {
+  /** Rewrites canonical text into a non-canonical spelling of the same document. */
+  const MUTATIONS: [string, (text: string) => string][] = [
+    ["edge whitespace", (t) => `  ${t}\n `],
+    ["http: links", (t) => t.replaceAll("](https://", "](http://")],
+    ["needless escapes", (t) => t.replace(/(?<![\]\\])([(,])/g, "\\$1")],
+    ["NFD", (t) => t.normalize("NFD")],
+    ["mark order", (t) => t.replace(/(?<!\*)==\*\*([A-Za-z]+)\*\*==(?!\*)/g, "**==$1==**")],
+    ["split marks", (t) => t.replace(/==([A-Za-z])([A-Za-z]+)==/g, "==$1====$2==")],
+  ];
+
+  it("formatting turns non-canonical spellings back into the canonical text, a fixed point", () => {
     const r = random(7);
-    for (let i = 0; i < 2000; i++) {
-      const text = serializeRichText(randomDoc(r));
-      const messy = r.next() < 0.5 ? `  ${text}\n` : text.replace(/\\\(/g, "(");
+    const changedBy = new Map<string, number>();
+    for (let i = 0; i < 3000; i++) {
+      const canonical = serializeRichText(randomDoc(r));
+      let messy = canonical;
+      for (let k = 0; k < 1 + r.int(3); k++) {
+        const [name, mutate] = r.pick(MUTATIONS);
+        const next = mutate(messy);
+        if (next !== messy) changedBy.set(name, (changedBy.get(name) ?? 0) + 1);
+        messy = next;
+      }
       const formatted = formatRichText(messy);
-      expect(parseRichText(formatted)).toBeDefined();
+      expect(formatted).toBe(canonical);
+      expect(serializeRichText(parseRichText(formatted))).toBe(formatted);
       expect(formatRichText(formatted)).toBe(formatted);
     }
+    // Every mutation really produced non-canonical text.
+    for (const [name] of MUTATIONS) expect(changedBy.get(name) ?? 0, name).toBeGreaterThan(0);
   });
 });
