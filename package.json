@@ -17,6 +17,8 @@
     "test:coverage": "node scripts/test-coverage.mjs",
     "coverage:report": "node scripts/coverage-report.mjs",
     "check-all": "node scripts/check-all.mjs",
+    "content:check": "node --import tsx scripts/content.ts check",
+    "content:format": "node --import tsx scripts/content.ts format",
     "lighthouse": "bash scripts/lighthouse.sh dev",
     "lighthouse:build": "bash scripts/lighthouse.sh build",
     "db:generate": "drizzle-kit generate",

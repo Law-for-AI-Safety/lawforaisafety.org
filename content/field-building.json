@@ -1,0 +1,65 @@
+{
+  "title": "Field-building and Coordination",
+  "description": "Building, coordinating, and mobilising a European legal field dedicated to reducing large-scale risks from AI.",
+  "updatedAt": "2026-10-15",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "Field-building and Coordination",
+      "lede": "Lawyers are a talent gap in the AI safety ecosystem. Many are committed to reducing AI risk, but struggle to find initiatives that use their specific skills. ==There's no overview of the field== to help them find one."
+    },
+    {
+      "type": "quoteBand",
+      "quote": "Our mission is to build, coordinate and mobilise a European legal field dedicated to reducing large-scale risks from AI."
+    },
+    {
+      "type": "cardList",
+      "style": "numbered",
+      "items": [
+        {
+          "title": "Meet-ups",
+          "body": "We want to organise meet-ups for European lawyers interested in AI safety, to brainstorm the best ways to use our expertise to reduce AI risks and mobilise to enact different initiatives and develop the field. We're also organising an online meeting with existing organisations and individuals already active in the field, to increase awareness of each other's work, reduce the risk of duplication, and explore possibilities for collaboration."
+        },
+        {
+          "title": "Field directory",
+          "body": "We want to create an overview of the field, including useful training, courses, events, organisations, networks, and seminal literature. Our new volunteer begins working on this in mid-October."
+        },
+        {
+          "title": "Research",
+          "body": "We aim to identify the most promising ways European law and legal institutions can contribute to AI risk reduction, including legal and administrative avenues for strengthening accountability and transparency, barriers to effective enforcement and access to justice, and how to turn these into concrete projects legal professionals can contribute to. Once we secure substantial funding, we want to organise research fellowships on applied legal research mapping litigation pathways, favourable jurisdictions, and barriers to asserting rights."
+        },
+        {
+          "title": "Webinars",
+          "body": "We plan to launch online webinars exploring legal pathways that European individuals, civil society, and institutions can use for AI risk reduction. We've secured our first speaker, and plan our first webinar in December 2026. Subscribe to our [YouTube channel](https://www.youtube.com/@LawforAISafety) to see the recordings."
+        },
+        {
+          "title": "Franchise",
+          "body": "We've seen interest in starting similar organisations in jurisdictions outside Europe. We're eager to advise on this, and if more law x AI risk reduction organisations emerge globally, we'd like to organise a yearly assembly of organisations working in this field worldwide."
+        }
+      ]
+    },
+    {
+      "type": "cardList",
+      "style": "bullets",
+      "heading": "Two research areas we're eager to explore",
+      "items": [
+        {
+          "title": "Emergency powers for catastrophic AI incidents",
+          "body": "To what extent do European and EU Member State legal frameworks provide public authorities with sufficiently rapid and effective powers to prevent, contain and coordinate responses to catastrophic AI incidents, and what legal gaps, if any, require reform?"
+        },
+        {
+          "title": "Access to justice for large-scale societal harms",
+          "body": "Ordinary standing doctrine is often built around individualised, concrete injury. AI existential and catastrophic risks, like environmental harms, often don't fit this: they are diffuse, collective, irreversible, and future-facing. Europe broadened access to justice in environmental matters via the Aarhus Convention to account for this; researching a similar broadening for AI would be a potentially impactful stream of research."
+        }
+      ]
+    },
+    {
+      "type": "applicationSection",
+      "form": "apply",
+      "heading": "Get involved",
+      "intro": "Whether you want to join a meet-up, help build the field directory, contribute to research, speak at a webinar, start a sibling organisation elsewhere, or fund any of this work, apply below and let us know what you're interested in.",
+      "showForm": true,
+      "closedMessage": "Applications aren't open right now. Email [info@lawforaisafety.org](mailto:info@lawforaisafety.org) to register your interest."
+    }
+  ]
+}
