@@ -99,6 +99,8 @@ describe("Milestones", () => {
     // The rail sits beside every entry but the last.
     const rail = section.querySelector(".h-\\[calc\\(100\\%\\+184px\\)\\]")!;
     expect(rail.parentElement!.querySelectorAll("h3")).toHaveLength(2);
+    // The list sits clear of the heading, so the rail's top tip does not reach it.
+    expect(rail.parentElement!.parentElement).toHaveClass("pt-6");
     expect(section.querySelector(".grid")).toHaveClass("md:grid-cols-3");
     const button = screen.getByRole("link", { name: "Connect on LinkedIn" });
     expect(button).toHaveAttribute("href", "https://www.linkedin.com/company/law-for-ai-safety/");

@@ -48,7 +48,9 @@ export default function Milestones({ block, tone, id }: { block: BlockOf<"milest
           {/* Halfway between the light sections' heading and the homepage's original one. */}
           <h2 className="text-[2.0625rem] md:text-[2.625rem] font-light text-brand-black leading-tight">{block.heading}</h2>
         </div>
-        <div className="flex flex-col gap-14">
+        {/* pt-6: the first milestone starts 64px below the heading, as the timeline's first entry
+            does, and the rail's top tip (46px above it) clears the heading. */}
+        <div className="flex flex-col gap-14 pt-6">
           {entries.length > 1 && (
             <div className="relative flex flex-col gap-14">
               <TimelineRail className="left-1 -top-[46px] h-[calc(100%+184px)]" />
