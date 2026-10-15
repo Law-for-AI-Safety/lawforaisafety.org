@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+# vitest's JSON results (see vitest.config.mts)
+/tmp/
 
 # next.js
 /.next/
