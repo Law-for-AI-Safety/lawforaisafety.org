@@ -67,6 +67,11 @@ export function hasForbiddenText(text: string): boolean {
   return FORBIDDEN_TEXT.test(text);
 }
 
+/** Removes every character `hasForbiddenText` refuses. */
+export function stripForbiddenText(text: string): string {
+  return text.replace(new RegExp(FORBIDDEN_TEXT.source, "gu"), "");
+}
+
 /** An HTML character reference such as `&amp;` or `&#8217;`. Content is never HTML. */
 const ENTITY = /^&(#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]*);/i;
 
@@ -112,6 +117,32 @@ export function isAllowedHref(href: string): boolean {
 /** What links typed or pasted in are stored as: `http:` is upgraded to `https:`. */
 export function upgradeHref(href: string): string {
   return href.startsWith("http://") ? `https://${href.slice("http://".length)}` : href;
+}
+
+/**
+ * A link target as typed or pasted, made storable where it can be: outer spaces trimmed,
+ * `http:` upgraded, and every character a target may not hold percent-encoded (as UTF-8), as
+ * is a `%` that does not start an escape. The result still needs `hrefProblem`: this never
+ * makes a disallowed scheme allowed.
+ */
+export function cleanHref(input: string): string {
+  let out = "";
+  const href = upgradeHref(input.trim());
+  for (let i = 0; i < href.length; ) {
+    const c = String.fromCodePoint(href.codePointAt(i)!);
+    i += c.length;
+    if (c === "%") out += /^[0-9A-Fa-f]{2}/.test(href.slice(i)) ? c : "%25";
+    else if (HREF_CHARS.test(c)) out += c;
+    else out += percentEncode(c);
+  }
+  return out;
+}
+
+function percentEncode(c: string): string {
+  // A lone surrogate has no UTF-8 form; it stands for the replacement character.
+  const char = /[\uD800-\uDFFF]/.test(c) && c.length === 1 ? "\uFFFD" : c;
+  // encodeURIComponent leaves ' ( ) as they are, but a link target may not hold them.
+  return encodeURIComponent(char).replace(/['()]/g, (x) => `%${x.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cleanHref,
   formatRichText,
   hasForbiddenText,
   hrefProblem,
@@ -10,6 +11,7 @@ import {
   parseRichTextLoose,
   RichTextError,
   serializeRichText,
+  stripForbiddenText,
   upgradeHref,
   type Marks,
   type RichText,
@@ -506,5 +508,37 @@ describe("random documents", () => {
     }
     // Every mutation really produced non-canonical text.
     for (const [name] of MUTATIONS) expect(changedBy.get(name) ?? 0, name).toBeGreaterThan(0);
+  });
+});
+
+describe("cleanHref", () => {
+  it.each([
+    ["  https://example.org/a  ", "https://example.org/a"],
+    ["http://example.org/a", "https://example.org/a"],
+    ["https://example.org/a b", "https://example.org/a%20b"],
+    ["https://example.org/(x)'", "https://example.org/%28x%29%27"],
+    ["https://example.org/caf\u00e9", "https://example.org/caf%C3%A9"],
+    ["https://example.org/\u{1F600}", "https://example.org/%F0%9F%98%80"],
+    ["https://example.org/\uD800x", "https://example.org/%EF%BF%BDx"],
+    ["https://example.org/100%", "https://example.org/100%25"],
+    ["https://example.org/%2F%zz", "https://example.org/%2F%25zz"],
+    ["/field-building#x", "/field-building#x"],
+    ["javascript:alert(1)", "javascript:alert%281%29"],
+  ])("%j becomes %j", (input, cleaned) => {
+    expect(cleanHref(input)).toBe(cleaned);
+  });
+
+  it("never makes a disallowed link allowed", () => {
+    expect(isAllowedHref(cleanHref("javascript:alert(1)"))).toBe(false);
+    expect(isAllowedHref(cleanHref("https://example.org/a b"))).toBe(true);
+  });
+});
+
+describe("stripForbiddenText", () => {
+  it("removes exactly the characters content may not hold", () => {
+    const text = `a${ch(0x200b)}b${ch(0xad)}c${ch(0x202e)}d${ch(9)}e${cp(0xfe0f)}f${cp(0xe0100)}g${ch(0x2028)}h${ch(0xa0)}i`;
+    const stripped = stripForbiddenText(text);
+    expect(stripped).toBe(`abcdefgh${ch(0xa0)}i`);
+    expect(hasForbiddenText(stripped)).toBe(false);
   });
 });
