@@ -4,6 +4,20 @@ The website editor in `/admin/cms` publishes a page by opening a pull request th
 
 Until the settings below are in Netlify, the editor works as before (drafts, preview) and the Publish button says "Publishing is not set up on this site yet".
 
+## Quick links
+
+| Where | What you do there |
+| --- | --- |
+| [Create the App (pre-filled)](https://github.com/organizations/Law-for-AI-Safety/settings/apps/new?name=lawforaisafety-cms&url=https%3A%2F%2Flawforaisafety.org&webhook_active=false&public=false&contents=write&pull_requests=write&metadata=read) | Step 1: check the fields, then **Create GitHub App** |
+| [App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms) | Step 1: App ID, **Generate a private key** |
+| [Install the App](https://github.com/apps/lawforaisafety-cms/installations/new) | Step 1: install on `lawforaisafety.org` only |
+| [Org installations](https://github.com/organizations/Law-for-AI-Safety/settings/installations) | Step 1: open the installation; its ID is the number at the end of the URL |
+| [Netlify environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env) | Step 2: add the variables |
+| [Netlify deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys) | Step 2: sensitive variable policy; deploy previews for pull requests into any branch |
+| [Repository variables](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/variables/actions) | Step 3: `CMS_BOT_LOGIN` (already set) |
+| [Branch protection](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches) | Step 4: required checks, code owners |
+| [Netlify deploys](https://app.netlify.com/projects/law-for-ai-safety-org/deploys) | Step 5: find a deploy preview |
+
 ## What the App does
 
 | Step | API calls |
@@ -16,7 +30,7 @@ It never merges, never approves, and never pushes to a branch after opening its 
 
 ## 1. Create the App
 
-On the organisation (Settings → Developer settings → GitHub Apps → New GitHub App):
+On the organisation: [create the App](https://github.com/organizations/Law-for-AI-Safety/settings/apps/new?name=lawforaisafety-cms&url=https%3A%2F%2Flawforaisafety.org&webhook_active=false&public=false&contents=write&pull_requests=write&metadata=read). The link fills in the name, homepage, webhook, visibility and permissions below; check each before pressing **Create GitHub App**. (By hand: Settings → Developer settings → GitHub Apps → New GitHub App.)
 
 - **Name:** `lawforaisafety-cms`. Its bot account is `lawforaisafety-cms[bot]`.
 - **Homepage URL:** `https://lawforaisafety.org`.
@@ -33,15 +47,15 @@ GitHub has no "contents write but no merge" permission: the merge API also count
 
 Then:
 
-1. **Generate a private key** (App settings → Private keys). A `.pem` file downloads. Keep it only long enough to paste it into Netlify, then delete it.
-2. **Install App** → this organisation → **Only select repositories** → `lawforaisafety.org`. Install it on this repo only.
-3. Note the **App ID** (App settings, "About") and the **installation ID** (the number at the end of the installation's settings URL, `…/settings/installations/<id>`).
+1. **Generate a private key** ([App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms) → Private keys). A `.pem` file downloads. Keep it only long enough to paste it into Netlify, then delete it.
+2. [**Install App**](https://github.com/apps/lawforaisafety-cms/installations/new) → this organisation → **Only select repositories** → `lawforaisafety.org`. Install it on this repo only.
+3. Note the **App ID** ([App settings](https://github.com/organizations/Law-for-AI-Safety/settings/apps/lawforaisafety-cms), "About") and the **installation ID** (open it from the [org installations](https://github.com/organizations/Law-for-AI-Safety/settings/installations); it is the number at the end of the URL, `…/settings/installations/<id>`).
 
 ## 2. Netlify environment variables
 
-Site configuration → Environment variables. Mark the private key as a **secret** value. Set them for the **production** and **deploy preview** contexts.
+[Site configuration → Environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env). Mark the private key as a **secret** value. Set them for the **production** and **deploy preview** contexts.
 
-Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 5), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. **Revisit this as soon as anyone else gets write access**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy keeps the key out of builds of pull requests from forks; keep that setting on.
+Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 5), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. **Revisit this as soon as anyone else gets write access**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy ([deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys)) keeps the key out of builds of pull requests from forks; keep that setting on.
 
 | Variable | Value |
 | --- | --- |
@@ -59,7 +73,7 @@ Env var changes apply from the next deploy. The server never logs the key or the
 
 `.github/workflows/cms-guard.yml` runs on every pull request. It fails when a commit authored or committed by the App's bot changes a file outside `content/`, or when the bot opens a pull request from a branch outside `cms/`. Maintainers' commits are not restricted, so you can push layout fixes to a CMS branch before merging.
 
-The guard needs the bot's login in the repository variable `CMS_BOT_LOGIN` (Settings → Secrets and variables → Actions → **Variables**). It is set to `lawforaisafety-cms[bot]`.
+The guard needs the bot's login in the repository variable `CMS_BOT_LOGIN` ([Settings → Secrets and variables → Actions → **Variables**](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/variables/actions)). It is set to `lawforaisafety-cms[bot]`.
 
 The guard fails closed: it fails every pull request while the variable is unset, or set to anything that does not end in `[bot]` (a person's login there would let the bot's commits pass as a maintainer's). A guard that passed while it could not recognise the bot would let a leaked key change code with a green check.
 
@@ -69,7 +83,7 @@ If repository variables turn out not to be passed to pull requests from forks, t
 
 ## 4. Protection on `main`
 
-Already applied (see `local-docs/cms-decisions.md`): 1 approving review with stale approvals dismissed, approval of the most recent reviewable push, the `check-all` and `zizmor` checks required, no force pushes, no deletions, `enforce_admins` off. There is no ruleset.
+Already applied ([branch settings](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches); see `local-docs/cms-decisions.md`): 1 approving review with stale approvals dismissed, approval of the most recent reviewable push, the `check-all` and `zizmor` checks required, no force pushes, no deletions, `enforce_admins` off. There is no ruleset.
 
 Why the App cannot get round it:
 
@@ -81,7 +95,7 @@ Why the App cannot get round it:
 
 Contents write lets the App push to any unprotected branch; the CMS guard fails any pull request with its commits outside `content/`. Without a ruleset nothing stops the push itself; that was accepted.
 
-**Required checks to add once this is merged.** Add **CMS guard / cms-guard** and **CI / e2e** to the required checks on `main`. Not before: a required check that does not exist on `main` yet would block every pull request.
+**Required checks to add once this is merged.** In the [`main` branch rule](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches), add **CMS guard / cms-guard** and **CI / e2e** to the required checks on `main`. Not before: a required check that does not exist on `main` yet would block every pull request.
 
 **Code owners.** `.github/CODEOWNERS` assigns `.github/` (the workflows, including the guard) and the guard's script to `@hturnbull93`. Turning on **Require review from Code Owners** for `main` would make any change to them need that review, even when someone else approves the rest.
 
@@ -95,7 +109,7 @@ If the page's file on `main` changed after a draft was started (a developer edit
 
 Deploy previews are free; this uses no credits beyond the production build the final merge triggers.
 
-1. Run a deploy preview of any branch (for example the next CMS pull request), with the variables above set for deploy previews.
+1. Run a deploy preview ([Netlify deploys](https://app.netlify.com/projects/law-for-ai-safety-org/deploys)) of any branch (for example the next CMS pull request), with the variables above set for deploy previews.
 2. In that preview, sign in to `/admin`, open **Website pages** → field-building, change one word, check **Preview**, and press **Publish**. The page shows *Publishing*.
 3. On GitHub: a pull request from `cms/field-building-<date>` changes only `content/field-building.json`. Its description lists the change before and after, says who sent it, and links to its own deploy preview. **CMS guard** and **CI** pass.
 4. Open the pull request's deploy preview link and check the page.
