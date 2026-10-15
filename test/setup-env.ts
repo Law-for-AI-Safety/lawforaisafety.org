@@ -20,6 +20,10 @@ Object.assign(process.env, {
   TURNSTILE_SECRET_KEY: "test-turnstile-secret",
 });
 delete process.env.DEPLOY_CONTEXT;
+// Only `*.db.test.*` files get a database (test/setup-db.ts sets this for them). Anywhere
+// else the app's pool points at a host that cannot resolve, so a stray query fails visibly.
+process.env.DATABASE_URL = "postgres://no-database-in-unit-tests.invalid:5432/none";
+delete process.env.NETLIFY_DB_URL;
 
 // The outside world is faked at `fetch`; see test/fakes/network.ts.
 globalThis.fetch = fakeFetch as typeof fetch;

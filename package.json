@@ -13,7 +13,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:no-db": "TEST_NO_DB=1 vitest run",
+    "test:no-db": "vitest run --project node --project dom",
     "test:coverage": "node scripts/test-coverage.mjs",
     "coverage:report": "node scripts/coverage-report.mjs",
     "check-all": "node scripts/check-all.mjs",

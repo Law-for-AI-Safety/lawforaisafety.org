@@ -12,11 +12,6 @@ function formatDuration(ms) {
   return `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, "0")}s`;
 }
 
-if (process.env.TEST_NO_DB === "1") {
-  console.error("check-all runs every test, so it cannot run with TEST_NO_DB=1.");
-  process.exit(1);
-}
-
 const timings = [];
 const startedAt = Date.now();
 let exitCode = 0;

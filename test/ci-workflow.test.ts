@@ -7,7 +7,7 @@ import { parse } from "yaml";
  * Project rules for the GitHub Actions workflows, alongside the generic audit zizmor runs in
  * CI. Fork PRs run these workflows with a read-only token and no repository secrets, so the
  * workflows must never need either, and nothing they start may reach past the runner. CI must
- * also run the database-backed tests, which `TEST_NO_DB` would leave out.
+ * also run the database tests, which `test:no-db` or a `--project` filter would leave out.
  */
 
 const WORKFLOW_DIR = path.resolve(".github/workflows");
@@ -114,8 +114,8 @@ describe.each(workflows)("$file", ({ doc, text }) => {
   });
 
   it("never leaves out the database-backed tests", () => {
-    expect(text).not.toContain("TEST_NO_DB");
     expect(text).not.toContain("test:no-db");
+    expect(text).not.toContain("--project");
   });
 });
 
@@ -127,6 +127,7 @@ describe("ci.yml", () => {
     expect(ci!.doc.on).toEqual({ pull_request: { branches: ["main"] }, push: { branches: ["main"] } });
     const [, job] = jobs(ci!.doc).find(([, j]) => j.services) ?? [];
     expect(Object.keys((job?.services ?? {}) as Yaml)).toContain("postgres");
+    expect((job?.env as Yaml | undefined)?.TEST_DATABASE_URL).toMatch(/^postgres:\/\/[^@]+@localhost:/);
     const runs = ((job?.steps ?? []) as Yaml[]).map((step) => step.run);
     expect(runs).toContain("npm run check-all");
   });
