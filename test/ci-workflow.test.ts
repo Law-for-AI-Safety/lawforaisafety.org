@@ -132,3 +132,30 @@ describe("ci.yml", () => {
     expect(runs).toContain("npm run check-all");
   });
 });
+
+describe("cms-guard.yml", () => {
+  const guard = workflows.find((w) => w.file === "cms-guard.yml");
+  const steps = () => ((jobs(guard!.doc)[0]?.[1].steps ?? []) as Yaml[]);
+
+  it("runs on every pull request, with the trigger that gets no secrets and a read-only token", () => {
+    expect(guard).toBeDefined();
+    expect(guard!.doc.on).toEqual({ pull_request: null });
+  });
+
+  it("checks out the pull request's whole history without keeping the token", () => {
+    const checkout = steps().find((step) => String(step.uses).startsWith("actions/checkout@"));
+    expect(checkout?.with).toEqual({ "persist-credentials": false, "fetch-depth": 0, ref: "${{ github.event.pull_request.head.sha }}" });
+  });
+
+  it("runs main's copy of the guard with node, reading the bot login from a repository variable", () => {
+    const step = steps().find((s) => typeof s.run === "string")!;
+    expect((step.env as Yaml).CMS_BOT_LOGIN).toBe("${{ vars.CMS_BOT_LOGIN }}");
+    expect(step.run).toContain("git show origin/main:scripts/cms-guard.mjs");
+    expect(step.run).toMatch(/node "\$RUNNER_TEMP\/cms-guard\.mjs"\s*$/);
+    // Nothing from the pull request is installed or run: no npm, no setup step.
+    expect(steps().map((s) => String(s.uses ?? "").split("@")[0])).toEqual(["actions/checkout", ""]);
+    expect(step.run).not.toMatch(/\bnpm\b|\bnpx\b/);
+    // Values from the pull request reach the script only through env, never inline in the script.
+    expect(step.run).not.toContain("${{");
+  });
+});

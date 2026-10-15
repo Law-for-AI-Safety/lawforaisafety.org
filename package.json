@@ -19,6 +19,7 @@
     "check-all": "node scripts/check-all.mjs",
     "content:check": "node --import tsx scripts/content.ts check",
     "content:format": "node --import tsx scripts/content.ts format",
+    "cms:guard": "node scripts/cms-guard.mjs",
     "lighthouse": "bash scripts/lighthouse.sh dev",
     "lighthouse:build": "bash scripts/lighthouse.sh build",
     "db:generate": "drizzle-kit generate",

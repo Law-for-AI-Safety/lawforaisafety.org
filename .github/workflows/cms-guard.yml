@@ -1,0 +1,48 @@
+name: CMS guard
+
+# The website editor publishes through a GitHub App. This fails a pull request in which the
+# App's bot account changes anything outside content/, or which the bot opened from a branch
+# outside cms/. Maintainers' commits are not restricted. See scripts/cms-guard.mjs and
+# github-app-setup.md.
+#
+# `pull_request`, never `pull_request_target`: the job gets a read-only token and no secrets.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cms-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The whole history, so the pull request's commits can be listed against its base.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check what the CMS app changed
+        env:
+          # The App's bot login, e.g. `my-app[bot]`. Unset fails the guard (it fails closed).
+          CMS_BOT_LOGIN: ${{ vars.CMS_BOT_LOGIN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # The guard is main's copy, so a pull request cannot rewrite the check that judges it;
+        # the pull request's own copy is used only until the guard first reaches main. It is
+        # run with node directly, not `npm run`, because the pull request's package.json could
+        # redefine an npm script. Nothing from the pull request is installed or executed.
+        run: |
+          if git cat-file -e origin/main:scripts/cms-guard.mjs 2>/dev/null; then
+            git show origin/main:scripts/cms-guard.mjs > "$RUNNER_TEMP/cms-guard.mjs"
+          else
+            cp scripts/cms-guard.mjs "$RUNNER_TEMP/cms-guard.mjs"
+          fi
+          node "$RUNNER_TEMP/cms-guard.mjs"
