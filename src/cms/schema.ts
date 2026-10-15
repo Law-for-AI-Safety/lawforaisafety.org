@@ -37,6 +37,9 @@ function plainText(mode: Mode, max: number) {
 
 /** `inline`: exactly one paragraph. `blocks`: paragraphs and bullet lists. */
 function richText(mode: Mode, kind: "inline" | "blocks", max: number) {
+  // A draft keeps any string here, so an unfinished or unsafe one is saved rather than lost.
+  // Whether it is valid comes from the strict mode, which parses it (link targets included):
+  // the save marks the draft invalid, the preview will not render it, and publishing refuses it.
   if (mode === "draft") return z.string().max(max, `At most ${max} characters`);
   const strict = z
     .string()

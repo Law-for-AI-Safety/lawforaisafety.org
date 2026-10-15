@@ -23,7 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
   signup_toggle: "Changed public signup",
   red_lines_toggle: "Changed Red Lines applications",
   cms_role_change: "Changed a website editor's access",
-  cms_draft_save: "Saved a page draft",
+  cms_draft_save: "Edited a page draft",
   cms_draft_discard: "Discarded a page draft",
   cms_publish: "Tried to publish a page",
 };

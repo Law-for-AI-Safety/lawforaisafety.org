@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { render, screen, within } from "@testing-library/react";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { adminAuditLog, cmsDrafts, cmsRoles } from "@/drizzle/schema";
@@ -14,6 +14,7 @@ import CmsEditPage from "./[slug]/page";
 import CmsPreviewPage from "../preview/[slug]/page";
 import AdminSettingsPage from "../settings/page";
 import { setCmsRole } from "../settings/cms-actions";
+import ProtectedAdminLayout from "../(protected)/layout";
 
 vi.mock("next/headers", () => import("../../../../test/next-headers"));
 
@@ -313,6 +314,15 @@ describe("the preview", () => {
     expect(screen.getByRole("note")).toHaveTextContent("Preview of the draft.");
   });
 
+  it("shows the page's form, but disabled, so nothing can be submitted from a preview", async () => {
+    await signInAs("draft");
+    render(await CmsPreviewPage({ params: Promise.resolve({ slug: SLUG }) }));
+    expect(screen.getByText("Preview: form disabled")).toBeInTheDocument();
+    const controls = [...document.querySelectorAll<HTMLButtonElement>('form button[type="submit"]')];
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) expect(control).toBeDisabled();
+  });
+
   it("renders the live page when there is no draft", async () => {
     await signInAs("draft");
     render(await CmsPreviewPage({ params: Promise.resolve({ slug: SLUG }) }));
@@ -331,6 +341,111 @@ describe("the preview", () => {
     await signInAs("draft");
     await expect(CmsPreviewPage({ params: Promise.resolve({ slug: "no-such-page" }) })).rejects.toThrow("NEXT_NOT_FOUND");
     await expect(CmsEditPage({ params: Promise.resolve({ slug: "no-such-page" }) })).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+});
+
+describe("the audit log", () => {
+  const draftEdits = () => db.select().from(adminAuditLog).where(eq(adminAuditLog.action, "cms_draft_save"));
+
+  it("keeps one row per person and page for autosaves within 30 minutes, with a count", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    await signInAs("draft");
+    let version = 0;
+    for (const title of ["A", "AB", "ABC"]) {
+      const result = await saveDraft(SLUG, edited(title), version);
+      if (!result.ok) throw new Error(result.message);
+      version = result.version;
+      vi.setSystemTime(Date.now() + 10 * 60 * 1000);
+    }
+    let rows = await draftEdits();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ actorEmail: EMAIL.draft, detail: { page: SLUG, version: 3, valid: true, count: 3 } });
+    const lastAt = rows[0].at.getTime();
+    expect(lastAt).toBe(Date.now() - 10 * 60 * 1000);
+
+    // Another person on the same page gets their own row.
+    await signInAs("publish");
+    const theirs = await saveDraft(SLUG, edited("Theirs"), version);
+    if (!theirs.ok) throw new Error(theirs.message);
+    version = theirs.version;
+    expect(await draftEdits()).toHaveLength(2);
+
+    // After a 30-minute pause, a new row starts.
+    vi.setSystemTime(Date.now() + 31 * 60 * 1000);
+    await signInAs("draft");
+    await saveDraft(SLUG, edited("Later"), version);
+    rows = await draftEdits();
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((r) => r.actorEmail === EMAIL.draft).map((r) => (r.detail as { count: number }).count).sort()).toEqual([1, 3]);
+  });
+
+  it("gives discards, publishes and role changes a row each", async () => {
+    await signInAs("superadmin");
+    const saved = await saveDraft(SLUG, edited(), 0);
+    const version = saved.ok ? saved.version : 0;
+    await publishDraft(SLUG, version);
+    await publishDraft(SLUG, version);
+    await discardDraft(SLUG, version);
+    await setCmsRole(EMAIL["no role"], "draft");
+    await setCmsRole(EMAIL["no role"], "none");
+    const actions = (await db.select().from(adminAuditLog)).map((r) => r.action).sort();
+    expect(actions).toEqual(["cms_draft_discard", "cms_draft_save", "cms_publish", "cms_publish", "cms_role_change", "cms_role_change"]);
+  });
+});
+
+describe("a draft holding an unsafe link", () => {
+  const unsafe = () => ({ ...edited(), blocks: [{ ...file.blocks[0], lede: "Click [here](javascript:alert)" }, ...file.blocks.slice(1)] });
+
+  it("is saved but marked invalid, with the link reported", async () => {
+    await signInAs("draft");
+    const result = await saveDraft(SLUG, unsafe(), 0);
+    expect(result).toMatchObject({ ok: true, valid: false });
+    expect(result.ok && result.problems).toContainEqual({ path: ["blocks", 0, "lede"], message: expect.stringMatching(/^Only https:, mailto: and site links/) });
+    expect(await draftRow()).toMatchObject({ valid: false });
+  });
+
+  it("is read strictly by the editor, the preview and publishing", async () => {
+    const version = await seedDraft(unsafe());
+
+    await signInAs("publish");
+    const { unmount } = render(await CmsEditPage({ params: Promise.resolve({ slug: SLUG }) }));
+    expect(screen.getByDisplayValue("Click [here](javascript:alert)").tagName).toBe("TEXTAREA");
+    expect(document.querySelector('a[href^="javascript"]')).toBeNull();
+    unmount();
+
+    const preview = render(await CmsPreviewPage({ params: Promise.resolve({ slug: SLUG }) }));
+    expect(screen.getByRole("heading", { name: "This draft is not finished" })).toBeInTheDocument();
+    expect(document.querySelector('a[href^="javascript"]')).toBeNull();
+    preview.unmount();
+
+    expect(await publishDraft(SLUG, version)).toMatchObject({ ok: false, reason: "checks" });
+  });
+});
+
+describe("the admin header", () => {
+  it("links to the website pages for editors only", async () => {
+    await signInAs("draft");
+    const { unmount } = render(await ProtectedAdminLayout({ children: <p>body</p> }));
+    expect(screen.getByRole("link", { name: "Website pages" })).toHaveAttribute("href", "/admin/cms");
+    unmount();
+    await signInAs("no role");
+    render(await ProtectedAdminLayout({ children: <p>body</p> }));
+    expect(screen.queryByRole("link", { name: "Website pages" })).toBeNull();
+  });
+
+  it("still works, without the link, when CMS access cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await signInAs("superadmin");
+    await db.execute(sql`ALTER TABLE cms_roles RENAME TO cms_roles_unavailable`);
+    try {
+      render(await ProtectedAdminLayout({ children: <p>body</p> }));
+    } finally {
+      await db.execute(sql`ALTER TABLE cms_roles_unavailable RENAME TO cms_roles`);
+    }
+    expect(screen.getByText("body")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Website pages" })).toBeNull();
+    expect(console.error).toHaveBeenCalledWith("[admin] Could not read CMS access for the nav", expect.any(Error));
   });
 });
 
@@ -384,6 +499,32 @@ describe("managing who may edit", () => {
     expect(screen.getByLabelText("Website editing for none")).toHaveValue("none");
     expect(screen.queryByLabelText("Website editing for tech")).toBeNull();
     expect(screen.getByText("Technical admin: full access")).toBeInTheDocument();
+  });
+
+  it("shows a role held by someone no longer an admin as inactive, so it can be removed", async () => {
+    // stranger@ is in admin_people with a stored publish role, but not in ADMIN_EMAILS.
+    await setStoredCmsPermission("gone@example.com", "draft", "seed");
+    await signInAs("superadmin");
+    render(await AdminSettingsPage({ searchParams: Promise.resolve({}) }));
+    const inactive = screen.getAllByText(/^Inactive \(not an admin\)/);
+    expect(inactive).toHaveLength(2);
+    expect(screen.getByLabelText("Website editing for stranger")).toHaveValue("publish");
+    expect(screen.getByLabelText("Website editing for gone@example.com")).toHaveValue("draft");
+
+    // The access check already refuses them.
+    await signInAs("not in ADMIN_EMAILS");
+    expect(await saveDraft(SLUG, edited(), 0)).toMatchObject({ ok: false, reason: "signed_out" });
+
+    await signInAs("superadmin");
+    expect(await setCmsRole("gone@example.com", "none")).toEqual({ ok: true });
+    expect(await setCmsRole("gone@example.com", "draft")).toMatchObject({ ok: false });
+    expect(await db.select().from(cmsRoles).where(eq(cmsRoles.email, "gone@example.com"))).toEqual([]);
+  });
+
+  it("notes someone who logged in once but is no longer an admin and holds no role", async () => {
+    await setStoredCmsPermission(EMAIL["not in ADMIN_EMAILS"], null, "seed");
+    await signInAs("superadmin");
+    render(await AdminSettingsPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Not in ADMIN_EMAILS, so cannot log in.")).toBeInTheDocument();
   });
 });

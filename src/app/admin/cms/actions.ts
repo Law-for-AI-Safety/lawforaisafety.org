@@ -5,6 +5,7 @@ import { contentHash } from "@/cms/content-files";
 import { isValidDraft, pageState, parseDraft, type PageState } from "@/cms/drafts";
 import type { Problem } from "@/cms/publish-checks";
 import { recordAdminAction } from "@/lib/audit-log";
+import { recordDraftEdit } from "@/lib/cms-audit";
 import { requireCms } from "@/lib/cms-access";
 import { checkPage, loadCmsPage } from "@/lib/cms-pages";
 import { deleteDraft, writeDraft } from "@/lib/cms-store";
@@ -57,7 +58,7 @@ export async function saveDraft(slug: unknown, content: unknown, version: unknow
   );
   if (saved === null) return { ok: false, reason: "conflict", message: CONFLICT };
 
-  await recordAdminAction({ actorEmail: actor.email, action: "cms_draft_save", detail: { page, version: saved, valid } });
+  await recordDraftEdit({ actorEmail: actor.email, page, version: saved, valid });
   return {
     ok: true,
     version: saved,

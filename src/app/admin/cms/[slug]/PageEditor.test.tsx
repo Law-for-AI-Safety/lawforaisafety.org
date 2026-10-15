@@ -96,6 +96,22 @@ describe("autosave", () => {
   });
 });
 
+describe("text the editor cannot read", () => {
+  it("is kept as stored when another field changes", async () => {
+    const server = fakeServer();
+    const content = structuredClone(file);
+    content.blocks[0].lede = "Unsafe [x](javascript:alert)";
+    renderEditor(server, { initialContent: content });
+    expect(screen.getByDisplayValue("Unsafe [x](javascript:alert)")).toBeInTheDocument();
+
+    fireEvent.change(title(), { target: { value: "New title" } });
+    await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 3000 });
+    const saved = server.saves[0].content as typeof file;
+    expect(saved.title).toBe("New title");
+    expect(saved.blocks[0].lede).toBe("Unsafe [x](javascript:alert)");
+  });
+});
+
 describe("blocks", () => {
   it("adds only allowed blocks, moves and removes them, but never the page heading", async () => {
     const server = renderEditor();
@@ -154,6 +170,12 @@ describe("fields", () => {
     fireEvent.change(image, { target: { value: "" } });
     await waitFor(() => expect(server.saves.length).toBeGreaterThan(0), { timeout: 3000 });
     expect(server.saves.at(-1)!.content).not.toHaveProperty("shareImage");
+  });
+
+  it("never uses a draft's image value as an image source unless it is a site image path", () => {
+    renderEditor(fakeServer(), { initialContent: { ...structuredClone(file), shareImage: "https://evil.example/x.png" } });
+    expect(screen.getByLabelText("Share image (optional)")).toHaveValue("https://evil.example/x.png");
+    expect(document.querySelector("img")).toBeNull();
   });
 
   it("switches the application form off", async () => {

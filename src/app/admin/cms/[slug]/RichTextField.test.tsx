@@ -94,8 +94,6 @@ describe("RichTextField", () => {
     view.rerender(<RichTextField label="Text" value="*second*" kind="blocks" onChange={onChange} />);
     expect(screen.getByRole("textbox").querySelector("em")).toHaveTextContent("second");
     expect(onChange).not.toHaveBeenCalled();
-    view.rerender(<RichTextField label="Text" value="<b>not rich text</b>" kind="blocks" onChange={onChange} />);
-    expect(screen.getByRole("textbox").querySelector("em")).toHaveTextContent("second");
   });
 
   it("does not report a change that leaves the string as it was", async () => {
@@ -112,9 +110,30 @@ describe("RichTextField", () => {
     expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("says so instead of editing text it cannot read", () => {
-    render(<RichTextField label="Text" value="<b>x</b>" kind="blocks" onChange={() => {}} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("This text cannot be shown in the editor.");
-    expect(screen.queryByRole("textbox")).toBeNull();
+  it("shows text it cannot read as raw text with the reason, for correcting", async () => {
+    const onChange = vi.fn();
+    const view = render(<RichTextField label="Text" value="See [x](javascript:alert)" kind="blocks" onChange={onChange} />);
+    const raw = screen.getByRole("textbox", { name: "Text" });
+    expect(raw.tagName).toBe("TEXTAREA");
+    expect(raw).toHaveValue("See [x](javascript:alert)");
+    expect(raw).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("Only https:, mailto: and site links");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    fireEvent.change(raw, { target: { value: "See [x](/field-building)" } });
+    expect(onChange).toHaveBeenLastCalledWith("See [x](/field-building)");
+
+    view.rerender(<RichTextField label="Text" value="See [x](/field-building)" kind="blocks" onChange={onChange} />);
+    await screen.findByRole("toolbar");
+    expect(screen.getByRole("textbox", { name: "Text" }).querySelector("a")).toHaveTextContent("x");
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches to raw text, without changing it, when an unreadable value arrives from outside", async () => {
+    const { onChange, view } = await renderField("first");
+    view.rerender(<RichTextField label="Text" value="<b>moved in</b>" kind="blocks" onChange={onChange} />);
+    expect(screen.getByRole("textbox", { name: "Text" })).toHaveValue("<b>moved in</b>");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

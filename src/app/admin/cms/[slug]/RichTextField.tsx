@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { editorDocToString, richTextToEditorDoc, type PMNode } from "@/cms/editor-doc";
 import { cmsEditorOptions, type RichTextKind } from "@/cms/editor-extensions";
 import { cleanHref, hrefProblem, parseRichTextLoose } from "@/cms/rich-text";
 import styles from "./editor.module.css";
 
-function toDoc(value: string): PMNode | null {
+/** The editor document for a stored string, or why the string cannot be read as rich text. */
+function readValue(value: string): { doc: PMNode; problem: null } | { doc: null; problem: string } {
   try {
-    return richTextToEditorDoc(parseRichTextLoose(value));
-  } catch {
-    return null;
+    return { doc: richTextToEditorDoc(parseRichTextLoose(value)), problem: null };
+  } catch (e) {
+    return { doc: null, problem: (e as Error).message };
   }
 }
+
+const toDoc = (value: string) => readValue(value).doc;
 
 function LinkForm({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const [href, setHref] = useState(() => String(editor.getAttributes("link").href ?? ""));
@@ -133,6 +136,10 @@ function Toolbar({ editor, kind }: { editor: Editor; kind: RichTextKind }) {
  * A rich-text field: the toolbar editor, holding the field's content-file string. Every change
  * is converted back to the string and passed to `onChange`. A value that changes from outside
  * (a block moved, say) replaces the editor's content.
+ *
+ * A stored string that cannot be read as rich text (a hand edit, or an unsafe link) is never
+ * replaced: the field shows it as raw text with the reason, to be corrected there, and the
+ * toolbar editor comes back once it reads correctly.
  */
 export default function RichTextField({
   label,
@@ -154,7 +161,7 @@ export default function RichTextField({
   useEffect(() => {
     onChangeRef.current = onChange;
   });
-  const [unreadable] = useState(() => toDoc(value) === null);
+  const read = useMemo(() => readValue(value), [value]);
   const [error, setError] = useState<string | null>(null);
 
   const editor = useEditor({
@@ -199,10 +206,21 @@ export default function RichTextField({
       <span id={labelId} className="text-sm text-brand-black/80">
         {label}
       </span>
-      {unreadable ? (
-        <p role="alert" className="text-sm text-brand-red">
-          This text cannot be shown in the editor. Ask a technical admin to fix it in the page&apos;s file.
-        </p>
+      {read.problem !== null ? (
+        <>
+          <textarea
+            aria-labelledby={labelId}
+            aria-invalid="true"
+            value={value}
+            rows={4}
+            onChange={(e) => onChangeRef.current(e.target.value)}
+            className="rounded-sm border border-brand-red bg-brand-white px-2 py-1 font-mono text-sm"
+          />
+          <p role="alert" className="text-sm text-brand-red">
+            This text cannot be shown with formatting: {read.problem}. Correct it above; the formatting
+            toolbar comes back once it reads correctly.
+          </p>
+        </>
       ) : (
         <div className={`rounded-sm border bg-brand-white ${invalid ? "border-brand-red" : "border-brand-black/30"}`}>
           {editor ? <Toolbar editor={editor} kind={kind} /> : <div className="p-2 text-sm text-brand-black/60">Loading editor…</div>}

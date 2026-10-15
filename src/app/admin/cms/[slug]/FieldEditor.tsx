@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { newItem, type FieldSpec } from "@/cms/fields";
+import { IMAGE_PATH } from "@/cms/schema";
 import RichTextField from "./RichTextField";
 
 export type Path = (string | number)[];
@@ -80,9 +81,10 @@ function ImageField({ spec, value, path, ctx }: { spec: Extract<FieldSpec, { kin
             </option>
           ))}
         </select>
-        {/* The admin pages load nothing from outside the site; these are the site's own images. */}
+        {/* Only a value of the image-field form (a file under /images/) is shown; a draft may hold
+            any string, and that is never used as an image source. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {current && <img src={current} alt="" className="h-16 w-16 rounded-sm object-cover" />}
+        {IMAGE_PATH.test(current) && <img src={current} alt="" className="h-16 w-16 rounded-sm object-cover" />}
       </div>
       <Problems messages={ctx.problems.get(key(path))} />
     </div>

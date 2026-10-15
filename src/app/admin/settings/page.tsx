@@ -80,8 +80,13 @@ export default async function AdminSettingsPage({
   const redLinesEnabled = redLinesFlag?.enabled ?? false;
   const logins = await getAdminLogins();
   const pinned = pinnedAdminSubs();
-  const people = await listPeople();
   const cmsRoles = new Map((await listCmsRoles()).map((r) => [r.email, r.permission]));
+  // Everyone who has logged in, plus anyone holding a CMS role who has not (so it can be removed).
+  const known = await listPeople();
+  const people = [
+    ...known,
+    ...[...cmsRoles.keys()].filter((email) => !known.some((p) => p.email === email)).map((email) => ({ email, name: email })),
+  ];
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8">
@@ -216,11 +221,16 @@ export default async function AdminSettingsPage({
                 <div className="flex flex-col">
                   <span className="text-brand-black">{person.name}</span>
                   <span className="break-all text-sm text-brand-black/60">{person.email}</span>
-                  {!isAdminEmailAllowed(person.email) && (
-                    <span className="text-sm text-brand-black/60">
-                      Not in ADMIN_EMAILS, so cannot log in.
-                    </span>
-                  )}
+                  {!isAdminEmailAllowed(person.email) &&
+                    (cmsRoles.has(person.email) ? (
+                      <span className="text-sm text-brand-red">
+                        Inactive (not an admin): this access has no effect until they are in ADMIN_EMAILS.
+                      </span>
+                    ) : (
+                      <span className="text-sm text-brand-black/60">
+                        Not in ADMIN_EMAILS, so cannot log in.
+                      </span>
+                    ))}
                 </div>
                 {isTechAdminEmail(person.email) ? (
                   <span className="text-sm text-brand-black/70">Technical admin: full access</span>

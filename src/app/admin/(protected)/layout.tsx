@@ -13,7 +13,12 @@ export default async function ProtectedAdminLayout({
   if (!session) {
     redirect("/admin/login");
   }
-  const cms = await getCmsActor();
+  // Only decides whether to show the CMS link: a failure (say, cms_roles not migrated yet)
+  // hides the link and leaves the rest of the admin working.
+  const cms = await getCmsActor().catch((err) => {
+    console.error("[admin] Could not read CMS access for the nav", err);
+    return null;
+  });
 
   return (
     <div className="flex h-dvh flex-col">

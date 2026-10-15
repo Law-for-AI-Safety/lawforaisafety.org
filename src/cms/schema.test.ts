@@ -248,6 +248,12 @@ describe("draft mode", () => {
     ]);
   });
 
+  it("keeps an image path that is not one, which only makes the draft invalid", () => {
+    const value = page([hero], { shareImage: "javascript:alert(1)" });
+    expect(pageSchema("x", "draft").safeParse(value).success).toBe(true);
+    expect(problems(pageSchema("x").safeParse(value))).toEqual(["shareImage: Pick an image from /images/"]);
+  });
+
   it("does not apply page rules", () => {
     const value = page([{ type: "quoteBand", quote: "" }, hero, hero]);
     expect(pageSchema("field-building", "draft").safeParse(value).success).toBe(true);

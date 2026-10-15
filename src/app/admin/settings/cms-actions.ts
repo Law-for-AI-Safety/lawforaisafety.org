@@ -21,7 +21,8 @@ export async function setCmsRole(email: unknown, permission: unknown): Promise<S
   if (!args.success) return { ok: false, message: "The request was not understood." };
   const [target, chosen] = args.data;
 
-  if ((await getPersonName(target)) === null) {
+  // Access can be removed from anyone, but given only to someone who has logged in.
+  if (chosen !== "none" && (await getPersonName(target)) === null) {
     return { ok: false, message: "Only people who have signed in to the admin can be given access." };
   }
   const previous = (await getStoredCmsPermission(target)) ?? "none";
