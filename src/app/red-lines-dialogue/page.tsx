@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Nav from "../Nav";
 import Footer from "../Footer";
-import { isRedLinesApplicationsEnabled } from "@/lib/feature-flags";
 import RedLinesApplyForm from "./ApplyForm";
 import RedLinesApplyToast from "./ApplyToast";
 import RedLinesErrorBanner from "./ErrorBanner";
@@ -96,13 +95,13 @@ const partners = [
   "Law for AI Safety Institute (LASI)",
 ];
 
-// Applications are toggled at runtime from the admin panel, so this page has
-// to render per request rather than being prerendered at build time.
-export const dynamic = "force-dynamic";
+// Whether this page shows the application form or the "not open right now"
+// message. The page is prerendered, so this is fixed at build time and changed
+// by a code (later a content) change. The admin Red Lines toggle is an
+// emergency stop enforced by the submit routes; it does not hide the form.
+const APPLICATIONS_OPEN = true;
 
-export default async function RedLinesDialoguePage() {
-  const applicationsEnabled = await isRedLinesApplicationsEnabled();
-
+export default function RedLinesDialoguePage() {
   return (
     <main className="flex flex-col font-sans">
       <Nav />
@@ -315,7 +314,7 @@ export default async function RedLinesDialoguePage() {
             in this application as soon as possible.
           </p>
 
-          {applicationsEnabled ? (
+          {APPLICATIONS_OPEN ? (
             <>
               <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">
                 Applying takes about five minutes. Everything is kept in your
