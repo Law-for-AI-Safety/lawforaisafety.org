@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireCms } from "@/lib/cms-access";
 import { listCmsPages } from "@/lib/cms-pages";
+import { pagePath } from "@/cms/pages";
 import NoCmsAccess from "./NoCmsAccess";
 import PageStateBadge from "./PageStateBadge";
 
@@ -35,7 +36,7 @@ export default async function CmsPagesPage() {
               <Link href={`/admin/cms/${page.slug}`} className="text-lg text-brand-black underline">
                 {page.title}
               </Link>
-              <span className="text-sm text-brand-black/60">/{page.slug}</span>
+              <span className="text-sm text-brand-black/60">{pagePath(page.slug)}</span>
               {page.draft && (
                 <span className="text-sm text-brand-black/60">
                   Last edited by {page.draft.authorEmail} on{" "}

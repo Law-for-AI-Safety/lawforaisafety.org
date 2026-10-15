@@ -58,6 +58,10 @@ describe("the content directory", () => {
   it("passes the full check", () => {
     expect(checkContent(real)).toEqual([]);
   });
+
+  it("and the test page in test/fixtures/content passes it too", () => {
+    expect(checkContent({ ...real, contentDir: path.resolve("test/fixtures/content") })).toEqual([]);
+  });
 });
 
 describe("with a scratch directory", () => {
@@ -177,6 +181,52 @@ describe("with a scratch directory", () => {
   it("accepts a share image that exists", () => {
     write("field-building", printContent(withImage(valid, "/images/team-group.webp")));
     expect(checkContent(dirs)).toEqual([]);
+  });
+
+  it("leaves files starting with _ out of the pages", () => {
+    write("a", "{}");
+    write("_redirects", "{}");
+    expect(contentSlugs(dirs.contentDir)).toEqual(["a"]);
+  });
+
+  it("reports a page whose address is reserved or malformed", () => {
+    const page = printContent({ ...valid, blocks: [valid.blocks[0]] });
+    write("apply", page);
+    write("Bad-Name", page);
+    expect(checkContent(dirs)).toEqual([
+      'content/Bad-Name.json: The page address "Bad-Name" may use only lowercase letters, digits and single hyphens between them',
+      'content/apply.json: The page address "/apply" is already used by the site',
+    ]);
+  });
+
+  describe("the redirects file", () => {
+    const redirects = (text: string) => fs.writeFileSync(path.join(dirs.contentDir, "_redirects.json"), text);
+    const canonical = (list: { from: string; to: string }[]) => `${JSON.stringify({ redirects: list }, null, 2)}\n`;
+
+    it("passes when valid and canonical", () => {
+      write("field-building", printContent(valid));
+      redirects(canonical([{ from: "/old-name", to: "/field-building" }]));
+      expect(checkContent(dirs)).toEqual([]);
+    });
+
+    it("reports broken rules, using the content pages as the real pages", () => {
+      write("field-building", printContent(valid));
+      redirects(canonical([{ from: "/field-building", to: "/nowhere" }]));
+      expect(checkContent(dirs)).toEqual([
+        "content/_redirects.json: /field-building → /nowhere: /field-building is reserved by the site and cannot be redirected",
+        "content/_redirects.json: /field-building → /nowhere: /nowhere is not a page on this site",
+      ]);
+    });
+
+    it("reports a file that is not JSON, and one not in canonical form, which content:format fixes", () => {
+      redirects("{");
+      expect(checkContent(dirs)).toEqual([expect.stringMatching(/^content\/_redirects\.json is not valid JSON/)]);
+      redirects('{"redirects":[{"from":"/a","to":"https://example.org"}]}');
+      expect(checkContent(dirs)).toEqual(["content/_redirects.json is not in canonical form; run npm run content:format"]);
+      expect(formatContentFiles(dirs.contentDir)).toEqual(["_redirects"]);
+      expect(checkContent(dirs)).toEqual([]);
+      expect(formatContentFiles(dirs.contentDir)).toEqual([]);
+    });
   });
 
   it("refuses to format a file it cannot make valid", () => {

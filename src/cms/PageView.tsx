@@ -6,7 +6,7 @@ import Nav from "../app/Nav";
 import RedLinesApplyToast from "../app/red-lines-dialogue/ApplyToast";
 import { bandTones } from "./bands";
 import Block from "./blocks/Block";
-import { pagePath } from "./pages";
+import { HOME_SLUG, pagePath } from "./pages";
 import type { PageContent } from "./schema";
 
 const SITE_NAME = "Law for AI Safety";
@@ -31,16 +31,22 @@ export default function PageView({ slug, page }: { slug: string; page: PageConte
   );
 }
 
-/** The page's title, description, canonical URL and, when one is picked, its share image. */
+/**
+ * The page's title, description, canonical URL and share image. Titles get the site name
+ * added, except the homepage's, which is the site name. The share image is the one picked
+ * for the page, or else a card made from its title (`src/app/og-assets/[slug]`); the
+ * homepage keeps the site's own card.
+ */
 export function pageMetadata(slug: string, page: PageContent): Metadata {
+  const image = page.shareImage ?? (slug === HOME_SLUG ? undefined : `/og-assets/${slug}`);
   return {
-    title: `${page.title} | ${SITE_NAME}`,
+    title: slug === HOME_SLUG ? { absolute: page.title } : `${page.title} | ${SITE_NAME}`,
     description: page.description,
     alternates: { canonical: pagePath(slug) },
-    ...(page.shareImage
+    ...(image
       ? {
-          openGraph: { images: [page.shareImage] },
-          twitter: { card: "summary_large_image", images: [page.shareImage] },
+          openGraph: { images: [{ url: image, alt: page.title }] },
+          twitter: { card: "summary_large_image", images: [{ url: image, alt: page.title }] },
         }
       : {}),
   };

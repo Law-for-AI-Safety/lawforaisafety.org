@@ -45,9 +45,12 @@ export function pageRules(slug: string): PageRules {
   return Object.hasOwn(PAGE_RULES, slug) ? PAGE_RULES[slug] : DEFAULT_RULES;
 }
 
+/** The homepage's content file is `content/home.json`; it is served at `/`, never `/home`. */
+export const HOME_SLUG = "home";
+
 /** The site path a content page is served at. */
 export function pagePath(slug: string): string {
-  return `/${slug}`;
+  return slug === HOME_SLUG ? "/" : `/${slug}`;
 }
 
 /**

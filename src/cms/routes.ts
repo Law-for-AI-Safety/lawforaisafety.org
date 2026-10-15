@@ -13,6 +13,12 @@ export type Route = string[];
 const PAGE_FILE = /^page\.(tsx|ts|jsx|js|mdx)$/;
 /** Site areas content never links into. */
 const NOT_LINKABLE = new Set(["admin", "api"]);
+/**
+ * The folder of the route that serves content pages without a route of their own. Its
+ * dynamic segment would match any path, so it is left out here; the content pages it
+ * serves are listed from `content/` instead.
+ */
+export const CONTENT_ROUTE_DIR = "[slug]";
 
 /** Every page route under an App Router directory. */
 export function appRoutes(appDir: string): Route[] {
@@ -24,6 +30,7 @@ export function appRoutes(appDir: string): Route[] {
       const name = entry.name;
       // Private folders and parallel-route slots hold no URL segment of their own to link to.
       if (name.startsWith("_") || name.startsWith("@")) continue;
+      if (segments.length === 0 && name === CONTENT_ROUTE_DIR) continue;
       // Route groups shape layouts, not URLs.
       const next = /^\(.*\)$/.test(name) ? segments : [...segments, name];
       if (next.length === 1 && NOT_LINKABLE.has(next[0])) continue;

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { readRedirects } from "./src/cms/redirects";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -57,6 +58,11 @@ const nextConfig: NextConfig = {
   env: {
     DEPLOY_CONTEXT: process.env.CONTEXT ?? "",
   },
+  // Old page addresses kept working after a page moves (content/_redirects.json). The rules
+  // they follow are checked by `npm run content:check`, in CI.
+  async redirects() {
+    return readRedirects("content").map(({ from, to }) => ({ source: from, destination: to, permanent: true }));
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
@@ -71,6 +77,8 @@ const nextConfig: NextConfig = {
     "/admin/cms": CMS_RUNTIME_FILES,
     "/admin/cms/**": CMS_RUNTIME_FILES,
     "/admin/preview/**": CMS_RUNTIME_FILES,
+    // Prerendered at build time; traced as well in case a page is ever rendered on request.
+    "/[slug]": ["./content/*.json"],
   },
 };
 

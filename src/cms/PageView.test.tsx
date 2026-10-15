@@ -67,18 +67,30 @@ describe("a page with the Red Lines form", () => {
 });
 
 describe("pageMetadata", () => {
-  it("gives the field-building title, description and canonical URL, and no share image of its own", () => {
+  it("gives the field-building title, description, canonical URL and a share card made from its title", () => {
+    const card = [{ url: "/og-assets/field-building", alt: "Field-building and Coordination" }];
     expect(pageMetadata("field-building", fieldBuilding)).toEqual({
       title: "Field-building and Coordination | Law for AI Safety",
       description:
         "Building, coordinating, and mobilising a European legal field dedicated to reducing large-scale risks from AI.",
       alternates: { canonical: "/field-building" },
+      openGraph: { images: card },
+      twitter: { card: "summary_large_image", images: card },
     });
   });
 
   it("uses a picked share image for Open Graph and Twitter", () => {
     const metadata = pageMetadata("field-building", { ...fieldBuilding, shareImage: "/images/team-group.webp" });
-    expect(metadata.openGraph).toEqual({ images: ["/images/team-group.webp"] });
-    expect(metadata.twitter).toEqual({ card: "summary_large_image", images: ["/images/team-group.webp"] });
+    const image = [{ url: "/images/team-group.webp", alt: "Field-building and Coordination" }];
+    expect(metadata.openGraph).toEqual({ images: image });
+    expect(metadata.twitter).toEqual({ card: "summary_large_image", images: image });
+  });
+
+  it("gives the homepage its title as it is, at /, with the site's own share card", () => {
+    expect(pageMetadata("home", { ...fieldBuilding, title: "Law for AI Safety" })).toEqual({
+      title: { absolute: "Law for AI Safety" },
+      description: fieldBuilding.description,
+      alternates: { canonical: "/" },
+    });
   });
 });

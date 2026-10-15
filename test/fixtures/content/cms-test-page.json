@@ -1,0 +1,17 @@
+{
+  "title": "CMS test page",
+  "description": "A page that exists only in test builds, to show a new content page builds statically.",
+  "updatedAt": "2026-10-15",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "CMS test page",
+      "lede": "This page comes from **test/fixtures/content** and is built only when CMS_EXTRA_CONTENT_DIR names that folder."
+    },
+    {
+      "type": "textSection",
+      "heading": "A text section",
+      "body": "It links to [the field-building page](/field-building).\n\n- One point\n- Another point"
+    }
+  ]
+}

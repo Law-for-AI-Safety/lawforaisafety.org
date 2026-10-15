@@ -4,8 +4,10 @@ import path from "node:path";
 import { z } from "zod";
 import { pagePath } from "./pages";
 import { problemPathKey, publishChecks } from "./publish-checks";
+import { parseRedirects, printRedirects, readRedirectsText, redirectProblems, REDIRECTS_FILE } from "./redirects";
 import { siteRoutes, type Route } from "./routes";
 import { IMAGE_PATH, pageSchema } from "./schema";
+import { reservedSlugs, slugProblems } from "./slugs";
 
 /**
  * Reading, formatting and checking the files in `content/`. Used by `npm run content:format`
@@ -23,11 +25,14 @@ export function defaultDirs(root = process.cwd()): Dirs {
   };
 }
 
-/** The slugs of the content files in a directory, sorted. */
+/**
+ * The slugs of the content files in a directory, sorted. Files whose names start with `_`
+ * hold site settings (such as `_redirects.json`), not pages.
+ */
 export function contentSlugs(contentDir: string): string[] {
   return fs
     .readdirSync(contentDir)
-    .filter((name) => name.endsWith(".json"))
+    .filter((name) => name.endsWith(".json") && !name.startsWith("_"))
     .map((name) => name.slice(0, -".json".length))
     .sort();
 }
@@ -113,18 +118,49 @@ export function siteImages(publicDir: string): string[] {
     .sort();
 }
 
-/** Checks every file in the content directory with `checkContentText`. */
+/** Checks the redirects file's text: valid, canonical, and following the rules in `./redirects`. */
+export function checkRedirectsText(text: string, dirs: Dirs, routes: Route[]): string[] {
+  let redirects;
+  try {
+    redirects = parseRedirects(text);
+  } catch (e) {
+    return [(e as Error).message];
+  }
+  if (printRedirects(redirects) !== text) return [`content/${REDIRECTS_FILE} is not in canonical form; run npm run content:format`];
+  return redirectProblems(redirects, { reserved: reservedSlugs(dirs), routes });
+}
+
+/**
+ * Checks the whole content directory: every page with `checkContentText`, every page's
+ * address (`./slugs`), and the redirects.
+ */
 export function checkContent(dirs: Dirs): string[] {
   const slugs = contentSlugs(dirs.contentDir);
   const routes = contentRoutes(dirs, slugs);
-  return slugs.flatMap((slug) =>
-    checkContentText(slug, fs.readFileSync(path.join(dirs.contentDir, `${slug}.json`), "utf8"), dirs.publicDir, routes),
-  );
+  const redirects = readRedirectsText(dirs.contentDir);
+  return [
+    ...slugProblems(slugs, dirs),
+    ...slugs.flatMap((slug) =>
+      checkContentText(slug, fs.readFileSync(path.join(dirs.contentDir, `${slug}.json`), "utf8"), dirs.publicDir, routes),
+    ),
+    ...(redirects === null ? [] : checkRedirectsText(redirects, dirs, routes)),
+  ];
 }
 
-/** Rewrites every content file into canonical form. Returns the slugs whose files changed. */
+/**
+ * Rewrites every content file, and the redirects file, into canonical form. Returns the
+ * names (slugs, or `_redirects`) of the files that changed.
+ */
 export function formatContentFiles(contentDir: string): string[] {
   const changed: string[] = [];
+  const redirects = readRedirectsText(contentDir);
+  if (redirects !== null) {
+    const formatted = printRedirects(parseRedirects(redirects));
+    if (formatted !== redirects) {
+      fs.writeFileSync(path.join(contentDir, REDIRECTS_FILE), formatted);
+      changed.push(REDIRECTS_FILE.slice(0, -".json".length));
+    }
+  }
   for (const slug of contentSlugs(contentDir)) {
     const file = path.join(contentDir, `${slug}.json`);
     const text = fs.readFileSync(file, "utf8");

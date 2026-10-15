@@ -16,6 +16,9 @@ for (const file of [
   "app/page.tsx",
   "app/layout.tsx",
   "app/about/page.tsx",
+  // The content route: its pages come from content/, so it must not match every path.
+  "app/[slug]/page.tsx",
+  "app/info/[slug]/page.tsx",
   "app/(group)/grouped/page.tsx",
   "app/_private/page.tsx",
   "app/@modal/page.tsx",
@@ -39,13 +42,14 @@ const routes = siteRoutes({
 });
 
 describe("appRoutes", () => {
-  it("finds pages, drops groups, and leaves out private folders, slots, admin and api", () => {
+  it("finds pages, drops groups, and leaves out private folders, slots, admin, api and the content route", () => {
     expect(appRoutes(path.join(root, "app")).map((r) => `/${r.join("/")}`).sort()).toEqual([
       "/",
       "/about",
       "/blog/[...slug]",
       "/docs/[locale]",
       "/grouped",
+      "/info/[slug]",
       "/shop/[[...rest]]",
     ]);
   });
