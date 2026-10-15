@@ -96,9 +96,9 @@ export default async function AdminSettingsPage({
             submissions. Reviewing applications is not affected.
           </p>
           <p className="text-brand-black/70">
-            Switching this off is an emergency stop: submissions are refused,
-            but the forms stay visible on the site until a content change
-            hides them.
+            Switching this off is an emergency stop: submissions are refused
+            within a minute, but the forms stay visible on the site until the
+            pages are changed to hide them.
           </p>
         </div>
 
@@ -113,7 +113,7 @@ export default async function AdminSettingsPage({
           >
             {justChanged === "on"
               ? "Done. Signup is now ON: the newsletter and application forms accept submissions."
-              : "Done. Signup is now OFF: the forms' endpoints refuse submissions. The forms stay visible until a content change hides them."}
+              : "Done. Signup is now OFF: within a minute the forms' endpoints refuse submissions. The forms stay visible until the pages are changed to hide them."}
           </p>
         )}
 
@@ -146,9 +146,9 @@ export default async function AdminSettingsPage({
             affected.
           </p>
           <p className="text-brand-black/70">
-            Switching this off is an emergency stop: submissions are refused,
-            but the form stays visible on the page until a content change
-            hides it.
+            Switching this off is an emergency stop: submissions are refused
+            within a minute, but the form stays visible until the page is
+            changed to hide it.
           </p>
         </div>
 
@@ -163,7 +163,7 @@ export default async function AdminSettingsPage({
           >
             {redLinesJustChanged === "on"
               ? "Done. Applications are now ON: the form on /red-lines-dialogue accepts submissions."
-              : "Done. Applications are now OFF: its endpoints refuse submissions. The form stays visible until a content change hides it."}
+              : "Done. Applications are now OFF: within a minute its endpoints refuse submissions. The form stays visible until the page is changed to hide it."}
           </p>
         )}
 

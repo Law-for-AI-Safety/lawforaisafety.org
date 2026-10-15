@@ -16,7 +16,8 @@ export const RED_LINES_FLAG = "red_lines_applications";
 // The public pages are prerendered and never read a flag: whether a page
 // shows its form is fixed in the page itself. The flags are an emergency stop
 // checked by the submit and OAuth routes below, so switching one off refuses
-// submissions while the form stays visible until a content change hides it.
+// submissions while the form stays visible until the page is changed to hide
+// it. With the cache below, the stop reaches every instance within its TTL.
 //
 // Reads are cached in-memory for a short TTL, short enough that an admin
 // toggle (see setFlagEnabled below, which clears this instance's cache
