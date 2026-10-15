@@ -15,5 +15,20 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Throwaway server for DB-backed tests. No durability needed and nothing here
+  # outlives a restart — never point DATABASE_URL at it, only TEST_DATABASE_URL.
+  db-test:
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lawforaisafety_test
+    ports:
+      # Separate port from `db` (TEST_DB_PORT in .env.local), also loopback-only.
+      - "127.0.0.1:${TEST_DB_PORT:-5441}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+
 volumes:
   pgdata:
