@@ -80,7 +80,11 @@ export function blockFields(block: AnyBlock): FieldSpec[] {
         { kind: "plain", key: "caption", label: "Photo caption (optional)", max: 300, optional: true, long: true },
       ];
     case "textSection":
-      return [heading, { kind: "rich", key: "body", label: "Text", max: 6000, rich: "blocks" }];
+      return [
+        { kind: "plain", key: "heading", label: "Heading (optional)", max: 200, optional: true },
+        { kind: "rich", key: "body", label: "Text", max: 6000, rich: "blocks" },
+        photos,
+      ];
     case "cardList":
       return block.style === "bullets" ? [heading, cards] : [cards];
     case "teamGrid":

@@ -113,6 +113,20 @@ describe("Milestones", () => {
   });
 });
 
+describe("TextSection without a heading", () => {
+  it("shows the rule, the text and photos, with no heading", () => {
+    const section = renderBlock({
+      type: "textSection",
+      body: "Workshops.",
+      photos: [{ image: "/images/foi-workshop-audience.webp", alt: "Workshop" }],
+    });
+    expect(section.querySelector("svg")).not.toBeNull();
+    expect(section.querySelector("h2")).toBeNull();
+    expect(section).toHaveTextContent("Workshops.");
+    expect(screen.getByRole("img", { name: "Workshop" })).toBeInTheDocument();
+  });
+});
+
 describe("TextSection", () => {
   it("shows a heading over paragraphs and lists", () => {
     const section = renderBlock({ type: "textSection", heading: "Who is working on it?", body: "First.\n\n- a\n- b" }, "tint");

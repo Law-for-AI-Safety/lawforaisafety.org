@@ -1,0 +1,28 @@
+{
+  "title": "Council of Europe Engagement",
+  "description": "Building a strategy for AI safety training for judges and a conference at the Council of Europe, with Dr. Anca Radu.",
+  "updatedAt": "2026-10-15",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "Council of Europe Engagement",
+      "lede": "Building a strategy for ==AI safety training for judges==, and a conference at the Council of Europe that results in a concrete output."
+    },
+    {
+      "type": "quoteBand",
+      "quote": "How can Europe’s judicial institutions prepare for AI risk, not just AI cases?"
+    },
+    {
+      "type": "textSection",
+      "body": "We are working with Dr. [Anca Radu](https://www.linkedin.com/in/raduanca/), an expert in the fields of AI × judicial systems, cyberjustice, and the Council of Europe, to produce a strategy for engagement with the Council of Europe.\n\n**Our ambition:**\n\n- Provide AI safety training for judges from the European Court of Human Rights.\n- Organise a conference at the Council of Europe that results in a concrete output."
+    },
+    {
+      "type": "applicationSection",
+      "form": "apply",
+      "heading": "Help us make this happen",
+      "intro": "These opportunities for AI risk reduction carry substantial costs. That is why we are seeking funding and partners who want to collaborate with us on this workstream.",
+      "showForm": true,
+      "closedMessage": "Applications aren't open right now. Email [info@lawforaisafety.org](mailto:info@lawforaisafety.org) to register your interest."
+    }
+  ]
+}

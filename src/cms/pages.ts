@@ -41,7 +41,16 @@ export const DEFAULT_RULES: PageRules = {
   forms: [],
 };
 
+/** A page with the general apply form: every block, and one application section. */
+const APPLY_PAGE: PageRules = {
+  blocks: { ...DEFAULT_RULES.blocks, applicationSection: 1 },
+  forms: ["apply"],
+};
+
 export const PAGE_RULES: Record<string, PageRules> = {
+  "council-of-europe": APPLY_PAGE,
+  "freedom-of-information": APPLY_PAGE,
+  "mep-outreach": APPLY_PAGE,
   home: {
     blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 1, timeline: 1, milestones: 1, applicationSection: 1 },
     forms: ["apply"],

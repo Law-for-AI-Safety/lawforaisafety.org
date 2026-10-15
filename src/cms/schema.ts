@@ -161,7 +161,8 @@ export function blockSchema(mode: Mode) {
       "A caption needs a photo",
       "caption",
     ),
-    z.strictObject({ type: z.literal("textSection"), heading: plain(), body: blocks() }),
+    // The heading may be left out, for a section that continues the one before.
+    z.strictObject({ type: z.literal("textSection"), heading: plain().optional(), body: blocks(), photos }),
     z.discriminatedUnion("style", [
       // Numbered sections with no heading of their own.
       z.strictObject({ type: z.literal("cardList"), style: z.literal("numbered"), items: cards }),
