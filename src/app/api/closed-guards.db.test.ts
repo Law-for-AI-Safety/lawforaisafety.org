@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { rateLimitHits } from "@/drizzle/schema";
+import { FORM_RENDERED_AT_FIELD_NAME } from "@/lib/abuse-protection";
 import { setRedLinesApplicationsEnabled, setSignupEnabled } from "@/lib/feature-flags";
 import { APP_ORIGIN } from "../../../test/app-fetch";
+import { cookieJar } from "../../../test/next-headers";
+import { turnstile } from "../../../test/fakes/turnstile";
 import * as authEmail from "./auth/email/route";
 import * as authEmailConfirm from "./auth/email/confirm/route";
 import * as authGoogle from "./auth/google/route";
@@ -23,12 +26,10 @@ import * as redLinesRetry from "./red-lines-dialogue/apply/retry/route";
  * The public pages are prerendered and always show their forms, so the admin toggles are
  * enforced only here: every submit and OAuth route checks its flag before doing anything
  * else. Each route is called with the flag closed, where it must answer with the closed
- * message, and open, where it must get past the guard to its next check.
- *
- * The OAuth callbacks, once past the guard, reach `cookies()`, which needs Next's request
- * context and so throws here (see test/app-fetch.ts). That throw is the sign they got past.
+ * message, and open, where it must get past the guard.
  */
-const OUTSIDE_REQUEST = /outside a request scope/;
+// `cookies()` needs Next's request context; the browser's cookies are `cookieJar`.
+vi.mock("next/headers", () => import("../../../test/next-headers"));
 
 type Handler = (request: Request) => Promise<Response>;
 
@@ -42,12 +43,31 @@ function get(handler: Handler, path: string) {
   return handler(new Request(`${APP_ORIGIN}${path}`));
 }
 
+const UNKNOWN_STATE = "00000000-0000-4000-8000-000000000000";
+
+/** What the apply form sends once a person has filled it in and passed the bot checks. */
+function humanFields(fields: Record<string, string>) {
+  return {
+    ...fields,
+    "cf-turnstile-response": turnstile.accept(),
+    [FORM_RENDERED_AT_FIELD_NAME]: String(Date.now() - 60_000),
+  };
+}
+
+/** The provider sign-in URL the hand-off page sends the browser on to. */
+async function handoffUrl(response: Response) {
+  expect(response.status).toBe(200);
+  const href = (await response.text()).match(/<a href="([^"]+)">Continue to/)?.[1];
+  return new URL(href!.replaceAll("&amp;", "&"));
+}
+
 function location(response: Response) {
   expect(response.status).toBe(303);
   return response.headers.get("Location");
 }
 
 beforeEach(async () => {
+  cookieJar.reset();
   // Every request here comes from the same unknown client IP.
   await db.delete(rateLimitHits);
   await setSignupEnabled(true, "admin@example.com");
@@ -76,6 +96,32 @@ describe("signup routes", () => {
       expect(location(response)).toBe("/field-building?error=verification#contact");
     });
   });
+
+  const signIns: [string, Handler, string][] = [
+    ["/api/auth/google", authGoogle.POST, "https://accounts.google.com/o/oauth2/v2/auth"],
+    ["/api/auth/linkedin", authLinkedin.POST, "https://www.linkedin.com/oauth/v2/authorization"],
+  ];
+
+  it.each(signIns)(
+    "POST %s hands a filled-in form on to the provider while signup is on",
+    async (path, handler, authorizeUrl) => {
+      vi.stubEnv("GOOGLE_CLIENT_ID", "test-google-client");
+      vi.stubEnv("LINKEDIN_CLIENT_ID", "test-linkedin-client");
+
+      const response = await post(
+        handler,
+        path,
+        humanFields({
+          source: "field_building",
+          linkedinUrl: "https://www.linkedin.com/in/someone",
+        }),
+      );
+
+      const url = await handoffUrl(response);
+      expect(`${url.origin}${url.pathname}`).toBe(authorizeUrl);
+      expect(cookieJar.get("oauth_state")?.value).toBe(url.searchParams.get("state"));
+    },
+  );
 
   const tokenRoutes: [string, Handler][] = [
     ["/api/auth/email/confirm", authEmailConfirm.POST],
@@ -107,7 +153,13 @@ describe("signup routes", () => {
     });
 
     it("goes on to the sign-in while signup is on", async () => {
-      await expect(get(handler, path)).rejects.toThrow(OUTSIDE_REQUEST);
+      cookieJar.set("oauth_state", UNKNOWN_STATE);
+
+      const response = await get(handler, `${path}?state=${UNKNOWN_STATE}&code=abc`);
+
+      // A state this browser started but no draft matches: past the guard, the sign-in ends.
+      expect(location(response)).toBe("/?error=invalid#contact");
+      expect(cookieJar.get("oauth_state")).toBeUndefined();
     });
   });
 
@@ -159,6 +211,43 @@ describe("Red Lines Dialogues routes", () => {
     });
   });
 
+  const signIns: [string, Handler, string][] = [
+    [
+      "/api/red-lines-dialogue/apply/google",
+      redLinesGoogle.POST,
+      "https://accounts.google.com/o/oauth2/v2/auth",
+    ],
+    [
+      "/api/red-lines-dialogue/apply/linkedin",
+      redLinesLinkedin.POST,
+      "https://www.linkedin.com/oauth/v2/authorization",
+    ],
+  ];
+
+  it.each(signIns)(
+    "POST %s hands a filled-in form on to the provider while applications are on",
+    async (path, handler, authorizeUrl) => {
+      vi.stubEnv("GOOGLE_CLIENT_ID", "test-google-client");
+      vi.stubEnv("LINKEDIN_CLIENT_ID", "test-linkedin-client");
+
+      const response = await post(
+        handler,
+        path,
+        humanFields({
+          areaOfExpertise: "legal_governance",
+          motivation: "To help draw the red lines.",
+          availableHours: "4",
+          euParliamentInterest: "maybe",
+          affiliation: "Example University",
+        }),
+      );
+
+      const url = await handoffUrl(response);
+      expect(`${url.origin}${url.pathname}`).toBe(authorizeUrl);
+      expect(cookieJar.get("red_lines_oauth_state")?.value).toBe(url.searchParams.get("state"));
+    },
+  );
+
   const tokenRoutes: [string, Handler][] = [
     ["/api/red-lines-dialogue/apply/email/confirm", redLinesEmailConfirm.POST],
     ["/api/red-lines-dialogue/apply/retry", redLinesRetry.POST],
@@ -189,7 +278,12 @@ describe("Red Lines Dialogues routes", () => {
     });
 
     it("goes on to the sign-in while applications are on", async () => {
-      await expect(get(handler, path)).rejects.toThrow(OUTSIDE_REQUEST);
+      cookieJar.set("red_lines_oauth_state", UNKNOWN_STATE);
+
+      const response = await get(handler, `${path}?state=${UNKNOWN_STATE}&code=abc`);
+
+      expect(location(response)).toBe("/red-lines-dialogue?error=invalid#apply");
+      expect(cookieJar.get("red_lines_oauth_state")).toBeUndefined();
     });
   });
 

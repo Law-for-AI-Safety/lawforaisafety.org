@@ -23,7 +23,7 @@ Only the outside world is faked, and only at a seam. The app reaches Turnstile, 
 
 - Fakes have named helpers so a test's intent is visible: `turnstile.solve()`, `turnstile.failNext()`, `emails.to(address)`, `emails.failNext()`. The harness resets them before each test.
 - Assert on what would have reached the outside world: the email's recipient and body, the request Turnstile was sent.
-- Never `vi.mock` our own modules. If code under `src/` needs faking, give it a seam (a parameter or setter with a production default) and add a fake in `test/fakes/`. `vi.mock` is only for framework edges such as `next/navigation` (`test/setup-dom.ts`).
+- Never `vi.mock` our own modules. If code under `src/` needs faking, give it a seam (a parameter or setter with a production default) and add a fake in `test/fakes/`. `vi.mock` is only for framework edges such as `next/navigation` (`test/setup-dom.ts`) and `next/headers` (`test/next-headers.ts`, mocked by the test file that needs it).
 - Fake the clock with `vi.useFakeTimers({ toFake: ["Date"] })` and `vi.setSystemTime`; set settings with `vi.stubEnv`. Both are undone after each test.
 
 ### Coverage
