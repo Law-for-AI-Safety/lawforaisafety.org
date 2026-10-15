@@ -80,6 +80,15 @@ function imagePath(mode: Mode) {
   return mode === "draft" ? shape : shape.regex(IMAGE_PATH, "Pick an image from /images/");
 }
 
+/** The site path of a PDF content may show. */
+export const DOCUMENT_PATH = /^\/documents\/[a-z0-9-]+\.pdf$/;
+
+/** A PDF already in `public/documents/`; like images, its existence is checked with the content (no uploads). */
+function documentPath(mode: Mode) {
+  const shape = z.string().max(300, "At most 300 characters");
+  return mode === "draft" ? shape : shape.regex(DOCUMENT_PATH, "Pick a PDF from /documents/");
+}
+
 function linkedinUrl(mode: Mode) {
   const shape = z.string().max(300, "At most 300 characters");
   if (mode === "draft") return shape;
@@ -162,7 +171,18 @@ export function blockSchema(mode: Mode) {
       "caption",
     ),
     // The heading may be left out, for a section that continues the one before.
-    z.strictObject({ type: z.literal("textSection"), heading: plain().optional(), body: blocks(), photos }),
+    z.strictObject({
+      type: z.literal("textSection"),
+      heading: plain().optional(),
+      body: blocks(),
+      photos,
+      // A PDF shown in the page, with a link that opens it in a new tab.
+      documents: optionalList(
+        mode,
+        z.strictObject({ file: documentPath(mode), title: plain(200), linkText: plain(200) }),
+        [1, "At most 1 document"],
+      ),
+    }),
     z.discriminatedUnion("style", [
       // Numbered sections with no heading of their own.
       z.strictObject({ type: z.literal("cardList"), style: z.literal("numbered"), items: cards }),

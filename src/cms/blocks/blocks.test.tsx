@@ -113,6 +113,43 @@ describe("Milestones", () => {
   });
 });
 
+describe("TextSection with a document", () => {
+  it("shows the PDF in the page with a link that opens it in a new tab", () => {
+    const section = renderBlock({
+      type: "textSection",
+      body: "The letter.",
+      documents: [
+        {
+          file: "/documents/red-lines-dialogue-mep-beke-letter-2026-09-01.pdf",
+          title: "Letter from MEP Wouter Beke",
+          linkText: "Open the letter in a new tab",
+        },
+      ],
+    });
+    const link = screen.getByRole("link", { name: "Open the letter in a new tab" });
+    expect(link).toHaveAttribute("href", "/documents/red-lines-dialogue-mep-beke-letter-2026-09-01.pdf");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link.parentElement).toHaveClass("max-w-xl");
+    expect(section.querySelectorAll("a")).toHaveLength(1);
+  });
+
+  it("refuses a file outside /documents/, or not a PDF", () => {
+    for (const file of ["/images/team-group.webp", "/documents/letter.docx", "https://example.org/a.pdf"]) {
+      const block = { type: "textSection", body: "B.", documents: [{ file, title: "T", linkText: "L" }] };
+      expect(blockSchema("strict").safeParse(block).success, file).toBe(false);
+    }
+  });
+});
+
+describe("heading sizes", () => {
+  it("sit halfway between the blocks' first sizes and the old homepage's", () => {
+    renderBlock({ type: "hero", heading: "H", lede: "L." });
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-[2.625rem]", "md:text-[4.125rem]");
+    const quote = renderBlock({ type: "quoteBand", quote: "Q." }, "navy").querySelector("blockquote");
+    expect(quote).toHaveClass("text-[2.0625rem]", "md:text-[3.1875rem]");
+  });
+});
+
 describe("TextSection without a heading", () => {
   it("shows the rule, the text and photos, with no heading", () => {
     const section = renderBlock({

@@ -6,7 +6,7 @@ import { pagePath } from "./pages";
 import { problemPathKey, publishChecks } from "./publish-checks";
 import { parseRedirects, printRedirects, readRedirectsText, redirectProblems, REDIRECTS_FILE } from "./redirects";
 import { siteRoutes, type Route } from "./routes";
-import { IMAGE_PATH, pageSchema } from "./schema";
+import { DOCUMENT_PATH, IMAGE_PATH, pageSchema } from "./schema";
 import { reservedSlugs, slugProblems } from "./slugs";
 
 /**
@@ -115,6 +115,17 @@ export function siteImages(publicDir: string): string[] {
     .readdirSync(dir)
     .map((name) => `/images/${name}`)
     .filter((image) => IMAGE_PATH.test(image))
+    .sort();
+}
+
+/** The PDFs a document field accepts: every matching file in `public/documents/`, as site paths, sorted. */
+export function siteDocuments(publicDir: string): string[] {
+  const dir = path.join(publicDir, "documents");
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .map((name) => `/documents/${name}`)
+    .filter((file) => DOCUMENT_PATH.test(file))
     .sort();
 }
 

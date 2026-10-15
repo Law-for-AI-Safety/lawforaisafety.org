@@ -10,6 +10,7 @@ function filled(fields: FieldSpec[]): Record<string, unknown> {
     if (f.kind === "plain") value[f.key] = f.key === "linkedin" ? "https://www.linkedin.com/in/a/" : f.key === "utc" ? "2026-10-12T07:00:00Z" : f.key === "href" ? "https://example.org/" : `${f.key} text`;
     if (f.kind === "rich") value[f.key] = `Some **${f.key}**.`;
     if (f.kind === "image") value[f.key] = "/images/team-group.webp";
+    if (f.kind === "document") value[f.key] = "/documents/red-lines-dialogue-mep-beke-letter-2026-09-01.pdf";
     if (f.kind === "boolean") value[f.key] = true;
     if (f.kind === "list") value[f.key] = [filled(f.fields)];
   }

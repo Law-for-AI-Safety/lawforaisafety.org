@@ -7,7 +7,7 @@ export default function Hero({ block }: { block: BlockOf<"hero"> }) {
     <section className="bg-brand-white flex flex-col justify-center px-8 md:px-16 pt-44 pb-20 md:pt-52 md:pb-24">
       <div className="max-w-4xl mx-auto w-full flex flex-col gap-8 max-w-3xl">
         <h1
-          className="text-4xl md:text-6xl font-light text-brand-black leading-[1.1] tracking-tight"
+          className="text-[2.625rem] md:text-[4.125rem] font-light text-brand-black leading-[1.1] tracking-tight"
           style={{ textWrap: "balance" }}
         >
           {block.heading}

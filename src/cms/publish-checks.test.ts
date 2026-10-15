@@ -107,3 +107,11 @@ describe("publish checks on photos and buttons", () => {
     ]);
   });
 });
+
+describe("publish checks on documents", () => {
+  it("check the picked PDF exists", () => {
+    const section = (file: string) => page({ blocks: [hero, { type: "textSection", body: "B.", documents: [{ file, title: "T", linkText: "L" }] }] });
+    expect(check(section("/documents/red-lines-dialogue-mep-beke-letter-2026-09-01.pdf"))).toEqual([]);
+    expect(check(section("/documents/missing.pdf"))).toEqual(["blocks.1.documents.0.file: The document /documents/missing.pdf does not exist"]);
+  });
+});

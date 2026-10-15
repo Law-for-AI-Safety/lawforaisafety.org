@@ -11,6 +11,8 @@ export type Path = (string | number)[];
 export type FieldContext = {
   problems: Map<string, string[]>;
   images: string[];
+  /** The PDFs a document field may pick. */
+  documents: string[];
   set: (path: Path, value: unknown) => void;
 };
 
@@ -91,6 +93,33 @@ function ImageField({ spec, value, path, ctx }: { spec: Extract<FieldSpec, { kin
   );
 }
 
+function DocumentField({ spec, value, path, ctx }: { spec: Extract<FieldSpec, { kind: "document" }>; value: unknown; path: Path; ctx: FieldContext }) {
+  const id = useId();
+  const current = typeof value === "string" ? value : "";
+  const options = current && !ctx.documents.includes(current) ? [current, ...ctx.documents] : ctx.documents;
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm text-brand-black/80">
+        {spec.label}
+      </label>
+      <select
+        id={id}
+        value={current}
+        onChange={(e) => ctx.set(path, e.target.value === "" ? undefined : e.target.value)}
+        className={`${INPUT} border-brand-black/30`}
+      >
+        <option value="">No document</option>
+        {options.map((file) => (
+          <option key={file} value={file}>
+            {file.replace(/^\/documents\//, "")}
+          </option>
+        ))}
+      </select>
+      <Problems messages={ctx.problems.get(key(path))} />
+    </div>
+  );
+}
+
 function ListField({ spec, value, path, ctx }: { spec: Extract<FieldSpec, { kind: "list" }>; value: unknown; path: Path; ctx: FieldContext }) {
   const items = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
   const move = (from: number, to: number) => {
@@ -159,6 +188,8 @@ export function Fields({ fields, value, path, ctx }: { fields: FieldSpec[]; valu
             );
           case "image":
             return <ImageField key={spec.key} spec={spec} value={v} path={at} ctx={ctx} />;
+          case "document":
+            return <DocumentField key={spec.key} spec={spec} value={v} path={at} ctx={ctx} />;
           case "boolean":
             return (
               <label key={spec.key} className="flex items-start gap-2 text-sm text-brand-black/80">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cmsCan } from "@/cms/access";
 import { requireCms } from "@/lib/cms-access";
-import { checkPage, cmsImages, loadCmsPage } from "@/lib/cms-pages";
+import { checkPage, cmsDocuments, cmsImages, loadCmsPage } from "@/lib/cms-pages";
 import { cmsGitHub, publishingView, refreshPublishing } from "@/lib/cms-publishing";
 import { latestSubmission } from "@/lib/cms-store";
 import { discardDraft, publishDraft, saveDraft, withdrawPublish } from "../actions";
@@ -41,6 +41,7 @@ export default async function CmsEditPage({ params }: { params: Promise<{ slug: 
       publishing={publishing}
       statusChecked={checked}
       images={cmsImages()}
+      documents={cmsDocuments()}
       save={saveDraft}
       discard={discardDraft}
       publish={publishDraft}

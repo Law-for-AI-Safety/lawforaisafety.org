@@ -14,7 +14,7 @@ export default function QuoteBand({ block, tone, id }: { block: BlockOf<"quoteBa
       <div className="max-w-4xl mx-auto flex flex-col gap-8">
         <Rule />
         <blockquote
-          className="text-3xl md:text-5xl font-light text-brand-white leading-tight max-w-2xl"
+          className="text-[2.0625rem] md:text-[3.1875rem] font-light text-brand-white leading-tight max-w-2xl"
           style={{ textWrap: "balance" }}
         >
           <InlineText value={block.quote} />

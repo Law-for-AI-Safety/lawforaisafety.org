@@ -13,6 +13,7 @@ import {
   formatContentFiles,
   contentHash,
   readContentFile,
+  siteDocuments,
   siteImages,
   printContent,
   type Dirs,
@@ -267,6 +268,21 @@ describe("siteImages", () => {
       fs.mkdirSync(path.join(root, "images"));
       for (const name of ["b.webp", "a.png", "Upper.jpg", "notes.txt"]) fs.writeFileSync(path.join(root, "images", name), "");
       expect(siteImages(root)).toEqual(["/images/a.png", "/images/b.webp"]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("siteDocuments", () => {
+  it("lists the PDFs a document field accepts, and copes with no documents folder", () => {
+    expect(siteDocuments(real.publicDir)).toEqual(["/documents/red-lines-dialogue-mep-beke-letter-2026-09-01.pdf"]);
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cms-documents-"));
+    try {
+      expect(siteDocuments(root)).toEqual([]);
+      fs.mkdirSync(path.join(root, "documents"));
+      for (const name of ["b.pdf", "a.pdf", "Upper.pdf", "notes.txt"]) fs.writeFileSync(path.join(root, "documents", name), "");
+      expect(siteDocuments(root)).toEqual(["/documents/a.pdf", "/documents/b.pdf"]);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

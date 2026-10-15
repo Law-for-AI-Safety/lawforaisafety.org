@@ -11,6 +11,7 @@ export type FieldSpec =
   | { kind: "plain"; key: string; label: string; max: number; optional?: boolean; long?: boolean; hint?: string }
   | { kind: "rich"; key: string; label: string; max: number; rich: "inline" | "blocks"; optional?: boolean }
   | { kind: "image"; key: string; label: string }
+  | { kind: "document"; key: string; label: string }
   | { kind: "boolean"; key: string; label: string; hint?: string }
   | { kind: "list"; key: string; label: string; itemLabel: string; max: number; fields: FieldSpec[]; optional?: boolean };
 
@@ -84,6 +85,19 @@ export function blockFields(block: AnyBlock): FieldSpec[] {
         { kind: "plain", key: "heading", label: "Heading (optional)", max: 200, optional: true },
         { kind: "rich", key: "body", label: "Text", max: 6000, rich: "blocks" },
         photos,
+        {
+          kind: "list",
+          key: "documents",
+          label: "Document (optional)",
+          itemLabel: "Document",
+          max: 1,
+          optional: true,
+          fields: [
+            { kind: "document", key: "file", label: "PDF" },
+            { kind: "plain", key: "title", label: "Document description for screen readers", max: 200 },
+            { kind: "plain", key: "linkText", label: "Text of the link that opens it in a new tab", max: 200 },
+          ],
+        },
       ];
     case "cardList":
       return block.style === "bullets" ? [heading, cards] : [cards];

@@ -32,7 +32,7 @@ export default function CardList({ block, tone, id }: { block: BlockOf<"cardList
     <LightSection tone={tone} id={id}>
       <div className="max-w-4xl mx-auto flex flex-col gap-6">
         <Rule />
-        <h2 className="text-3xl md:text-4xl font-light text-brand-black leading-tight">{block.heading}</h2>
+        <h2 className="text-[2.0625rem] md:text-[2.625rem] font-light text-brand-black leading-tight">{block.heading}</h2>
         <ul className="flex flex-col gap-6 mt-2">
           {block.items.map((item, i) => (
             <li key={i} className="flex gap-3">

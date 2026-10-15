@@ -3,7 +3,7 @@ import path from "node:path";
 import { type BlockType } from "./pages";
 import { parseRichTextLoose } from "./rich-text";
 import { isSiteRoute, type Route } from "./routes";
-import { IMAGE_PATH, pageSchema } from "./schema";
+import { DOCUMENT_PATH, IMAGE_PATH, pageSchema } from "./schema";
 
 /**
  * The checks a page must pass before it may be published, shared by the editor (on every
@@ -11,7 +11,7 @@ import { IMAGE_PATH, pageSchema } from "./schema";
  *
  * - every field valid under the page schema, which covers a title and description, no empty
  *   required field, well-formed links, the page's block rules, and alt text with every photo
- * - every image it uses present in `public/`
+ * - every image and document it uses present in `public/`
  * - every site link, in text or on a button, leading to a real page
  * - exactly one H1
  *
@@ -47,10 +47,12 @@ function linksInText(text: string): string[] {
 
 /** Fields that hold a repo image: the share image, team photos, and photos in a list of photos. */
 const IMAGE_KEYS = new Set(["shareImage", "photo", "image"]);
+/** Fields that hold a repo PDF: a text section's document. */
+const DOCUMENT_KEYS = new Set(["file"]);
 
-/** The repo images a page value uses, with their paths. */
-function imagesIn(value: Record<string, unknown>): [ProblemPath, string][] {
-  return strings(value).filter(([at]) => IMAGE_KEYS.has(String(at[at.length - 1])));
+/** The repo files of one kind a page value uses, with their paths. */
+function filesIn(value: Record<string, unknown>, keys: Set<string>): [ProblemPath, string][] {
+  return strings(value).filter(([at]) => keys.has(String(at[at.length - 1])));
 }
 
 /** Every link target in a page value: those inside rich text, and each button's own `href`. */
@@ -68,10 +70,15 @@ export function publishChecks(slug: string, value: unknown, { publicDir, routes 
   if (!value || typeof value !== "object" || Array.isArray(value)) return problems;
   const page = value as Record<string, unknown>;
 
-  for (const [at, image] of imagesIn(page)) {
-    // Only a well-formed image path is looked up; the schema reports any other.
+  for (const [at, image] of filesIn(page, IMAGE_KEYS)) {
+    // Only a well-formed path is looked up; the schema reports any other.
     if (IMAGE_PATH.test(image) && !fs.existsSync(path.join(publicDir, image))) {
       problems.push({ path: at, message: `The image ${image} does not exist` });
+    }
+  }
+  for (const [at, file] of filesIn(page, DOCUMENT_KEYS)) {
+    if (DOCUMENT_PATH.test(file) && !fs.existsSync(path.join(publicDir, file))) {
+      problems.push({ path: at, message: `The document ${file} does not exist` });
     }
   }
   for (const [at, href] of linksIn(page)) {

@@ -28,6 +28,8 @@ export type PageEditorProps = {
   /** False when the publishing status could not be checked on this load. */
   statusChecked: boolean;
   images: string[];
+  /** The PDFs a document field may pick; none when left out. */
+  documents?: string[];
   save: (slug: string, content: unknown, version: number) => Promise<SaveDraftResult>;
   discard: (slug: string, version: number) => Promise<DiscardDraftResult>;
   publish: (slug: string, version: number) => Promise<PublishDraftResult>;
@@ -56,7 +58,7 @@ function byPath(problems: Problem[]): Map<string, string[]> {
  * checks. Every change is saved to the shared draft after a short pause (see `Autosaver`).
  */
 export default function PageEditor(props: PageEditorProps) {
-  const { slug, canPublish, images } = props;
+  const { slug, canPublish, images, documents = [] } = props;
   const [page, setPage] = useState(props.initialContent as DraftPage);
   const [version, setVersion] = useState(props.initialVersion);
   const [pageState, setPageState] = useState<EditorState>(props.initialState);
@@ -111,6 +113,7 @@ export default function PageEditor(props: PageEditorProps) {
   const ctx: FieldContext = {
     problems: useMemo(() => byPath(problems), [problems]),
     images,
+    documents,
     set: (path: Path, value: unknown) => update((current) => setIn(current, path, value)),
   };
   const blocks = Array.isArray(page.blocks) ? page.blocks : [];

@@ -1,4 +1,4 @@
-import { contentRoutes, contentSlugs, defaultDirs, readContentFile, siteImages } from "@/cms/content-files";
+import { contentRoutes, contentSlugs, defaultDirs, readContentFile, siteDocuments, siteImages } from "@/cms/content-files";
 import { pageState, type PageState } from "@/cms/drafts";
 import { publishChecks, type Problem } from "@/cms/publish-checks";
 import { editorState, type EditorState } from "@/cms/publish-status";
@@ -28,6 +28,10 @@ export function checkPage(slug: string, value: unknown): Problem[] {
 
 export function cmsImages(): string[] {
   return siteImages(cmsDirs().publicDir);
+}
+
+export function cmsDocuments(): string[] {
+  return siteDocuments(cmsDirs().publicDir);
 }
 
 export type CmsPageSummary = {

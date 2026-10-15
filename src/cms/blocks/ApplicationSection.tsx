@@ -35,7 +35,7 @@ export default function ApplicationSection({
       <LightSection tone={tone} id="apply">
         <div className="max-w-4xl mx-auto flex flex-col gap-8">
           <Rule />
-          <h2 className="text-3xl md:text-4xl font-light text-brand-black leading-tight">{block.heading}</h2>
+          <h2 className="text-[2.0625rem] md:text-[2.625rem] font-light text-brand-black leading-tight">{block.heading}</h2>
           <RichTextBlocks value={block.intro} paragraphClassName={TEXT} listItemClassName={LIST_ITEM} />
           {block.showForm ? (
             <>
@@ -63,7 +63,7 @@ export default function ApplicationSection({
     <LightSection tone={tone} id="contact">
       <div className="max-w-4xl mx-auto flex flex-col gap-8">
         <Rule />
-        <h2 className="text-3xl md:text-4xl font-light text-brand-black leading-tight max-w-xl">{block.heading}</h2>
+        <h2 className="text-[2.0625rem] md:text-[2.625rem] font-light text-brand-black leading-tight max-w-xl">{block.heading}</h2>
         <RichTextBlocks
           value={block.intro}
           paragraphClassName="text-lg md:text-xl font-light text-brand-navy/85 leading-relaxed max-w-2xl"
