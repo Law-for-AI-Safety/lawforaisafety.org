@@ -94,6 +94,7 @@ describe("Milestones", () => {
     expect(section.id).toBe("our-story");
     expect(section.className).toBe(`bg-brand-white ${LIGHT_SECTION}`);
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Our story");
+    expect(screen.getByRole("heading", { level: 2 })).toHaveClass("text-[2.0625rem]", "md:text-[2.625rem]");
     expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["First", "Second", "Last"]);
     // The rail sits beside every entry but the last.
     const rail = section.querySelector(".h-\\[calc\\(100\\%\\+184px\\)\\]")!;
@@ -146,7 +147,10 @@ describe("CardList", () => {
     const listItems = within(section).getAllByRole("listitem");
     expect(listItems).toHaveLength(2);
     expect(listItems[0].querySelector("svg")).not.toBeNull();
-    expect(listItems[0].querySelector("span.font-medium")).toHaveTextContent("Meet-ups");
+    const title = listItems[0].querySelector("span.text-xl")!;
+    expect(title).toHaveTextContent("Meet-ups");
+    // The title carries the wavy underline.
+    expect(title.querySelector("span.relative.inline-block svg")).not.toBeNull();
     expect(listItems[0]).toHaveTextContent("We meet.");
   });
 });

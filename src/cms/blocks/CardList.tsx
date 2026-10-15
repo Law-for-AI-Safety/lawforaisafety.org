@@ -1,4 +1,5 @@
 import RingBullet from "../../app/RingBullet";
+import WavyUnderline from "../../app/WavyUnderline";
 import type { LightTone } from "../bands";
 import { InlineText } from "../render";
 import LightSection from "./LightSection";
@@ -35,11 +36,14 @@ export default function CardList({ block, tone, id }: { block: BlockOf<"cardList
         <ul className="flex flex-col gap-6 mt-2">
           {block.items.map((item, i) => (
             <li key={i} className="flex gap-3">
-              <span className="flex-shrink-0 pt-1.5">
+              {/* Centres the ring on the title's first line. */}
+              <span className="flex-shrink-0 pt-1.5 md:pt-2">
                 <RingBullet size={16} />
               </span>
-              <div className="flex flex-col gap-1">
-                <span className="text-lg font-medium text-brand-black">{item.title}</span>
+              <div className="flex flex-col gap-2">
+                <span className="text-xl md:text-2xl font-light text-brand-black">
+                  <WavyUnderline>{item.title}</WavyUnderline>
+                </span>
                 <span className="text-lg font-light text-brand-navy/85 leading-relaxed">
                   <InlineText value={item.body} />
                 </span>
