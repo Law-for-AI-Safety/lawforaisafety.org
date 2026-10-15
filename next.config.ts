@@ -45,6 +45,8 @@ const securityHeaders = [
   },
 ];
 
+const CMS_RUNTIME_FILES = ["./content/*.json", "./src/app/**/page.{ts,tsx,js,jsx,mdx}", "./public/**/*"];
+
 const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
@@ -56,7 +58,19 @@ const nextConfig: NextConfig = {
     DEPLOY_CONTEXT: process.env.CONTEXT ?? "",
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The admin, including draft previews, is never indexed. robots.ts also disallows it,
+      // and its pages carry a robots meta tag.
+      { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+    ];
+  },
+  // The CMS editor and preview read the content files, the page files (for the routes links
+  // may point at) and the image list at run time, so their functions ship with them.
+  outputFileTracingIncludes: {
+    "/admin/cms": CMS_RUNTIME_FILES,
+    "/admin/cms/**": CMS_RUNTIME_FILES,
+    "/admin/preview/**": CMS_RUNTIME_FILES,
   },
 };
 

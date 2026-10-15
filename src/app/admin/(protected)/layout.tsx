@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminSession, isTechAdminEmail, isTaskTrackerTeamEmail } from "@/lib/session";
+import { cmsCan } from "@/cms/access";
+import { getCmsActor } from "@/lib/cms-access";
 
 export default async function ProtectedAdminLayout({
   children,
@@ -11,6 +13,7 @@ export default async function ProtectedAdminLayout({
   if (!session) {
     redirect("/admin/login");
   }
+  const cms = await getCmsActor();
 
   return (
     <div className="flex h-dvh flex-col">
@@ -30,6 +33,11 @@ export default async function ProtectedAdminLayout({
           {isTaskTrackerTeamEmail(session.email) && (
             <Link href="/admin/task-tracker" className="underline">
               Project Tracker
+            </Link>
+          )}
+          {cms && cmsCan(cms.access, "edit") && (
+            <Link href="/admin/cms" className="underline">
+              Website pages
             </Link>
           )}
           <span className="text-brand-black/70">Signed in as {session.name}</span>

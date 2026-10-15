@@ -120,6 +120,13 @@
       "when": 1791202999527,
       "tag": "0016_regular_gorilla_man",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792060185845,
+      "tag": "0017_colossal_mandroid",
+      "breakpoints": true
     }
   ]
 }
