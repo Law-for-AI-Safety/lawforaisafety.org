@@ -3,9 +3,15 @@
 // submitted, and only once the live site serves them, so a deploy that is
 // still building does not send 404s.
 //
+// A page changes either through its route file (src/app/**/page.tsx) or through its content
+// file (content/<slug>.json, served at /<slug>, or / for content/home.json). Files in content/
+// whose names start with `_` are site settings, not pages.
+//
 // Usage: node scripts/indexnow.mjs <before-sha> <after-sha> [--dry-run]
+// (or npm run indexnow:dry-run -- <before-sha> <after-sha>)
 
 import { execFileSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const SITE = "https://lawforaisafety.org";
 const HOST = "lawforaisafety.org";
@@ -25,16 +31,17 @@ const EXCLUDED_PREFIXES = [
   "red-lines-dialogue/retry",
 ];
 
-const args = process.argv.slice(2);
-const dryRun = args.includes("--dry-run");
-const [before, after] = args.filter((arg) => arg !== "--dry-run");
+const HOME_SLUG = "home";
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-if (!after) {
-  console.error("usage: node scripts/indexnow.mjs <before-sha> <after-sha> [--dry-run]");
-  process.exit(1);
-}
-
-function routeFor(file) {
+/** The route (no leading slash, "" for the homepage) a changed file is the page of, or null. */
+export function routeFor(file) {
+  const content = file.match(/^content\/([^/]+)\.json$/);
+  if (content) {
+    const slug = content[1];
+    if (slug === HOME_SLUG) return "";
+    return SLUG.test(slug) ? slug : null;
+  }
   if (file === "src/app/page.tsx") return "";
   const match = file.match(/^src\/app\/(.+)\/page\.tsx$/);
   if (!match) return null;
@@ -46,12 +53,13 @@ function routeFor(file) {
   return route;
 }
 
-function changedRoutes() {
+/** The routes of the pages added or changed between two commits. */
+export function changedRoutes(before, after, cwd) {
   if (!before || /^0+$/.test(before)) return [];
   const files = execFileSync(
     "git",
-    ["diff", "--name-only", "--diff-filter=AM", before, after, "--", "src/app"],
-    { encoding: "utf8" },
+    ["diff", "--name-only", "--diff-filter=AM", before, after, "--", "src/app", "content"],
+    { encoding: "utf8", cwd },
   )
     .split("\n")
     .filter(Boolean);
@@ -83,54 +91,69 @@ async function waitUntilReady(url) {
   return false;
 }
 
-const routes = changedRoutes();
-if (routes.length === 0) {
-  console.log("No public pages changed in this push. Nothing to submit.");
-  process.exit(0);
-}
+async function main() {
+  const args = process.argv.slice(2);
+  const dryRun = args.includes("--dry-run");
+  const [before, after] = args.filter((arg) => arg !== "--dry-run");
 
-const candidates = routes.map((route) => (route === "" ? SITE : `${SITE}/${route}`));
+  if (!after) {
+    console.error("usage: node scripts/indexnow.mjs <before-sha> <after-sha> [--dry-run]");
+    process.exit(1);
+  }
 
-const ready = [];
-for (const url of candidates) {
+  const routes = changedRoutes(before, after);
+  if (routes.length === 0) {
+    console.log("No public pages changed in this push. Nothing to submit.");
+    process.exit(0);
+  }
+
+  const candidates = routes.map((route) => (route === "" ? SITE : `${SITE}/${route}`));
+
+  const ready = [];
+  for (const url of candidates) {
+    if (dryRun) {
+      if ((await sitemapUrls()).has(url)) ready.push(url);
+      else console.log(`Would skip ${url}: not in sitemap.xml yet`);
+      continue;
+    }
+    if (await waitUntilReady(url)) {
+      ready.push(url);
+    } else {
+      console.error(`Not live and in sitemap after ${POLL_TIMEOUT_MS / 60_000} minutes, not submitting: ${url}`);
+    }
+  }
+
+  if (ready.length === 0) {
+    console.error("None of the changed pages are live. Nothing submitted.");
+    process.exit(1);
+  }
+
+  const body = {
+    host: HOST,
+    key: KEY,
+    keyLocation: `${SITE}/${KEY}.txt`,
+    urlList: ready,
+  };
+
   if (dryRun) {
-    if ((await sitemapUrls()).has(url)) ready.push(url);
-    else console.log(`Would skip ${url}: not in sitemap.xml yet`);
-    continue;
+    console.log("Dry run. Would submit:");
+    console.log(JSON.stringify(body, null, 2));
+    process.exit(0);
   }
-  if (await waitUntilReady(url)) {
-    ready.push(url);
-  } else {
-    console.error(`Not live and in sitemap after ${POLL_TIMEOUT_MS / 60_000} minutes, not submitting: ${url}`);
+
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(body),
+  });
+
+  console.log(`IndexNow responded ${res.status} for ${ready.length} URL(s).`);
+  if (!res.ok) {
+    console.error(await res.text());
+    process.exit(1);
   }
 }
 
-if (ready.length === 0) {
-  console.error("None of the changed pages are live. Nothing submitted.");
-  process.exit(1);
-}
-
-const body = {
-  host: HOST,
-  key: KEY,
-  keyLocation: `${SITE}/${KEY}.txt`,
-  urlList: ready,
-};
-
-if (dryRun) {
-  console.log("Dry run. Would submit:");
-  console.log(JSON.stringify(body, null, 2));
-  process.exit(0);
-}
-
-const res = await fetch(ENDPOINT, {
-  method: "POST",
-  headers: { "Content-Type": "application/json; charset=utf-8" },
-  body: JSON.stringify(body),
-});
-
-console.log(`IndexNow responded ${res.status} for ${ready.length} URL(s).`);
-if (!res.ok) {
-  console.error(await res.text());
-  process.exit(1);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }
