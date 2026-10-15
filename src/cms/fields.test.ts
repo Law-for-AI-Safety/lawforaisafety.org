@@ -7,7 +7,7 @@ import { blockSchema, pageSchema } from "./schema";
 function filled(fields: FieldSpec[]): Record<string, unknown> {
   const value: Record<string, unknown> = {};
   for (const f of fields) {
-    if (f.kind === "plain") value[f.key] = f.key === "linkedin" ? "https://www.linkedin.com/in/a/" : f.key === "utc" ? "2026-10-12T07:00:00Z" : `${f.key} text`;
+    if (f.kind === "plain") value[f.key] = f.key === "linkedin" ? "https://www.linkedin.com/in/a/" : f.key === "utc" ? "2026-10-12T07:00:00Z" : f.key === "href" ? "https://example.org/" : `${f.key} text`;
     if (f.kind === "rich") value[f.key] = `Some **${f.key}**.`;
     if (f.kind === "image") value[f.key] = "/images/team-group.webp";
     if (f.kind === "boolean") value[f.key] = true;
@@ -91,6 +91,12 @@ describe("new blocks", () => {
 
   it("leave optional fields out of a new item", () => {
     expect(newItem([{ kind: "list", key: "l", label: "L", itemLabel: "I", max: 1, fields: [] }, { kind: "image", key: "i", label: "I" }])).toEqual({ l: [] });
+    expect(newItem([{ kind: "list", key: "l", label: "L", itemLabel: "I", max: 1, fields: [], optional: true }])).toEqual({});
+  });
+
+  it("start milestones with one entry, without photos or buttons", () => {
+    expect(newBlock("milestones", "x")).toEqual({ type: "milestones", heading: "", entries: [{ title: "", body: "" }] });
+    expect(newBlock("quoteBand", "x")).toEqual({ type: "quoteBand", quote: "" });
   });
 });
 

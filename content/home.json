@@ -1,0 +1,216 @@
+{
+  "title": "Law for AI Safety",
+  "description": "Bringing together legal professionals to address large-scale AI risks and advance AI safety.",
+  "updatedAt": "2026-10-15",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "Bringing together legal professionals to address large-scale AI risks and advance AI safety",
+      "lede": "Legal expertise is a critical gap in AI governance. Now is the time to build the capacity needed to ensure increasingly powerful AI systems remain accountable. ==We are on the side of Humanity.=="
+    },
+    {
+      "type": "quoteBand",
+      "quote": "AI governance and AI law remain in their infancy. The time to build this capacity is now.",
+      "body": "AI could erode democracy, destabilise the economy, be used to develop powerful weapons, facilitate large-scale cyberattacks, or even result in a loss of human control over increasingly capable systems.\n\nIncreasing concentrations of power, capital, and technological capabilities in the hands of a small number of AI companies and states risk reducing the agency of individuals, civil society, and democratic institutions unless effective counterweights are developed.\n\nWe aim to bring together legal professionals who are concerned about these risks and interested in using legal and administrative levers to address them, using these levers where they already exist, and researching and advocating for reform where they are outdated.",
+      "photos": [
+        {
+          "image": "/images/conference-didier.webp",
+          "alt": "Didier Coeurnelle introducing Law for AI Safety's mission at the 2nd International Conference on Large-Scale AI Risks"
+        }
+      ],
+      "caption": "Board member Didier Coeurnelle introducing Law for AI Safety’s mission at the 2nd International Conference on Large-Scale AI Risks."
+    },
+    {
+      "type": "cardList",
+      "style": "bullets",
+      "heading": "How we work",
+      "items": [
+        {
+          "title": "Survey & Convene",
+          "body": "We survey and convene people working at the intersection of law and AI, through meetups, hackathons, and events, to identify promising opportunities for impact, barriers to litigation, and favourable jurisdictions. We organise research projects and fellowships to develop knowledge and experts in this area, and strategically communicate relevant research to increase the likelihood of it being put into practice. Read more about our [field-building and coordination work](/field-building)."
+        },
+        {
+          "title": "Transparency",
+          "body": "We promote greater transparency in AI governance through initiatives such as Freedom of Information requests directed at selected Member States and European Union institutions. These are essential to promoting accountability and democratic oversight in AI governance. Our first request, on catastrophic and existential AI risks, was reviewed by the Future of Life Institute and is backed by a $20K grant, and we are now translating it into EU languages. If you have a legal or translation background, or want your organisation to get involved, [apply to work with us](/#contact). Read more about our [FOI work](/freedom-of-information)."
+        },
+        {
+          "title": "Dialogue",
+          "body": "We advance dialogue with the European Union, the Council of Europe, and other key stakeholders through conferences, events, and targeted engagement to explore and build understanding on the effectiveness of, and gaps in, our current legal frameworks in the context of advanced AI. We have convened [the Red Lines Dialogues](/red-lines-dialogue), a track-two initiative bringing together US, Chinese and EU experts to operationalise AI behavioural red lines for presentation at the European Parliament. We are also briefing MEPs on [AI containment incidents](/mep-outreach) and building a strategy for [engagement with the Council of Europe](/council-of-europe)."
+        }
+      ]
+    },
+    {
+      "type": "quoteBand",
+      "quote": "“Strategic legal and administrative pressure, combined with effective public communication, can strengthen AI governance in Europe and contribute to higher international standards.”",
+      "body": "Through the Brussels effect, Europe can play a leading role in building a broader middle-power coalition for AI safety. The expertise, institutions, and networks built today will help determine whether increasingly powerful AI systems remain accountable to democratic societies and the rule of law."
+    },
+    {
+      "type": "milestones",
+      "heading": "Our story",
+      "entries": [
+        {
+          "title": "Team meets at the European Parliament",
+          "body": "Our founding team first met at the *Beyond the AI Act: Global Security & the Control Problem* conference at the European Parliament, hosted by PauseAI and MEP Ondřej Kolář. Several members of our team were involved in organising the event."
+        },
+        {
+          "title": "FOI requests drafted & legal groundwork laid",
+          "body": "We drafted an initial Freedom of Information request related to the advanced risks of AI, aimed at Member States, currently being finalised following review by the Future of Life Institute team. We also conducted preliminary research into legal and administrative levers and barriers to action, and secured pro bono support from global law firm Dentons to assist with our registration in Brussels."
+        },
+        {
+          "title": "Building the network",
+          "body": "We established a relationship with [PauseAI](https://pauseai.info) to channel volunteers with legal backgrounds to our work. Through attending conferences, we connected with AI law and policy experts who have expressed willingness to collaborate with us on our upcoming projects.",
+          "buttons": [
+            {
+              "label": "Connect on LinkedIn",
+              "href": "https://www.linkedin.com/company/law-for-ai-safety/"
+            }
+          ]
+        },
+        {
+          "title": "Implementing EU AI Act conference, European Parliament",
+          "body": "Raphaël Weuts, Karolina Gruzel, and Cristian Teodorescu participated in a conference on implementing the EU AI Act, held at the European Parliament in Brussels and hosted by Maria Grapini, Vice-Chair of the Committee on the Internal Market and Consumer Protection.\n\nOur team highlighted that safety and innovation should not be treated as opposing goals. Understanding AI risks and shortcomings can not only increase safety, but also improve the effectiveness of AI use. However, the case for AI safety extends beyond improving how individual organisations use these technologies. Large-scale AI risks can also threaten the stability of the economic, legal, and social systems on which companies and institutions depend.\n\nIt is therefore in the interest of stakeholders across sectors to ensure adaptation of AI safety standards and encourage leaders to strengthen international coordination on AI safety, including through the development of a global treaty.\n\nThe conference also provided a valuable opportunity to learn from fellow participants, including Victor Negrescu, Vice-President of the European Parliament; Brando Benifei, former co-rapporteur on the EU AI Act; Martin Ulbrich, AI Policy Officer at the European Commission; Carmen Socolovici, Head of Legal at the Romanian telecommunications regulator ANCOM; and Bruno Delepierre, Chief Regenerative Officer at Happonomy.",
+          "photos": [
+            {
+              "image": "/images/conference-ai-act-1.webp",
+              "alt": "Karolina Gruzel on the panel at AI Act in Romania conference"
+            },
+            {
+              "image": "/images/conference-ai-act-2.webp",
+              "alt": "Raphaël Weuts on the panel at AI Act in Romania conference"
+            },
+            {
+              "image": "/images/conference-ai-act-3.webp",
+              "alt": "Cristian Teodorescu on the panel at AI Act in Romania conference"
+            }
+          ]
+        },
+        {
+          "title": "Grant Award and Talk at Unlocking the Potential of Women in AI Safety",
+          "body": "Our co-founder and Executive Director, Karolina Gruzel, was selected to take part in the fully funded Unlocking the Potential of Women in AI Safety programme, where she further developed her leadership skills and built new connections for our organisation. During the event, Karolina also received the exciting news that we had been awarded a grant to fund our workstream submitting Freedom of Information requests on catastrophic and existential AI risks to EU Member States. She shared the news with fellow participants while giving a talk introducing our organisation and its work.",
+          "photos": [
+            {
+              "image": "/images/women-in-ai-safety-group.webp",
+              "alt": "Group photo of participants at the Unlocking the Potential of Women in AI Safety programme"
+            },
+            {
+              "image": "/images/karolina-at-seminar.webp",
+              "alt": "Karolina Gruzel giving a talk at the Unlocking the Potential of Women in AI Safety seminar"
+            }
+          ]
+        },
+        {
+          "title": "FOI translation begins, workshops spark interest abroad",
+          "body": "Legal Advisor Raluca Spataru began coordinating translation of our Freedom of Information request on existential and catastrophic AI risks into the languages of EU Member States. She has also given workshops on FOIs, sparking interest in similar initiatives in Canada and the US."
+        },
+        {
+          "title": "Pro-Human Assembly, Washington, D.C.",
+          "body": "Executive Director Karolina Gruzel and Legal Advisor Raluca Spataru were invited to the Pro-Human Assembly, a high-profile, bipartisan summit in Washington, D.C. on 15 September 2026, bringing together influential groups to demand strict regulation of AI, with speakers including Bernie Sanders, Ashley Judd, Daron Acemoglu, and Max Tegmark. They were also selected to join a workshop on organising similar assemblies in other regions, and Karolina later gave a fireside chat on her takeaways at the Technoprogressive Opportunity conference in London.",
+          "photos": [
+            {
+              "image": "/images/pro-human-assembly-round-table.webp",
+              "alt": "Name cards for Karolina Gruzel and Raluca Spataru on a round table at the workshop"
+            },
+            {
+              "image": "/images/technoprogressive-fireside-chat.webp",
+              "alt": "Karolina Gruzel and another speaker on stage at a fireside chat, watched by an audience"
+            }
+          ]
+        },
+        {
+          "title": "AI Regulation Forum",
+          "body": "Executive Director Karolina Gruzel attended the AI Regulation Forum, bringing the perspective of large-scale AI risks to an influential gathering of European AI regulators and legal counsel from leading industry organisations."
+        }
+      ]
+    },
+    {
+      "type": "teamGrid",
+      "heading": "Team",
+      "members": [
+        {
+          "name": "Karolina Gruzel",
+          "role": "Executive Director and Board Member",
+          "bio": "Educational background in European Law. Field-builder, Moral Ambition for AI. AI Policy Strategy Fellow, Successif. AI Policy and Research Communicator.",
+          "linkedin": "https://www.linkedin.com/in/karolina-gruzel/",
+          "photo": "/images/karolina-gruzel.webp",
+          "photoAlt": "Portrait of Karolina Gruzel"
+        },
+        {
+          "name": "Raphaël Weuts",
+          "role": "Partnerships Lead and Board Member",
+          "bio": "AI governance consultant. Author of On Accuracy of European AI Law. European representative in the Asia-Europe for AI Network AI Governance working group. Former visiting professor in AI at UC Leuven.",
+          "linkedin": "https://www.linkedin.com/in/raphaelweuts/",
+          "photo": "/images/raphael-weuts.webp",
+          "photoAlt": "Portrait of Raphaël Weuts"
+        },
+        {
+          "name": "Katie Stewart",
+          "role": "Operations Lead and Board Member",
+          "bio": "Senior research manager and financial sector specialist. Former ops at the Future of Humanity Institute and research and project manager at RAND.",
+          "linkedin": "https://www.linkedin.com/in/katie-stewart-uk/",
+          "photo": "/images/katie-stewart.webp",
+          "photoAlt": "Portrait of Katie Stewart"
+        },
+        {
+          "name": "Didier Coeurnelle",
+          "role": "Advocacy Advisor and Board Member",
+          "bio": "Lawyer. Co-chair of Healthy Life Extension Society. Board member for International Longevity Alliance. Advisor of Democracy Without Borders. Steering Committee member at the Global AI Governance Alliance.",
+          "linkedin": "https://www.linkedin.com/in/didiercoeurnelle/",
+          "photo": "/images/didier-coeurnelle.webp",
+          "photoAlt": "Portrait of Didier Coeurnelle"
+        },
+        {
+          "name": "Raluca Spataru",
+          "role": "Legal Advisor",
+          "bio": "President of the Romanian chapter of PauseAI. Romanian lawyer with 15 years' experience.",
+          "linkedin": "https://www.linkedin.com/in/raluca-spataru-01a439302/",
+          "photo": "/images/raluca-spataru.webp",
+          "photoAlt": "Portrait of Raluca Spataru"
+        },
+        {
+          "name": "Cristian Teodorescu",
+          "role": "Council of Europe Advisor and Outreach Coordinator",
+          "bio": "Educational background in Human Rights Law. Managing Director at Neo Teo. Former senior expert for the Romanian Government.",
+          "linkedin": "https://www.linkedin.com/in/cryptoescu/",
+          "photo": "/images/cristian-teodorescu.webp",
+          "photoAlt": "Portrait of Cristian Teodorescu"
+        },
+        {
+          "name": "Julia Moncmanova",
+          "role": "Creative Designer",
+          "bio": "Consulting creative designer at AppTweak.",
+          "linkedin": "https://www.linkedin.com/in/julia-moncmanova-22a314264/",
+          "photo": "/images/julia-moncmanova.webp",
+          "photoAlt": "Portrait of Julia Moncmanova"
+        },
+        {
+          "name": "Harry Turnbull",
+          "role": "Senior Software Engineer",
+          "bio": "Operations team volunteer at PauseAI.",
+          "linkedin": "https://www.linkedin.com/in/harry-turnbull/",
+          "photo": "/images/harry-turnbull.webp",
+          "photoAlt": "Portrait of Harry Turnbull"
+        }
+      ]
+    },
+    {
+      "type": "applicationSection",
+      "form": "apply",
+      "heading": "Join us in shaping the legal future of AI",
+      "intro": "Whether you are a lawyer, a policymaker, a researcher, or someone who cares about the long-term future of AI governance, there are ways to contribute to this work.",
+      "buttons": [
+        {
+          "label": "Contact us",
+          "href": "mailto:info@lawforaisafety.org"
+        },
+        {
+          "label": "Follow our work on Linkedin",
+          "href": "https://www.linkedin.com/company/law-for-ai-safety/"
+        }
+      ],
+      "showForm": true,
+      "newsletterHeading": "Stay updated with our newsletter",
+      "formHeading": "Work with us",
+      "closedMessage": "Applications aren't open right now. Email [info@lawforaisafety.org](mailto:info@lawforaisafety.org) to register your interest."
+    }
+  ]
+}

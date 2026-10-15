@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { applySourceFor, pagePath, pageRules, type BlockType } from "./pages";
-import { formatRichText, hasForbiddenText, hrefProblem, parseRichText } from "./rich-text";
+import { formatRichText, hasForbiddenText, hrefProblem, parseRichText, upgradeHref } from "./rich-text";
 
 /**
  * The shape of a content file, `content/<slug>.json`.
@@ -89,6 +89,27 @@ function linkedinUrl(mode: Mode) {
   );
 }
 
+/** A button's target: a site path, an `https:` address or a `mailto:` address. */
+function linkTarget(mode: Mode) {
+  const shape = z.string().max(300, "At most 300 characters");
+  if (mode === "draft") return shape;
+  const strict = shape.superRefine((s, ctx) => {
+    const problem = hrefProblem(s);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  });
+  return mode === "strict" ? strict : z.string().transform((s) => upgradeHref(s.trim())).pipe(strict);
+}
+
+/**
+ * A list that may be left out. An empty list means the same, so outside a draft it is
+ * dropped from the value (and so from the file), keeping one canonical form.
+ */
+function optionalList<T extends z.ZodType>(mode: Mode, item: T, max: [number, string]) {
+  const shape = z.array(item).max(...max);
+  if (mode === "draft") return shape.optional();
+  return shape.optional().transform((items) => (items && items.length > 0 ? items : undefined));
+}
+
 /**
  * A list with at least `min` items (except in a draft) and at most `max`. `refine` adds the
  * strict rules that relate one item to another, which a draft skips.
@@ -118,11 +139,28 @@ export function blockSchema(mode: Mode) {
   const inline = (max = 2000) => richText(mode, "inline", max);
   const blocks = (max = 6000) => richText(mode, "blocks", max);
   const card = z.strictObject({ title: plain(), body: inline(3000) });
+  // Photos picked from the repo's images, shown side by side (one fills the width).
+  const photos = optionalList(mode, z.strictObject({ image: imagePath(mode), alt: plain(200) }), [3, "At most 3 photos"]);
+  // Link buttons; the last is the filled one, and a LinkedIn link shows the LinkedIn logo.
+  const buttons = optionalList(mode, z.strictObject({ label: plain(60), href: linkTarget(mode) }), [2, "At most 2 buttons"]);
   const cards = list(mode, card, { min: "Add at least one item", max: [12, "At most 12 items"] });
 
   return z.discriminatedUnion("type", [
     z.strictObject({ type: z.literal("hero"), heading: plain(), lede: inline(1000) }),
-    z.strictObject({ type: z.literal("quoteBand"), quote: inline(600) }),
+    tied(
+      mode,
+      z.strictObject({
+        type: z.literal("quoteBand"),
+        quote: inline(600),
+        // Paragraphs under the quote, in the same band.
+        body: blocks().optional(),
+        photos,
+        caption: plain(300).optional(),
+      }),
+      (b) => b.caption === undefined || b.photos !== undefined,
+      "A caption needs a photo",
+      "caption",
+    ),
     z.strictObject({ type: z.literal("textSection"), heading: plain(), body: blocks() }),
     z.discriminatedUnion("style", [
       // Numbered sections with no heading of their own.
@@ -181,13 +219,27 @@ export function blockSchema(mode: Mode) {
         (es) => (new Set(es.map((e) => e.date)).size === es.length ? null : "Each date may appear only once"),
       ),
     }),
+    z.strictObject({
+      type: z.literal("milestones"),
+      heading: plain(),
+      entries: list(
+        mode,
+        z.strictObject({ title: plain(), body: blocks(), photos, buttons }),
+        { min: "Add at least one entry", max: [30, "At most 30 entries"] },
+      ),
+    }),
     z.discriminatedUnion("form", [
       z.strictObject({
         type: z.literal("applicationSection"),
         form: z.literal("apply"),
         heading: plain(),
         intro: blocks(),
+        buttons,
         showForm: z.boolean(),
+        // While the form shows: the newsletter sign-up above it under this heading, and this
+        // heading over the application form itself.
+        newsletterHeading: plain().optional(),
+        formHeading: plain().optional(),
         closedMessage: blocks(),
       }),
       z.strictObject({

@@ -6,9 +6,9 @@ import { blockSchema } from "../schema";
 import Block from "./Block";
 
 /** Renders a block after checking its content against the schema, as a page would. */
-function renderBlock(content: unknown, tone: Tone = "white", path = "/field-building") {
+function renderBlock(content: unknown, tone: Tone = "white", path = "/field-building", id?: string) {
   const block = blockSchema("strict").parse(content) as BlockContent;
-  const { container } = render(<Block block={block} tone={tone} path={path} />);
+  const { container } = render(<Block block={block} tone={tone} path={path} id={id} />);
   return container.firstElementChild as HTMLElement;
 }
 
@@ -39,6 +39,76 @@ describe("QuoteBand", () => {
     expect(quote).toHaveClass("text-brand-white");
     expect(quote).toHaveTextContent("Our mission.");
     expect(quote.querySelector("em")).toHaveTextContent("mission");
+  });
+});
+
+describe("QuoteBand with text and photos", () => {
+  const photo = (n: number) => ({ image: `/images/conference-ai-act-${n}.webp`, alt: `Panel ${n}` });
+
+  it("shows paragraphs under the quote, then a wide photo with its caption, and carries an anchor", () => {
+    const section = renderBlock(
+      { type: "quoteBand", quote: "The time is now.", body: "First.\n\nSecond.", photos: [photo(1)], caption: "On the panel." },
+      "navy",
+      "/",
+      "mission",
+    );
+    expect(section.id).toBe("mission");
+    const paragraphs = [...section.querySelectorAll("p")];
+    expect(paragraphs.map((p) => p.textContent)).toEqual(["First.", "Second.", "On the panel."]);
+    expect(paragraphs[0]).toHaveClass("text-xl", "md:text-2xl", "text-brand-white/90");
+    const img = screen.getByRole("img", { name: "Panel 1" });
+    expect(img.parentElement).toHaveClass("aspect-[4/3]", "md:aspect-[16/9]");
+  });
+
+  it("shows photos without a caption, and no anchor unless given one", () => {
+    const section = renderBlock({ type: "quoteBand", quote: "Q.", photos: [photo(1), photo(2)] }, "black");
+    expect(section.id).toBe("");
+    expect(section.querySelectorAll("img")).toHaveLength(2);
+    expect(section.querySelector(".grid")).toHaveClass("md:grid-cols-2");
+    expect(section.querySelectorAll("p")).toHaveLength(0);
+  });
+
+  it("refuses a caption without a photo", () => {
+    expect(blockSchema("strict").safeParse({ type: "quoteBand", quote: "Q.", caption: "C." }).success).toBe(false);
+  });
+});
+
+describe("Milestones", () => {
+  const entry = (title: string, extra: Record<string, unknown> = {}) => ({ title, body: `About ${title}.`, ...extra });
+
+  it("shows titled entries along the rail, with photos and buttons", () => {
+    const section = renderBlock(
+      {
+        type: "milestones",
+        heading: "Our story",
+        entries: [
+          entry("First", { photos: [1, 2, 3].map((n) => ({ image: `/images/conference-ai-act-${n}.webp`, alt: `P${n}` })) }),
+          entry("Second", { buttons: [{ label: "Connect on LinkedIn", href: "https://www.linkedin.com/company/law-for-ai-safety/" }] }),
+          entry("Last"),
+        ],
+      },
+      "white",
+      "/",
+      "our-story",
+    );
+    expect(section.id).toBe("our-story");
+    expect(section.className).toBe(`bg-brand-white ${LIGHT_SECTION}`);
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Our story");
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["First", "Second", "Last"]);
+    // The rail sits beside every entry but the last.
+    const rail = section.querySelector(".h-\\[calc\\(100\\%\\+184px\\)\\]")!;
+    expect(rail.parentElement!.querySelectorAll("h3")).toHaveLength(2);
+    expect(section.querySelector(".grid")).toHaveClass("md:grid-cols-3");
+    const button = screen.getByRole("link", { name: "Connect on LinkedIn" });
+    expect(button).toHaveAttribute("href", "https://www.linkedin.com/company/law-for-ai-safety/");
+    expect(button).toHaveClass("bg-brand-red");
+    expect(button.querySelector("svg")).not.toBeNull();
+  });
+
+  it("has no rail with a single entry", () => {
+    const section = renderBlock({ type: "milestones", heading: "Story", entries: [entry("Only")] });
+    expect(section.querySelector(".rail-fill")).toBeNull();
+    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent("Only");
   });
 });
 
@@ -195,6 +265,36 @@ describe("ApplicationSection", () => {
     window.history.replaceState(null, "", "/field-building?error=email");
     const section = renderBlock(apply);
     expect(section).toHaveTextContent("That email address doesn't look right.");
+  });
+
+  it("shows buttons, the newsletter and a heading over the form, as on the homepage", () => {
+    const section = renderBlock(
+      {
+        ...apply,
+        buttons: [
+          { label: "Contact us", href: "mailto:info@lawforaisafety.org" },
+          { label: "Follow our work", href: "https://www.linkedin.com/company/law-for-ai-safety/" },
+        ],
+        newsletterHeading: "Stay updated with our newsletter",
+        formHeading: "Work with us",
+      },
+      "white",
+      "/",
+    );
+    const contact = screen.getByRole("link", { name: "Contact us" });
+    expect(contact).toHaveClass("border");
+    expect(contact).not.toHaveClass("bg-brand-red");
+    expect(contact.querySelector("svg path[d^='M20.447']")).toBeNull();
+    expect(screen.getByRole("link", { name: "Follow our work" })).toHaveClass("bg-brand-red");
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Stay updated with our newsletter", "Work with us"]);
+    expect(section.querySelector('input[type="email"]')).not.toBeNull();
+    expect(section.querySelector('input[name="source"]')).toHaveValue("homepage");
+  });
+
+  it("shows neither the newsletter nor the form heading while closed", () => {
+    const section = renderBlock({ ...apply, showForm: false, newsletterHeading: "News", formHeading: "Work with us" }, "white", "/");
+    expect(section.querySelector("h3")).toBeNull();
+    expect(section.querySelector("form")).toBeNull();
   });
 
   describe("Red Lines", () => {

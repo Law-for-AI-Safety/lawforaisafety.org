@@ -4,9 +4,9 @@ import LightSection from "./LightSection";
 import Rule from "./Rule";
 import type { BlockOf } from "./types";
 
-export default function TimelineBlock({ block, tone }: { block: BlockOf<"timeline">; tone: LightTone }) {
+export default function TimelineBlock({ block, tone, id }: { block: BlockOf<"timeline">; tone: LightTone; id?: string }) {
   return (
-    <LightSection tone={tone}>
+    <LightSection tone={tone} id={id}>
       <div className="max-w-4xl mx-auto flex flex-col gap-10">
         <div className="flex flex-col gap-4">
           <Rule />

@@ -79,3 +79,31 @@ describe("publish checks", () => {
     );
   });
 });
+
+describe("publish checks on photos and buttons", () => {
+  it("check each photo exists and each button's site link leads to a page", () => {
+    const value = page({
+      blocks: [
+        hero,
+        {
+          type: "milestones",
+          heading: "Story",
+          entries: [
+            {
+              title: "One",
+              body: "Text.",
+              photos: [{ image: "/images/team-group.webp", alt: "Team" }, { image: "/images/nobody.webp", alt: "Nobody" }],
+              buttons: [{ label: "Go", href: "/nowhere" }, { label: "Read", href: "/field-building" }],
+            },
+          ],
+        },
+        { type: "quoteBand", quote: "Q.", photos: [{ image: "/images/gone.webp", alt: "Gone" }] },
+      ],
+    });
+    expect(check(value)).toEqual([
+      "blocks.1.entries.0.photos.1.image: The image /images/nobody.webp does not exist",
+      "blocks.2.photos.0.image: The image /images/gone.webp does not exist",
+      "blocks.1.entries.0.buttons.0.href: The link /nowhere does not lead to a page on this site",
+    ]);
+  });
+});

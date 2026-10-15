@@ -1,7 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import content from "../../content/field-building.json";
-import PageView, { pageMetadata } from "./PageView";
+import homeContent from "../../content/home.json";
+import PageView, { blockAnchors, pageMetadata } from "./PageView";
 import { parsePage, type PageContent } from "./schema";
 
 const fieldBuilding = parsePage("field-building", content);
@@ -92,5 +93,30 @@ describe("pageMetadata", () => {
       description: fieldBuilding.description,
       alternates: { canonical: "/" },
     });
+  });
+});
+
+describe("the homepage", () => {
+  const home = parsePage("home", homeContent);
+
+  it("renders in navy, black and navy bands with the nav's anchors on its sections", () => {
+    const { container } = render(<PageView slug="home" page={home} />);
+    const sections = [...container.querySelectorAll("main > section")];
+    expect(sections.map((s) => [s.className.split(" ")[0], s.id])).toEqual([
+      ["bg-brand-white", ""],
+      ["bg-brand-navy", "mission"],
+      ["bg-brand-white", "work"],
+      ["bg-brand-black", ""],
+      ["bg-brand-white", "our-story"],
+      ["bg-brand-navy", "team"],
+      ["bg-brand-white", "contact"],
+    ]);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Bringing together legal professionals/);
+  });
+
+  it("gives an anchor only to the first block of a type", () => {
+    const twice = { ...home, blocks: [home.blocks[0], home.blocks[1], home.blocks[1]] };
+    expect(blockAnchors("home", twice)).toEqual([undefined, "mission", undefined]);
+    expect(blockAnchors("field-building", twice)).toEqual([undefined, undefined, undefined]);
   });
 });

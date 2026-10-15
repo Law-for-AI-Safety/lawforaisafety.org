@@ -4,9 +4,9 @@ import LightSection from "./LightSection";
 import Rule from "./Rule";
 import type { BlockOf } from "./types";
 
-export default function TextSection({ block, tone }: { block: BlockOf<"textSection">; tone: LightTone }) {
+export default function TextSection({ block, tone, id }: { block: BlockOf<"textSection">; tone: LightTone; id?: string }) {
   return (
-    <LightSection tone={tone}>
+    <LightSection tone={tone} id={id}>
       <div className="max-w-4xl mx-auto flex flex-col gap-6">
         <Rule />
         <h2 className="text-3xl md:text-4xl font-light text-brand-black leading-tight">{block.heading}</h2>

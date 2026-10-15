@@ -10,7 +10,7 @@ describe("adding blocks", () => {
   });
 
   it("follows the default rules on other pages", () => {
-    expect(addableBlockTypes("new-page", [b("hero")])).toEqual(["quoteBand", "textSection", "cardList", "teamGrid", "timeline"]);
+    expect(addableBlockTypes("new-page", [b("hero")])).toEqual(["quoteBand", "textSection", "cardList", "teamGrid", "timeline", "milestones"]);
   });
 
   it("offers a hero only to a page without one", () => {

@@ -12,7 +12,7 @@ import { IMAGE_PATH, pageSchema } from "./schema";
  * - every field valid under the page schema, which covers a title and description, no empty
  *   required field, well-formed links, the page's block rules, and alt text with every photo
  * - every image it uses present in `public/`
- * - every site link leading to a real page
+ * - every site link, in text or on a button, leading to a real page
  * - exactly one H1
  *
  * Each problem carries the path of the field it is about, as zod reports it.
@@ -45,18 +45,19 @@ function linksInText(text: string): string[] {
   return runs.flatMap((run) => (run.marks.link === undefined ? [] : [run.marks.link]));
 }
 
-/** The repo images a page value uses, with their paths: its share image and team photos. */
+/** Fields that hold a repo image: the share image, team photos, and photos in a list of photos. */
+const IMAGE_KEYS = new Set(["shareImage", "photo", "image"]);
+
+/** The repo images a page value uses, with their paths. */
 function imagesIn(value: Record<string, unknown>): [ProblemPath, string][] {
-  const found: [ProblemPath, string][] = [];
-  if (typeof value.shareImage === "string") found.push([["shareImage"], value.shareImage]);
-  const blocks = Array.isArray(value.blocks) ? value.blocks : [];
-  blocks.forEach((block, b) => {
-    const members = block?.type === "teamGrid" && Array.isArray(block.members) ? block.members : [];
-    members.forEach((member: { photo?: unknown }, m: number) => {
-      if (typeof member?.photo === "string") found.push([["blocks", b, "members", m, "photo"], member.photo]);
-    });
-  });
-  return found;
+  return strings(value).filter(([at]) => IMAGE_KEYS.has(String(at[at.length - 1])));
+}
+
+/** Every link target in a page value: those inside rich text, and each button's own `href`. */
+function linksIn(value: Record<string, unknown>): [ProblemPath, string][] {
+  return strings(value).flatMap(([at, text]): [ProblemPath, string][] =>
+    at[at.length - 1] === "href" ? [[at, text]] : linksInText(text).map((href) => [at, href]),
+  );
 }
 
 export function publishChecks(slug: string, value: unknown, { publicDir, routes }: CheckContext): Problem[] {
@@ -73,11 +74,9 @@ export function publishChecks(slug: string, value: unknown, { publicDir, routes 
       problems.push({ path: at, message: `The image ${image} does not exist` });
     }
   }
-  for (const [at, text] of strings(page)) {
-    for (const href of linksInText(text)) {
-      if (href.startsWith("/") && !isSiteRoute(href, routes)) {
-        problems.push({ path: at, message: `The link ${href} does not lead to a page on this site` });
-      }
+  for (const [at, href] of linksIn(page)) {
+    if (href.startsWith("/") && !isSiteRoute(href, routes)) {
+      problems.push({ path: at, message: `The link ${href} does not lead to a page on this site` });
     }
   }
   const blocks = Array.isArray(page.blocks) ? page.blocks : [];

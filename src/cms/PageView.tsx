@@ -6,7 +6,7 @@ import Nav from "../app/Nav";
 import RedLinesApplyToast from "../app/red-lines-dialogue/ApplyToast";
 import { bandTones } from "./bands";
 import Block from "./blocks/Block";
-import { HOME_SLUG, pagePath } from "./pages";
+import { HOME_SLUG, pagePath, pageRules } from "./pages";
 import type { PageContent } from "./schema";
 
 const SITE_NAME = "Law for AI Safety";
@@ -15,6 +15,7 @@ const SITE_NAME = "Law for AI Safety";
 export default function PageView({ slug, page }: { slug: string; page: PageContent }) {
   const path = pagePath(slug);
   const tones = bandTones(page.blocks.map((block) => block.type));
+  const anchors = blockAnchors(slug, page);
   const redLines = page.blocks.some((block) => block.type === "applicationSection" && block.form === "redLines");
   return (
     <main className="flex flex-col font-sans">
@@ -23,12 +24,23 @@ export default function PageView({ slug, page }: { slug: string; page: PageConte
       <Suspense fallback={null}>{redLines ? <RedLinesApplyToast /> : <ApplyToast />}</Suspense>
 
       {page.blocks.map((block, i) => (
-        <Block key={i} block={block} tone={tones[i]} path={path} />
+        <Block key={i} block={block} tone={tones[i]} path={path} id={anchors[i]} />
       ))}
 
       <Footer />
     </main>
   );
+}
+
+/** Each block's anchor id from the page's rules: the first block of a type named there gets it. */
+export function blockAnchors(slug: string, page: PageContent): (string | undefined)[] {
+  const anchors = pageRules(slug).anchors ?? {};
+  const seen = new Set<string>();
+  return page.blocks.map((block) => {
+    if (seen.has(block.type)) return undefined;
+    seen.add(block.type);
+    return anchors[block.type];
+  });
 }
 
 /**

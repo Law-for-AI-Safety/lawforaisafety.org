@@ -264,3 +264,34 @@ describe("draft mode", () => {
     expect(problems(pageSchema("x", "draft").safeParse(page(Array(101).fill(hero))))).toEqual(["blocks: At most 100 blocks"]);
   });
 });
+
+describe("optional lists and button links", () => {
+  const milestones = (extra: Record<string, unknown>) => ({ type: "milestones", heading: "Story", entries: [{ title: "One", body: "Text.", ...extra }] });
+
+  it("drop an empty list, so a file has one form", () => {
+    expect(blockSchema("strict").parse(milestones({ photos: [], buttons: [] }))).toEqual(milestones({}));
+    expect(blockSchema("draft").parse(milestones({ photos: [] }))).toEqual(milestones({ photos: [] }));
+  });
+
+  it("refuse a button link with a disallowed target, and formatting upgrades http:", () => {
+    const button = (href: string) => milestones({ buttons: [{ label: "Go", href }] });
+    expect(blockSchema("strict").safeParse(button("javascript:void")).error?.issues[0].message).toMatch(/Only https:, mailto: and site links/);
+    expect(blockSchema("strict").safeParse(button("http://example.org")).success).toBe(false);
+    expect(blockSchema("format").parse(button(" http://example.org "))).toEqual(button("https://example.org"));
+  });
+
+  it("allow at most three photos and two buttons", () => {
+    const photo = { image: "/images/team-group.webp", alt: "A" };
+    expect(blockSchema("draft").safeParse(milestones({ photos: [photo, photo, photo, photo] })).success).toBe(false);
+    const go = { label: "Go", href: "/" };
+    expect(blockSchema("draft").safeParse(milestones({ buttons: [go, go, go] })).success).toBe(false);
+  });
+});
+
+describe("the homepage rules", () => {
+  it("take the apply form registered for /, and give the nav's anchors", () => {
+    expect(pagePath("home")).toBe("/");
+    expect(applySourceFor(pagePath("home"))).toBe("homepage");
+    expect(pageRules("home").anchors).toEqual({ quoteBand: "mission", cardList: "work", milestones: "our-story" });
+  });
+});

@@ -3,15 +3,19 @@ import ApplyForm from "../../app/apply/ApplyForm";
 import ContactErrorBanner from "../../app/ContactErrorBanner";
 import RedLinesApplyForm from "../../app/red-lines-dialogue/ApplyForm";
 import RedLinesErrorBanner from "../../app/red-lines-dialogue/ErrorBanner";
+import NewsletterForm from "../../app/apply/NewsletterForm";
 import type { LightTone } from "../bands";
 import { applySourceFor } from "../pages";
 import { RichTextBlocks } from "../render";
+import Buttons from "./Buttons";
 import LightSection from "./LightSection";
 import Rule from "./Rule";
 import type { BlockOf } from "./types";
 
 const TEXT = "text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl";
 const LIST_ITEM = "text-lg font-light text-brand-navy/85 leading-relaxed flex gap-3";
+const PART = "flex flex-col gap-4 pt-12 border-t border-brand-black/10";
+const PART_HEADING = "text-2xl md:text-3xl font-light text-brand-black";
 
 /**
  * The application form, or the closed message when `showForm` is off. The admin toggles stay
@@ -65,15 +69,33 @@ export default function ApplicationSection({
           paragraphClassName="text-lg md:text-xl font-light text-brand-navy/85 leading-relaxed max-w-2xl"
           listItemClassName={LIST_ITEM}
         />
+        {block.buttons && <Buttons buttons={block.buttons} />}
 
         <Suspense fallback={null}>
           <ContactErrorBanner />
         </Suspense>
 
         {block.showForm ? (
-          <div className="max-w-2xl">
-            <ApplyForm source={source} />
-          </div>
+          <>
+            {block.newsletterHeading && (
+              <div className={PART}>
+                <h3 className={PART_HEADING}>{block.newsletterHeading}</h3>
+                <NewsletterForm />
+              </div>
+            )}
+            {block.formHeading ? (
+              <div className={PART}>
+                <h3 className={PART_HEADING}>{block.formHeading}</h3>
+                <div className="max-w-2xl">
+                  <ApplyForm source={source} />
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-2xl">
+                <ApplyForm source={source} />
+              </div>
+            )}
+          </>
         ) : (
           <RichTextBlocks value={block.closedMessage} paragraphClassName={TEXT} listItemClassName={LIST_ITEM} />
         )}

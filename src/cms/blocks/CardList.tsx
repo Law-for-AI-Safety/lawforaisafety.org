@@ -5,10 +5,10 @@ import LightSection from "./LightSection";
 import Rule from "./Rule";
 import type { BlockOf } from "./types";
 
-export default function CardList({ block, tone }: { block: BlockOf<"cardList">; tone: LightTone }) {
+export default function CardList({ block, tone, id }: { block: BlockOf<"cardList">; tone: LightTone; id?: string }) {
   if (block.style === "numbered") {
     return (
-      <LightSection tone={tone}>
+      <LightSection tone={tone} id={id}>
         <div className="max-w-4xl mx-auto flex flex-col gap-10">
           {block.items.map((item, i) => (
             <div key={i} className="flex gap-6 pt-8 border-t border-brand-black/10 first:pt-0 first:border-t-0">
@@ -28,7 +28,7 @@ export default function CardList({ block, tone }: { block: BlockOf<"cardList">; 
     );
   }
   return (
-    <LightSection tone={tone}>
+    <LightSection tone={tone} id={id}>
       <div className="max-w-4xl mx-auto flex flex-col gap-6">
         <Rule />
         <h2 className="text-3xl md:text-4xl font-light text-brand-black leading-tight">{block.heading}</h2>

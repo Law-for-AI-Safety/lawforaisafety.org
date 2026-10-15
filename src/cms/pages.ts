@@ -16,6 +16,7 @@ export const BLOCK_TYPES = [
   "cardList",
   "teamGrid",
   "timeline",
+  "milestones",
   "applicationSection",
 ] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
@@ -26,15 +27,27 @@ export type FormType = (typeof FORM_TYPES)[number];
 export type PageRules = {
   blocks: Partial<Record<BlockType, number>>;
   forms: readonly FormType[];
+  /**
+   * Fixed anchor ids for the first block of a type, for links such as the nav's `#mission`.
+   * Code owns them, so editors cannot break the links. The team grid (`#team`) and the
+   * application sections (`#contact`, `#apply`) always carry their own.
+   */
+  anchors?: Partial<Record<BlockType, string>>;
 };
 
 /** Any page without its own entry: every block except the application section. */
 export const DEFAULT_RULES: PageRules = {
-  blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 1, timeline: 1 },
+  blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 1, timeline: 1, milestones: 1 },
   forms: [],
 };
 
 export const PAGE_RULES: Record<string, PageRules> = {
+  home: {
+    blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 1, timeline: 1, milestones: 1, applicationSection: 1 },
+    forms: ["apply"],
+    // The nav's section links (src/app/Nav.tsx).
+    anchors: { quoteBand: "mission", cardList: "work", milestones: "our-story" },
+  },
   "field-building": {
     blocks: { hero: 1, quoteBand: 2, textSection: 4, cardList: 4, timeline: 1, applicationSection: 1 },
     forms: ["apply"],

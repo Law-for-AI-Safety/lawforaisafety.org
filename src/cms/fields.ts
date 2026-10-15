@@ -12,7 +12,7 @@ export type FieldSpec =
   | { kind: "rich"; key: string; label: string; max: number; rich: "inline" | "blocks"; optional?: boolean }
   | { kind: "image"; key: string; label: string }
   | { kind: "boolean"; key: string; label: string; hint?: string }
-  | { kind: "list"; key: string; label: string; itemLabel: string; max: number; fields: FieldSpec[] };
+  | { kind: "list"; key: string; label: string; itemLabel: string; max: number; fields: FieldSpec[]; optional?: boolean };
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
   hero: "Page heading",
@@ -21,6 +21,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   cardList: "Card list",
   teamGrid: "Team",
   timeline: "Timeline",
+  milestones: "Milestones",
   applicationSection: "Application form",
 };
 
@@ -38,6 +39,32 @@ const CARD_FIELDS: FieldSpec[] = [
 ];
 const cards: FieldSpec = { kind: "list", key: "items", label: "Items", itemLabel: "Item", max: 12, fields: CARD_FIELDS };
 
+const photos: FieldSpec = {
+  kind: "list",
+  key: "photos",
+  label: "Photos (optional)",
+  itemLabel: "Photo",
+  max: 3,
+  optional: true,
+  fields: [
+    { kind: "image", key: "image", label: "Photo" },
+    { kind: "plain", key: "alt", label: "Photo description for screen readers", max: 200 },
+  ],
+};
+
+const buttons: FieldSpec = {
+  kind: "list",
+  key: "buttons",
+  label: "Buttons (optional)",
+  itemLabel: "Button",
+  max: 2,
+  optional: true,
+  fields: [
+    { kind: "plain", key: "label", label: "Button text", max: 60 },
+    { kind: "plain", key: "href", label: "Link", max: 300, hint: "A page on this site (starting with /), an https:// address, or mailto: and an email address. The last button is the red one." },
+  ],
+};
+
 type AnyBlock = { type: BlockType; [key: string]: unknown };
 
 /** The fields of a block. A card list's depend on its style, an application form's on its form. */
@@ -46,7 +73,12 @@ export function blockFields(block: AnyBlock): FieldSpec[] {
     case "hero":
       return [heading, { kind: "rich", key: "lede", label: "Introduction", max: 1000, rich: "inline" }];
     case "quoteBand":
-      return [{ kind: "rich", key: "quote", label: "Quote", max: 600, rich: "inline" }];
+      return [
+        { kind: "rich", key: "quote", label: "Quote", max: 600, rich: "inline" },
+        { kind: "rich", key: "body", label: "Text under the quote (optional)", max: 6000, rich: "blocks", optional: true },
+        photos,
+        { kind: "plain", key: "caption", label: "Photo caption (optional)", max: 300, optional: true, long: true },
+      ];
     case "textSection":
       return [heading, { kind: "rich", key: "body", label: "Text", max: 6000, rich: "blocks" }];
     case "cardList":
@@ -87,14 +119,35 @@ export function blockFields(block: AnyBlock): FieldSpec[] {
           ],
         },
       ];
+    case "milestones":
+      return [
+        heading,
+        {
+          kind: "list",
+          key: "entries",
+          label: "Milestones",
+          itemLabel: "Milestone",
+          max: 30,
+          fields: [
+            { kind: "plain", key: "title", label: "Title", max: 200 },
+            { kind: "rich", key: "body", label: "Text", max: 6000, rich: "blocks" },
+            photos,
+            buttons,
+          ],
+        },
+      ];
     case "applicationSection":
       return [
         heading,
         { kind: "rich", key: "intro", label: "Introduction", max: 6000, rich: "blocks" },
+        ...(block.form === "redLines" ? [] : [buttons]),
         { kind: "boolean", key: "showForm", label: "Show the application form", hint: "When off, the closed message shows instead." },
         ...(block.form === "redLines"
           ? [{ kind: "rich", key: "formNote", label: "Note above the form (optional)", max: 6000, rich: "blocks", optional: true } as const]
-          : []),
+          : [
+              { kind: "plain", key: "newsletterHeading", label: "Newsletter heading (optional)", max: 200, optional: true, hint: "When filled in, the newsletter sign-up shows above the form, under this heading." } as const,
+              { kind: "plain", key: "formHeading", label: "Heading over the form (optional)", max: 200, optional: true } as const,
+            ]),
         { kind: "rich", key: "closedMessage", label: "Closed message", max: 6000, rich: "blocks" },
       ];
   }
@@ -107,7 +160,7 @@ export function newItem(fields: FieldSpec[]): Record<string, unknown> {
     if (field.kind === "plain" || field.kind === "rich") {
       if (!field.optional) item[field.key] = "";
     } else if (field.kind === "list") {
-      item[field.key] = [];
+      if (!field.optional) item[field.key] = [];
     } else if (field.kind === "boolean") {
       item[field.key] = true;
     }
@@ -127,7 +180,7 @@ export function newBlock(type: BlockType, slug: string): AnyBlock {
     default: {
       const block: AnyBlock = { type, ...newItem(blockFields({ type })) };
       for (const field of blockFields(block)) {
-        if (field.kind === "list") block[field.key] = [newItem(field.fields)];
+        if (field.kind === "list" && !field.optional) block[field.key] = [newItem(field.fields)];
       }
       return block;
     }
