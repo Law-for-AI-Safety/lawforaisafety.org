@@ -78,15 +78,42 @@ async function signedIn(email: string, name: string): Promise<BrowserContext> {
   return context;
 }
 
-/** ProseMirror reads keyboard selections on `selectionchange`, which fires asynchronously. */
-const settle = (page: Page) => page.waitForTimeout(150);
+type EditorElement = HTMLElement & { editor: { state: { selection: { from: number; to: number }; doc: { textBetween(from: number, to: number): string } } } };
 
-/** Selects `length` characters ending `fromEnd` characters before the end of the focused text. */
-async function select(page: Page, fromEnd: number, length: number) {
+/**
+ * Selects `text`, which ends `fromEnd` characters before the end of `field`, and waits until
+ * the editor itself (not only the browser) holds that selection: ProseMirror reads keyboard
+ * selections on `selectionchange`, which fires asynchronously.
+ */
+async function select(field: Locator, fromEnd: number, text: string) {
+  const page = field.page();
   await page.keyboard.press("Control+End");
   for (let i = 0; i < fromEnd; i++) await page.keyboard.press("ArrowLeft");
-  for (let i = 0; i < length; i++) await page.keyboard.press("Shift+ArrowLeft");
-  await settle(page);
+  for (let i = 0; i < text.length; i++) await page.keyboard.press("Shift+ArrowLeft");
+  const handle = await field.elementHandle();
+  await page.waitForFunction(
+    ([el, expected]) => {
+      const { selection, doc } = (el as EditorElement).editor.state;
+      return doc.textBetween(selection.from, selection.to) === expected;
+    },
+    [handle, text] as const,
+  );
+}
+
+/** Presses a toolbar button and waits until it shows as on for the selection. */
+async function format(scope: Locator, name: string) {
+  const button = scope.getByRole("button", { name, exact: true });
+  await button.click();
+  await scope.locator(`button[aria-pressed="true"]`, { hasText: name }).first().waitFor();
+}
+
+/**
+ * Waits for the autosave a change just started to finish. The change shows "Unsaved changes…"
+ * for the autosave's pause first, so a "saved" from before the change cannot be mistaken for it.
+ */
+async function saved(page: Page) {
+  await shown(page.getByText("Unsaved changes…"), 2_000);
+  await shown(page.getByText("All changes saved"));
 }
 
 const shown = (locator: Locator, timeout = 10_000) => locator.waitFor({ state: "visible", timeout });
@@ -103,17 +130,18 @@ describe("a publisher", () => {
     await lede.click();
     await page.keyboard.press("Control+End");
     await page.keyboard.type(" Wavy words and a link");
-    await select(page, 0, "a link".length);
+    // Left to right, so the arrow keys never cross a formatted run (a mark boundary can take
+    // an extra key press).
+    await select(lede, " and a link".length, "Wavy words");
+    await format(hero, "Wavy underline");
+    await select(lede, " a link".length, "and");
+    await format(hero, "Bold");
+    await select(lede, 0, "a link");
     await hero.getByRole("button", { name: "Link", exact: true }).click();
     await hero.getByRole("textbox", { name: /^Link to a web address/ }).fill("/council-of-europe");
     await hero.getByRole("button", { name: "Apply link" }).click();
-    await lede.click();
-    await select(page, " a link".length, "and".length);
-    await hero.getByRole("button", { name: "Bold" }).click();
-    await select(page, " and a link".length, "Wavy words".length);
-    await hero.getByRole("button", { name: "Wavy underline" }).click();
 
-    await shown(page.getByText("All changes saved"));
+    await saved(page);
     await shown(page.getByText("Draft", { exact: true }));
 
     const [preview] = await Promise.all([context.waitForEvent("page"), page.getByRole("link", { name: "Preview (opens a new tab)" }).click()]);
@@ -159,7 +187,7 @@ describe("a draft-only editor", () => {
     await shown(page.getByText("Not published", { exact: true }));
     await shown(page.getByText("reviewer: Not this week."));
     await page.getByLabel("Page title").fill("A draft title");
-    await shown(page.getByText("All changes saved"));
+    await saved(page);
     await shown(page.getByText("Draft", { exact: true }));
     expect(await page.getByRole("button", { name: "Publish" }).count()).toBe(0);
     expect(fake.github.openedPRs).toHaveLength(1);
