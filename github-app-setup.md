@@ -53,19 +53,19 @@ Then:
 
 ## 2. Netlify environment variables
 
-[Site configuration → Environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env). Mark the private key as a **secret** value. Set them for the **production** and **deploy preview** contexts.
+[Site configuration → Environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env). Mark only the private key as a **secret** value (the others are identifiers, not credentials). Set them for the **production** and **deploy preview** contexts, with at least the **Functions** scope: only the server code reads them, never the build.
 
 Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 5), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. **Revisit this as soon as anyone else gets write access**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy ([deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys)) keeps the key out of builds of pull requests from forks; keep that setting on.
 
-| Variable | Value |
-| --- | --- |
-| `GITHUB_APP_ID` | The App ID. |
-| `GITHUB_APP_INSTALLATION_ID` | The installation ID. |
-| `GITHUB_APP_PRIVATE_KEY` | The whole `.pem` file, including the `BEGIN` and `END` lines. Line breaks may be kept or written as `\n`. |
-| `GITHUB_REPO_OWNER` | `Law-for-AI-Safety` |
-| `GITHUB_REPO_NAME` | `lawforaisafety.org` |
-| `GITHUB_API_URL` | Leave unset. Only `https://api.github.com` is accepted. The end-to-end tests point it at a fake on their own machine, which needs the test-only `CMS_TEST_LOCAL_GITHUB=1`; that flag is ignored on any Netlify deploy, so never set it there. |
-| `CMS_PREVIEW_SITE_NAME` | Optional. The Netlify site name used in the deploy preview link, `https://deploy-preview-<N>--<site>.netlify.app/<page>`. Defaults to `law-for-ai-safety-org`. |
+| Variable | Value | Secret? |
+| --- | --- | --- |
+| `GITHUB_APP_ID` | The App ID. | No |
+| `GITHUB_APP_INSTALLATION_ID` | The installation ID. | No |
+| `GITHUB_APP_PRIVATE_KEY` | The whole `.pem` file, including the `BEGIN` and `END` lines. Line breaks may be kept or written as `\n`. | **Yes**: tick "Contains secret values". |
+| `GITHUB_REPO_OWNER` | `Law-for-AI-Safety` | No |
+| `GITHUB_REPO_NAME` | `lawforaisafety.org` | No |
+| `GITHUB_API_URL` | Leave unset. Only `https://api.github.com` is accepted. The end-to-end tests point it at a fake on their own machine, which needs the test-only `CMS_TEST_LOCAL_GITHUB=1`; that flag is ignored on any Netlify deploy, so never set it there. | Do not set. |
+| `CMS_PREVIEW_SITE_NAME` | Optional. The Netlify site name used in the deploy preview link, `https://deploy-preview-<N>--<site>.netlify.app/<page>`. Defaults to `law-for-ai-safety-org`. | No |
 
 Env var changes apply from the next deploy. The server never logs the key or the tokens it gets with it. Each installation token it requests is limited to this repo and to contents and pull requests, and is reused until shortly before it expires (one hour).
 
