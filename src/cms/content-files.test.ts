@@ -4,7 +4,9 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   checkContent,
+  checkContentText,
   ContentError,
+  contentRoutes,
   contentSlugs,
   defaultDirs,
   formatContent,
@@ -109,20 +111,62 @@ describe("with a scratch directory", () => {
 
   it("reports invalid JSON and invalid content", () => {
     write("field-building", "{ nope");
-    write("unknown-page", printContent(valid));
+    write("new-page", printContent(valid));
     const problems = checkContent(dirs);
     expect(problems[0]).toMatch(/^content\/field-building\.json is not valid JSON/);
-    expect(problems[1]).toMatch(/^content\/unknown-page\.json is invalid:\n.*No page rules for "unknown-page"/);
+    expect(problems[1]).toMatch(/^content\/new-page\.json is invalid:\n.*This page cannot have a applicationSection block/);
   });
 
-  it("reports links to pages that do not exist, and a missing share image", () => {
-    const broken = structuredClone(valid);
+  it("reports links to pages that do not exist, and missing images", () => {
+    const broken = structuredClone(valid) as typeof valid & { blocks: unknown[] };
     broken.blocks[0].lede = "See [nothing](/no-such-page) and [admin](/admin).";
-    write("field-building", printContent(withImage(broken, "/images/missing.webp")));
+    write("other-page", printContent({ ...valid, blocks: [valid.blocks[0]] }));
+    write(
+      "field-building",
+      printContent({
+        ...withImage(broken, "/images/missing.webp"),
+        blocks: [
+          ...broken.blocks,
+          {
+            type: "cardList",
+            style: "numbered",
+            items: [{ title: "Other", body: "Link to [a content page](/other-page)." }],
+          },
+        ],
+      }),
+    );
     expect(checkContent(dirs)).toEqual([
-      "content/field-building.json: share image /images/missing.webp is not in public/",
+      "content/field-building.json: image /images/missing.webp is not in public/",
       "content/field-building.json: link /no-such-page does not lead to a page on this site",
       "content/field-building.json: link /admin does not lead to a page on this site",
+    ]);
+  });
+
+  it("checks team photos exist", () => {
+    const team = (photo: string) => ({
+      title: "Team",
+      description: "D.",
+      updatedAt: "2026-10-15",
+      blocks: [
+        valid.blocks[0],
+        { type: "teamGrid", heading: "Team", members: [{ name: "A", role: "R", bio: "B", photo, photoAlt: "Portrait of A" }] },
+      ],
+    });
+    write("team", printContent(team("/images/karolina-gruzel.webp")));
+    expect(checkContent(dirs)).toEqual([]);
+    write("team", printContent(team("/images/nobody.webp")));
+    expect(checkContent(dirs)).toEqual(["content/team.json: image /images/nobody.webp is not in public/"]);
+  });
+
+  it("checks one file's text before it is committed, against the repo's routes", () => {
+    const routes = contentRoutes(real, ["field-building", "draft-page"]);
+    const draft = printContent({ ...valid, blocks: [{ ...valid.blocks[0], lede: "See [the draft](/draft-page)." }] });
+    expect(checkContentText("draft-page", draft, real.publicDir, routes)).toEqual([]);
+    expect(checkContentText("draft-page", draft.trimEnd(), real.publicDir, routes)).toEqual([
+      "content/draft-page.json is not in canonical form; run npm run content:format",
+    ]);
+    expect(checkContentText("draft-page", draft, real.publicDir, contentRoutes(real, []))).toEqual([
+      "content/draft-page.json: link /draft-page does not lead to a page on this site",
     ]);
   });
 

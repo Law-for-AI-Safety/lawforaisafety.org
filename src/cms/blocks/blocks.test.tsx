@@ -98,6 +98,7 @@ describe("TeamGrid", () => {
     expect(section.className).toBe("bg-brand-navy px-8 md:px-16 py-28 md:py-40");
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Team");
     expect(section.querySelector("img")).toBeNull();
+    expect(section.querySelector(".rounded-full")).toBeNull();
     const link = screen.getByRole("link", { name: "Karolina Gruzel on LinkedIn" });
     expect(link).toHaveAttribute("href", "https://www.linkedin.com/in/karolina-gruzel/");
     expect(link).toHaveAttribute("target", "_blank");
@@ -105,6 +106,33 @@ describe("TeamGrid", () => {
     expect(screen.queryByRole("link", { name: "No Profile on LinkedIn" })).toBeNull();
     expect(section).toHaveTextContent("Executive Director");
     expect(section).toHaveTextContent("Helps.");
+  });
+});
+
+describe("TeamGrid photos", () => {
+  it("shows a picked photo, round, with its alt text", () => {
+    const section = renderBlock(
+      {
+        type: "teamGrid",
+        heading: "Team",
+        members: [
+          {
+            name: "Karolina Gruzel",
+            role: "Executive Director",
+            bio: "Field-builder.",
+            photo: "/images/karolina-gruzel.webp",
+            photoAlt: "Portrait of Karolina Gruzel",
+          },
+        ],
+      },
+      "black",
+    );
+    expect(section.className).toBe("bg-brand-black px-8 md:px-16 py-28 md:py-40");
+    const img = screen.getByRole("img", { name: "Portrait of Karolina Gruzel" });
+    // The test runs without next.config's `unoptimized`, so the src may go through the image route.
+    expect(decodeURIComponent(img.getAttribute("src")!)).toContain("/images/karolina-gruzel.webp");
+    expect(img.closest("div")).toHaveClass("relative", "w-12", "h-12", "rounded-full", "overflow-hidden", "flex-shrink-0");
+    expect(img.closest("div")?.nextElementSibling).toHaveTextContent("Karolina Gruzel");
   });
 });
 

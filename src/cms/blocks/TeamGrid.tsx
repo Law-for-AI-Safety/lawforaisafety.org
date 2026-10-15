@@ -1,9 +1,10 @@
+import Image from "next/image";
 import { DARK_BAND, type DarkTone } from "../bands";
 import LinkedInLogo from "./LinkedInLogo";
 import Rule from "./Rule";
 import type { BlockOf } from "./types";
 
-/** The homepage team grid, text only: names, roles, bios and LinkedIn links. */
+/** The homepage team grid: names, optional photos from the repo, roles, bios and LinkedIn links. */
 export default function TeamGrid({ block, tone }: { block: BlockOf<"teamGrid">; tone: DarkTone }) {
   return (
     <section id="team" className={`${DARK_BAND[tone]} px-8 md:px-16 py-28 md:py-40`}>
@@ -17,6 +18,11 @@ export default function TeamGrid({ block, tone }: { block: BlockOf<"teamGrid">; 
             <div key={i} className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
+                  {person.photo && (
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                      <Image src={person.photo} alt={person.photoAlt ?? ""} fill className="object-cover" sizes="96px" />
+                    </div>
+                  )}
                   <p className="text-2xl font-light text-brand-white">{person.name}</p>
                 </div>
                 {person.linkedin && (

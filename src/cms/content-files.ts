@@ -3,8 +3,8 @@ import path from "node:path";
 import { z } from "zod";
 import { pagePath } from "./pages";
 import { parseRichTextLoose } from "./rich-text";
-import { isSiteRoute, siteRoutes } from "./routes";
-import { pageSchema } from "./schema";
+import { isSiteRoute, siteRoutes, type Route } from "./routes";
+import { pageSchema, type PageContent } from "./schema";
 
 /**
  * Reading, formatting and checking the files in `content/`. Used by `npm run content:format`
@@ -78,43 +78,54 @@ export function linksIn(value: unknown): string[] {
   return [];
 }
 
+/** Every repo image a page uses: its share image and team photos. */
+export function imagesIn(page: PageContent): string[] {
+  const photos = page.blocks.flatMap((block) =>
+    block.type === "teamGrid" ? block.members.flatMap((m) => (m.photo ? [m.photo] : [])) : [],
+  );
+  return [...(page.shareImage ? [page.shareImage] : []), ...photos];
+}
+
 /**
- * Checks every content file: valid, in canonical form, share image present, and every site
- * link pointing at a real route. Returns one message per problem; none means all is well.
+ * Checks one content file's text as it would be committed: valid, in canonical form, every
+ * image present in public/, and every site link leading to a real route. `routes` should
+ * include the content pages (see `contentRoutes`). Returns one message per problem; none
+ * means the file may be committed. The publish step calls this on the file it generates.
  */
-export function checkContent(dirs: Dirs): string[] {
-  const slugs = contentSlugs(dirs.contentDir);
-  const routes = siteRoutes({
-    appDir: dirs.appDir,
-    publicDir: dirs.publicDir,
-    contentPaths: slugs.map(pagePath),
-  });
+export function checkContentText(slug: string, text: string, publicDir: string, routes: Route[]): string[] {
+  const file = `content/${slug}.json`;
+  let formatted: string;
+  try {
+    formatted = formatContent(slug, text);
+  } catch (e) {
+    return [(e as Error).message];
+  }
+  if (formatted !== text) return [`${file} is not in canonical form; run npm run content:format`];
+  const page = pageSchema(slug).parse(JSON.parse(text));
   const problems: string[] = [];
-  for (const slug of slugs) {
-    const file = `content/${slug}.json`;
-    const text = fs.readFileSync(path.join(dirs.contentDir, `${slug}.json`), "utf8");
-    let formatted: string;
-    try {
-      formatted = formatContent(slug, text);
-    } catch (e) {
-      problems.push((e as Error).message);
-      continue;
-    }
-    if (formatted !== text) {
-      problems.push(`${file} is not in canonical form; run npm run content:format`);
-      continue;
-    }
-    const page = pageSchema(slug).parse(JSON.parse(text));
-    if (page.shareImage && !fs.existsSync(path.join(dirs.publicDir, page.shareImage))) {
-      problems.push(`${file}: share image ${page.shareImage} is not in public/`);
-    }
-    for (const href of linksIn(page)) {
-      if (href.startsWith("/") && !isSiteRoute(href, routes)) {
-        problems.push(`${file}: link ${href} does not lead to a page on this site`);
-      }
+  for (const image of imagesIn(page)) {
+    if (!fs.existsSync(path.join(publicDir, image))) problems.push(`${file}: image ${image} is not in public/`);
+  }
+  for (const href of linksIn(page)) {
+    if (href.startsWith("/") && !isSiteRoute(href, routes)) {
+      problems.push(`${file}: link ${href} does not lead to a page on this site`);
     }
   }
   return problems;
+}
+
+/** The routes content may link to: app pages, public files, and the given content pages. */
+export function contentRoutes(dirs: Dirs, slugs: string[]): Route[] {
+  return siteRoutes({ appDir: dirs.appDir, publicDir: dirs.publicDir, contentPaths: slugs.map(pagePath) });
+}
+
+/** Checks every file in the content directory with `checkContentText`. */
+export function checkContent(dirs: Dirs): string[] {
+  const slugs = contentSlugs(dirs.contentDir);
+  const routes = contentRoutes(dirs, slugs);
+  return slugs.flatMap((slug) =>
+    checkContentText(slug, fs.readFileSync(path.join(dirs.contentDir, `${slug}.json`), "utf8"), dirs.publicDir, routes),
+  );
 }
 
 /** Rewrites every content file into canonical form. Returns the slugs whose files changed. */

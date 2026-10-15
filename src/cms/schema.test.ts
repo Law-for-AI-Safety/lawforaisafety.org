@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySourceFor, pagePath, pageRules, PAGE_RULES } from "./pages";
+import { applySourceFor, DEFAULT_RULES, pagePath, pageRules, PAGE_RULES } from "./pages";
 import { blockSchema, pageSchema, parsePage } from "./schema";
 
 const hero = { type: "hero", heading: "Heading", lede: "Lede with ==flair==." };
@@ -18,6 +18,8 @@ const page = (blocks: unknown[], extra: Record<string, unknown> = {}) => ({
   blocks,
   ...extra,
 });
+
+const cp = (code: number) => (code >= 0xd800 && code <= 0xdfff ? String.fromCharCode(code) : String.fromCodePoint(code));
 
 const blocks = blockSchema("strict");
 const formatBlocks = blockSchema("format");
@@ -39,7 +41,8 @@ describe("blocks", () => {
       heading: "Team",
       members: [
         { name: "A", role: "R", bio: "Bio.", linkedin: "https://www.linkedin.com/in/a/" },
-        { name: "B", role: "R", bio: "Bio." },
+        { name: "B", role: "R", bio: "Bio.", linkedin: "https://linkedin.com/in/b" },
+        { name: "C", role: "R", bio: "Bio.", photo: "/images/karolina-gruzel.webp", photoAlt: "Portrait of C" },
       ],
     },
     {
@@ -81,9 +84,20 @@ describe("blocks", () => {
     [{ type: "cardList", style: "numbered", items: Array(13).fill({ title: "T", body: "B" }) }, "items: At most 12 items"],
     [{ type: "teamGrid", heading: "T", members: [] }, "members: Add at least one person"],
     [{ type: "teamGrid", heading: "T", members: Array(41).fill({ name: "A", role: "R", bio: "B" }) }, "members: At most 40 people"],
-    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", photo: "/images/a.webp" }] }, 'Unrecognized key: "photo"'],
-    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", linkedin: "http://linkedin.com/in/a" }] }, "linkedin: Must be an https: link"],
-    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", linkedin: "/a" }] }, "linkedin: Must be an https: link"],
+    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", photo: "/images/a.webp" }] }, "photoAlt: A photo needs alt text"],
+    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", photoAlt: "Alt" }] }, "photoAlt: A photo needs alt text"],
+    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", photo: "https://evil.example/a.png", photoAlt: "A" }] }, "photo: Pick an image from /images/"],
+    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", photo: `/images/${"a".repeat(300)}.webp`, photoAlt: "A" }] }, "photo: At most 300 characters"],
+    ...[
+      "http://linkedin.com/in/a",
+      "https://example.org/in/a",
+      "https://linkedin.com.evil.example/in/a",
+      "https://evil.linkedin.com/in/a",
+      "https://user@linkedin.com/in/a",
+      "https://www.linkedin.com",
+      "/a",
+    ].map((linkedin): [unknown, string] => [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", linkedin }] }, "linkedin: Must be a link to a linkedin.com page"]),
+    [{ type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B", linkedin: `https://www.linkedin.com/in/${"a".repeat(300)}` }] }, "linkedin: At most 300 characters"],
     [{ type: "timeline", heading: "T", entries: [] }, "entries: Add at least one entry"],
     [{ type: "timeline", heading: "T", entries: Array.from({ length: 31 }, (_, i) => ({ date: `D${i}`, text: "x" })) }, "entries: At most 30 entries"],
     [{ type: "timeline", heading: "T", entries: [{ date: "D", text: "x" }, { date: "D", text: "y" }] }, "entries: Each date may appear only once"],
@@ -93,8 +107,32 @@ describe("blocks", () => {
     [{ ...apply, closedMessage: undefined }, "closedMessage: Invalid input"],
     [{ ...apply, formNote: "Note." }, 'Unrecognized key: "formNote"'],
     [{ ...apply, form: "newsletter" }, "form: Invalid discriminator value"],
-  ])("refuses %j", (block, message) => {
+  ] as [unknown, string][])("refuses %j", (block, message) => {
     expect(problems(blocks.safeParse(block)).join("\n")).toContain(message);
+  });
+});
+
+describe("text characters and normalisation", () => {
+  const nfd = "Raphaël Kolář".normalize("NFD");
+
+  it.each([0x09, 0xad, 0x200b, 0x200d, 0x2060, 0xfe0f, 0xe0041, 0xd800, 0x202e, 0x2028])(
+    "refuses U+%s in plain and rich text",
+    (code) => {
+      const c = cp(code);
+      expect(problems(blocks.safeParse({ ...hero, heading: `a${c}b` })).join()).toContain("heading: No line breaks, tabs, control or invisible");
+      expect(problems(blocks.safeParse({ ...hero, lede: `a${c}b` })).join()).toContain("lede: Control or invisible formatting character");
+      expect(problems(formatBlocks.safeParse({ ...hero, heading: `a${c}b` })).join()).toContain("heading: No line breaks");
+    },
+  );
+
+  it("refuses text not in NFC, and format mode normalises it", () => {
+    const strict = problems(blocks.safeParse({ ...hero, heading: nfd, lede: nfd })).join("\n");
+    expect(strict).toContain("heading: Text is not in Unicode NFC form");
+    expect(strict).toContain("lede: Text is not in Unicode NFC form");
+    expect(formatBlocks.parse({ ...hero, heading: nfd, lede: `*${nfd}*` })).toMatchObject({
+      heading: nfd.normalize("NFC"),
+      lede: `*${nfd.normalize("NFC")}*`,
+    });
   });
 });
 
@@ -127,6 +165,7 @@ describe("pages", () => {
   it.each([
     [page([hero], { shareImage: "https://evil.example/a.png" }), "shareImage: Pick an image from /images/"],
     [page([hero], { shareImage: "/images/../secret.webp" }), "shareImage: Pick an image from /images/"],
+    [page([hero], { shareImage: `/images/${"a".repeat(300)}.webp` }), "shareImage: At most 300 characters"],
     [page([hero], { updatedAt: "15/10/2026" }), "updatedAt: Invalid ISO date"],
     [page([hero], { title: "" }), "title: Required"],
     [page([hero], { description: undefined }), "description: Invalid input"],
@@ -141,8 +180,12 @@ describe("pages", () => {
     expect(problems(pageSchema("field-building").safeParse(value)).join("\n")).toContain(message);
   });
 
-  it("refuses a page with no rules", () => {
-    expect(problems(pageSchema("no-such-page").safeParse(page([hero]))).join()).toContain('No page rules for "no-such-page"');
+  it("lets any other page hold text-only blocks, but no application section", () => {
+    const team = { type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B" }] };
+    expect(problems(pageSchema("a-new-page").safeParse(page([hero, { type: "quoteBand", quote: "Q." }, team])))).toEqual([]);
+    expect(problems(pageSchema("a-new-page").safeParse(page([hero, apply]))).join()).toContain(
+      "blocks.1: This page cannot have a applicationSection block",
+    );
   });
 
   it("refuses the apply form on a page with no registered apply source", () => {
@@ -167,7 +210,8 @@ describe("pages", () => {
 describe("page rules", () => {
   it("finds rules only for listed pages, not inherited object keys", () => {
     expect(pageRules("field-building")).toBe(PAGE_RULES["field-building"]);
-    expect(pageRules("toString")).toBeUndefined();
+    expect(pageRules("a-new-page")).toBe(DEFAULT_RULES);
+    expect(pageRules("toString")).toBe(DEFAULT_RULES);
   });
 
   it("serves a page at its slug", () => {

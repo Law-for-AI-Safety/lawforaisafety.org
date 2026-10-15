@@ -23,8 +23,9 @@ function plainText(mode: Mode, max: number) {
     .min(1, "Required")
     .max(max, `At most ${max} characters`)
     .refine((s) => s.trim() === s, "No spaces at the start or end")
-    .refine((s) => !hasForbiddenText(s), "No line breaks, tabs, control or invisible formatting characters");
-  return mode === "strict" ? strict : z.string().transform((s) => s.trim()).pipe(strict);
+    .refine((s) => !hasForbiddenText(s), "No line breaks, tabs, control or invisible formatting characters")
+    .refine((s) => s === s.normalize("NFC"), "Text is not in Unicode NFC form; run npm run content:format");
+  return mode === "strict" ? strict : z.string().transform((s) => s.trim().normalize("NFC")).pipe(strict);
 }
 
 /** `inline`: exactly one paragraph. `blocks`: paragraphs and bullet lists. */
@@ -59,12 +60,19 @@ function richText(mode: Mode, kind: "inline" | "blocks", max: number) {
     .pipe(strict);
 }
 
-/** An image already in `public/images/`; that the file exists is checked with the content. */
+/** An image already in `public/images/`; that the file exists is checked with the content (no uploads). */
 const imagePath = z
   .string()
+  .max(300, "At most 300 characters")
   .regex(/^\/images\/[a-z0-9-]+\.(webp|png|jpg)$/, "Pick an image from /images/");
 
-const httpsUrl = z.string().refine((s) => s.startsWith("https://") && hrefProblem(s) === null, "Must be an https: link");
+const linkedinUrl = z
+  .string()
+  .max(300, "At most 300 characters")
+  .refine(
+    (s) => /^https:\/\/(www\.)?linkedin\.com\//.test(s) && hrefProblem(s) === null,
+    "Must be a link to a linkedin.com page",
+  );
 
 export function blockSchema(mode: Mode) {
   const plain = (max = 200) => plainText(mode, max);
@@ -93,12 +101,20 @@ export function blockSchema(mode: Mode) {
       heading: plain(),
       members: z
         .array(
-          z.strictObject({
-            name: plain(100),
-            role: plain(),
-            bio: plain(1000),
-            linkedin: httpsUrl.optional(),
-          }),
+          z
+            .strictObject({
+              name: plain(100),
+              role: plain(),
+              bio: plain(1000),
+              linkedin: linkedinUrl.optional(),
+              photo: imagePath.optional(),
+              // Describes the photo for screen readers; required with a photo.
+              photoAlt: plain(200).optional(),
+            })
+            .refine((m) => (m.photo === undefined) === (m.photoAlt === undefined), {
+              message: "A photo needs alt text, and alt text needs a photo",
+              path: ["photoAlt"],
+            }),
         )
         .min(1, "Add at least one person")
         .max(40, "At most 40 people"),
@@ -160,10 +176,6 @@ export function pageSchema(slug: string, mode: Mode = "strict") {
     })
     .superRefine((page, ctx) => {
       const rules = pageRules(slug);
-      if (!rules) {
-        ctx.addIssue({ code: "custom", message: `No page rules for "${slug}" (add it to PAGE_RULES in src/cms/pages.ts)` });
-        return;
-      }
       if (page.blocks[0]?.type !== "hero") {
         ctx.addIssue({ code: "custom", message: "The first block must be the hero", path: ["blocks", 0] });
       }

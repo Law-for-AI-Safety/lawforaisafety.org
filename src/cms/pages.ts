@@ -1,8 +1,9 @@
 import { APPLY_PAGES, type ApplicationSource } from "../lib/application-pages";
 
 /**
- * What each content page may hold. A page's content file is `content/<slug>.json`; a slug
- * with no entry here has no rules, so its file is refused.
+ * What each content page may hold. A page's content file is `content/<slug>.json`. A page
+ * listed in PAGE_RULES follows its entry; any other page follows DEFAULT_RULES, which allow
+ * text-only pages that editors can add freely.
  *
  * `blocks` lists the block types the page allows with the most of each it may have. The hero
  * is always first and appears exactly once. `forms` lists the application forms the page's
@@ -27,6 +28,12 @@ export type PageRules = {
   forms: readonly FormType[];
 };
 
+/** Any page without its own entry: every block except the application section. */
+export const DEFAULT_RULES: PageRules = {
+  blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 1, timeline: 1 },
+  forms: [],
+};
+
 export const PAGE_RULES: Record<string, PageRules> = {
   "field-building": {
     blocks: { hero: 1, quoteBand: 2, textSection: 4, cardList: 4, timeline: 1, applicationSection: 1 },
@@ -34,8 +41,8 @@ export const PAGE_RULES: Record<string, PageRules> = {
   },
 };
 
-export function pageRules(slug: string): PageRules | undefined {
-  return Object.hasOwn(PAGE_RULES, slug) ? PAGE_RULES[slug] : undefined;
+export function pageRules(slug: string): PageRules {
+  return Object.hasOwn(PAGE_RULES, slug) ? PAGE_RULES[slug] : DEFAULT_RULES;
 }
 
 /** The site path a content page is served at. */
