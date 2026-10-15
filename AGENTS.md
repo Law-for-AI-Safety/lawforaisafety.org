@@ -13,8 +13,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 `npm run check-all` runs typecheck, lint and every test with coverage; run it before raising a PR. CI runs the same on every PR and push to `main`, against a Postgres service container.
 
 - `npm test` runs every test once, `npm run test:watch` reruns on change, and `npm run test:coverage` adds coverage (listing uncovered lines when only coverage fails).
-- Vitest has two projects: `*.test.ts` runs in node, `*.test.tsx` in jsdom. A file named `*.db.test.ts(x)` uses the real database: each test file gets its own Postgres database, cloned from a template migrated with `netlify/database/migrations/` (`test/pg.ts`). The app's own `src/lib/db.ts` pool talks to it; never mock the database.
-- The tests need Postgres from `npm run db:up`, or `TEST_DATABASE_URL`. Without one, `npm run test:no-db` leaves out the `*.db.test.*` files. CI never does.
+- Vitest has four projects: `*.test.ts` runs in node and `*.test.tsx` in jsdom, and `*.db.test.ts(x)` files run in the matching database project. Each database test file gets its own Postgres database, cloned from a template migrated with `netlify/database/migrations/` (`test/pg.ts`), and the app's own `src/lib/db.ts` pool talks to it; never mock the database. Other test files get no database.
+- The database tests use `TEST_DATABASE_URL`, or else `DATABASE_URL` from `.env.local` if it points at this machine (`npm run db:up`). Each run names its databases with its own token, so parallel worktrees can share one server. Without Postgres, `npm test` still runs the other tests and each database file fails saying why; `npm run test:no-db` leaves them out. CI always runs them.
 - Comments describe the code as it stands, never the edit, and hold no measured numbers.
 
 ### Fakes and seams
@@ -28,7 +28,7 @@ Only the outside world is faked, and only at a seam. The app reaches Turnstile, 
 
 ### Coverage
 
-`src/cms/**` must have 100% line and statement coverage. Everything else under `src/` has a floor in `vitest.config.mts`: raise it as tests are added, never lower it.
+`src/cms/**` must have 100% line and statement coverage. The threshold applies to each file from the moment it exists under `src/cms/`, so the CMS is written with its tests. Everything else under `src/` has a floor in `vitest.config.mts`: raise it as tests are added, never lower it.
 
 - Never use `/* v8 ignore */`, `/* istanbul ignore */` or any other coverage-exclusion comment.
 - Don't remove a defensive guard, or replace it with a `!` assertion, to make a line unreachable. Reach it with a test, or narrow the type at the call site. If a line truly cannot run, say so in the PR.
