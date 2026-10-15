@@ -22,12 +22,21 @@ describe("ContactErrorBanner", () => {
     expect(screen.getByText(/couldn't verify you're not a robot/)).toBeVisible();
   });
 
-  it.each(["/", "/?error=", "/?error=unknown-code"])(
+  it.each(["/", "/?error=", "/?error=unknown-code", "/?error=toString", "/?error=__proto__", "/?error=constructor", "/?error=hasOwnProperty"])(
     "shows nothing at %s",
     (url) => {
       const { container } = renderAt(url);
 
       expect(container).toBeEmptyDOMElement();
+    },
+  );
+
+  it.each(["validation", "toolong", "linkedin", "name", "email", "cv", "organisation", "sendfailed", "invalid", "expired", "verification", "ratelimit", "closed"])(
+    "shows a message for the known code %s",
+    (code) => {
+      const { container } = renderAt(`/?error=${code}`);
+
+      expect(container.querySelector("p")?.textContent).toMatch(/\w/);
     },
   );
 

@@ -28,7 +28,8 @@ export default function ContactErrorBanner() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
-  const errorMessage = error ? ERROR_MESSAGES[error] : null;
+  // Own keys only: a code such as "toString" or "__proto__" must not reach Object.prototype.
+  const errorMessage = error && Object.hasOwn(ERROR_MESSAGES, error) ? ERROR_MESSAGES[error] : null;
   if (errorMessage) {
     return (
       <p className="rounded-sm border border-brand-red bg-brand-red/10 px-4 py-3 text-lg text-brand-red">
