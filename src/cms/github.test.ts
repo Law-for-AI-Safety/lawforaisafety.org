@@ -230,11 +230,107 @@ describe("the repo", () => {
     const c = client();
     await c.branchHead("main");
     const list = (items: unknown[]) => Response.json(items);
+    const who = { login: "r", type: "User" };
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(list([{ user: null, body: "ghost", created_at: "2026-10-15T10:00:00Z" }]))
-      .mockResolvedValueOnce(list([{ user: { login: "r", type: "User" }, body: "no time", state: "COMMENTED" }]))
-      .mockResolvedValueOnce(list([{ user: { login: "r", type: "User" }, body: null, created_at: "2026-10-15T10:00:00Z" }]));
+      .mockResolvedValueOnce(Response.json({ closed_by: null }))
+      .mockResolvedValueOnce(list([{ user: null, author_association: "OWNER", body: "ghost", created_at: "2026-10-15T10:00:00Z" }]))
+      .mockResolvedValueOnce(list([{ user: who, author_association: "OWNER", body: "no time", state: "COMMENTED" }]))
+      .mockResolvedValueOnce(list([{ user: who, author_association: "OWNER", body: null, created_at: "2026-10-15T10:00:00Z" }]));
     expect(await c.lastComment(1)).toBeNull();
+  });
+
+  it("shows only what maintainers, or whoever closed it, said: the repo is public", async () => {
+    github.fileOnMain("content/a.json", "old\n");
+    const c = client();
+    const head = (await c.branchHead("main"))!;
+    await c.createBranch("cms/a", head.commit);
+    await c.openPullRequest({ head: "cms/a", base: "main", title: "T", body: "B" });
+    github.comment(1, "From the owner", { by: "owner", association: "OWNER", at: new Date("2026-10-15T09:00:00Z") });
+    github.comment(1, "Spam from a stranger", { by: "stranger", association: "NONE", at: new Date("2026-10-15T10:00:00Z") });
+    github.review(1, "A past contributor", { by: "contributor", association: "CONTRIBUTOR", at: new Date("2026-10-15T11:00:00Z") });
+    expect(await c.lastComment(1)).toMatchObject({ author: "owner", body: "From the owner" });
+
+    github.reviewComment(1, "A collaborator", { by: "collab", association: "COLLABORATOR", at: new Date("2026-10-15T09:30:00Z") });
+    expect(await c.lastComment(1)).toMatchObject({ author: "collab" });
+
+    // Someone outside the repo who could close it (for instance its author) is listened to.
+    github.close(1, { comment: "Closing my own", by: "closer", association: "NONE", at: new Date("2026-10-15T12:00:00Z") });
+    expect(await c.lastComment(1)).toMatchObject({ author: "closer", body: "Closing my own" });
+  });
+
+  it("reads every page of the comments and takes the newest", async () => {
+    github.fileOnMain("content/a.json", "old\n");
+    const c = client();
+    const head = (await c.branchHead("main"))!;
+    await c.createBranch("cms/a", head.commit);
+    await c.openPullRequest({ head: "cms/a", base: "main", title: "T", body: "B" });
+    const start = Date.parse("2026-10-01T00:00:00Z");
+    for (let i = 0; i < 250; i++) github.comment(1, `Comment ${i}`, { at: new Date(start + i * 60_000) });
+    expect(await c.lastComment(1)).toMatchObject({ body: "Comment 249" });
+    expect(github.requests.filter((r) => r.path.includes("/issues/1/comments")).map((r) => r.path)).toEqual([
+      "/repos/Law-for-AI-Safety/lawforaisafety.org/issues/1/comments?per_page=100",
+      "/repos/Law-for-AI-Safety/lawforaisafety.org/issues/1/comments?per_page=100&page=2",
+      "/repos/Law-for-AI-Safety/lawforaisafety.org/issues/1/comments?per_page=100&page=3",
+    ]);
+  });
+
+  it("does not follow a next page that leads off the API", async () => {
+    const c = client();
+    await c.branchHead("main");
+    const page = (items: unknown[], next?: string) => Response.json(items, { headers: next ? { link: `<${next}>; rel="next"` } : {} });
+    const item = (body: string) => ({ user: { login: "o", type: "User" }, author_association: "OWNER", body, created_at: "2026-10-15T10:00:00Z" });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ closed_by: null }))
+      .mockResolvedValueOnce(page([item("first")], "https://evil.example/repos/x?page=2"))
+      .mockResolvedValueOnce(page([]))
+      .mockResolvedValueOnce(page([]));
+    expect(await c.lastComment(1)).toMatchObject({ body: "first" });
+  });
+
+  it("renews a refused token while reading pages", async () => {
+    const c = client();
+    await c.branchHead("main");
+    github.revokeTokens();
+    expect(await c.findPullRequest("cms/none")).toBeNull();
+    github.failNext("GET /pulls", { status: 403 });
+    await expect(c.findPullRequest("cms/none")).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("finds the pull request opened from a branch, open or closed", async () => {
+    github.fileOnMain("content/a.json", "old\n");
+    const c = client();
+    const head = (await c.branchHead("main"))!;
+    await c.createBranch("cms/a", head.commit);
+    await c.createBranch("cms/b", head.commit);
+    await c.openPullRequest({ head: "cms/a", base: "main", title: "A", body: "" });
+    await c.openPullRequest({ head: "cms/b", base: "main", title: "B", body: "" });
+    github.close(2);
+    expect(await c.findPullRequest("cms/b")).toBe(2);
+    expect(await c.findPullRequest("cms/a")).toBe(1);
+    expect(await c.findPullRequest("cms/c")).toBeNull();
+    expect(github.requests.at(-1)!.path).toBe("/repos/Law-for-AI-Safety/lawforaisafety.org/pulls?state=all&head=Law-for-AI-Safety%3Acms%2Fc&per_page=100");
+  });
+
+  it("gives up on a request GitHub does not answer in time", async () => {
+    const setup = gitHubSetup(githubEnv());
+    if (!setup.ok) throw new Error(setup.problem);
+    const c = new GitHubAppClient(setup.config, 50);
+    github.failNext("GET /git/ref/heads/main", { kind: "hang" });
+    await expect(c.branchHead("main")).rejects.toMatchObject({ status: 0, message: expect.stringMatching(/^Could not reach GitHub \(GET .*\): .*(timeout|aborted)/i) });
+  });
+
+  it("puts a time limit on every request it sends", async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const realFetch = globalThis.fetch;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      signals.push(init?.signal);
+      return realFetch(input, init);
+    });
+    const c = client();
+    await c.branchHead("main");
+    await c.lastComment(1).catch(() => null);
+    expect(signals.length).toBeGreaterThan(3);
+    for (const signal of signals) expect(signal).toBeInstanceOf(AbortSignal);
   });
 
   it("encodes branch names and paths in URLs, keeping their slashes", async () => {

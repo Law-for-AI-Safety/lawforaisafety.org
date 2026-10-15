@@ -139,6 +139,20 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
   }
   if (!(await lockDraft(page, at))) return { ok: false, reason: "conflict", message: CONFLICT };
 
+  // The row comes first, and gets the branch before the pull request is opened, so there is
+  // never a pull request no row points to (see refreshPublishing for a publish that stops).
+  let submission;
+  try {
+    submission = await insertSubmission({ page, state: "pending", submittedBy: actor.email, submittedAt: new Date(), baseHash: draft.baseHash, draftVersion: at });
+  } catch (e) {
+    await unlockDraft(page);
+    throw e;
+  }
+  const settle = async () => {
+    await updateSubmission(submission.id, "pending", { state: "failed", resolvedAt: new Date() });
+    await unlockDraft(page);
+  };
+
   let result;
   try {
     const dirs = cmsDirs();
@@ -150,14 +164,17 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
       now: new Date(),
       publicDir: dirs.publicDir,
       routes: contentRoutes(dirs, contentSlugs(dirs.contentDir)),
+      recordBranch: async (branch) => {
+        if (!(await updateSubmission(submission.id, "pending", { branch }))) throw new Error("The submission is no longer pending");
+      },
     });
   } catch (e) {
-    await unlockDraft(page);
+    await settle();
     throw e;
   }
 
   if (!result.ok) {
-    await unlockDraft(page);
+    await settle();
     switch (result.reason) {
       case "stale":
         await audit({ outcome: "stale", fields: result.changes.map((c) => c.label) });
@@ -171,20 +188,27 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
       case "missing":
         await audit({ outcome: "missing" });
         return { ok: false, reason: "failed", message: "This page is not on the live site any more, so it cannot be published. Ask a developer." };
-      case "github":
+      case "record":
+      case "github": {
+        const step = result.reason === "record" ? "record" : result.step;
+        const error = result.reason === "record" ? String(result.error) : result.message;
         if (result.leftBranch) console.error(`[cms] Publishing "${page}" failed and its branch ${result.leftBranch} could not be deleted`);
-        await audit({ outcome: "failed", step: result.step, error: result.message, ...(result.leftBranch ? { cleanup: "failed", leftBranch: result.leftBranch } : {}) });
+        await audit({ outcome: "failed", step, error, ...(result.leftBranch ? { cleanup: "failed", leftBranch: result.leftBranch } : {}) });
         return { ok: false, reason: "failed", message: FAILED };
+      }
     }
   }
 
+  let recorded = false;
   try {
-    await insertSubmission({ page, prNumber: result.number, branch: result.branch, submittedBy: actor.email, submittedAt: new Date(), baseHash: draft.baseHash, draftVersion: at });
+    recorded = await updateSubmission(submission.id, "pending", { state: "open", prNumber: result.number });
   } catch (e) {
-    // Without a record the page could never leave Publishing, so the request is taken back.
-    console.error(`[cms] Could not record the submission of "${page}"; withdrawing it`, e);
+    console.error(`[cms] Could not record the pull request of "${page}"`, e);
+  }
+  if (!recorded) {
+    // Without its number the page could never leave Publishing, so the request is taken back.
     const undone = await withdrawFromGitHub(github, result.number, result.branch);
-    await unlockDraft(page);
+    await settle();
     await audit({ outcome: "failed", step: "record", number: result.number, cleanup: undone.ok && !undone.leftBranch ? "done" : "failed" });
     return { ok: false, reason: "failed", message: FAILED };
   }
@@ -206,7 +230,9 @@ export async function withdrawPublish(slug: unknown): Promise<WithdrawResult> {
   const page = args.data;
 
   const latest = await latestSubmission(page);
-  if (latest?.state !== "open") return { ok: false, reason: "not_publishing", message: "This page is not waiting to be published. Reload the page to see where it stands." };
+  if (latest?.state !== "open" || latest.prNumber === null || latest.branch === null) {
+    return { ok: false, reason: "not_publishing", message: "This page is not waiting to be published. Reload the page to see where it stands." };
+  }
   const github = cmsGitHub();
   if (!github) return { ok: false, reason: "unavailable", message: NOT_SET_UP };
 

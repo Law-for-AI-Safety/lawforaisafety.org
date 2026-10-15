@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { adminAuditLog, cmsDrafts, cmsRoles, cmsSubmissions } from "@/drizzle/schema";
 import { contentHash, printContent } from "@/cms/content-files";
-import { STALE_LOCK_MS } from "@/cms/publish-status";
+import { STALE_LOCK_MS } from "@/cms/publish";
 import { rememberPerson } from "@/lib/admin-people";
-import { setStoredCmsPermission } from "@/lib/cms-store";
+import { refreshPublishing } from "@/lib/cms-publishing";
+import { insertSubmission, setStoredCmsPermission } from "@/lib/cms-store";
 import { createAdminSessionCookie } from "@/lib/session";
 import { BOT_LOGIN, github, githubEnv } from "../../../../test/fakes/github";
 import { cookieJar } from "../../../../test/next-headers";
@@ -243,8 +244,9 @@ describe("what the editor page shows after review", () => {
     expect((await draftRow()).lockedAt).not.toBeNull();
     expect(await audit()).toEqual([{ action: "cms_publish_outcome", actor: EMAIL.publish, detail: { page: SLUG, number: 1, outcome: "merged" } }]);
 
-    // A deployment whose file is no longer the one the draft started from has the merge.
-    await db.update(cmsSubmissions).set({ baseHash: "an-older-file" });
+    // A deployment whose file is no longer the one the draft started from has the merge. This
+    // test's deployment never changes its file, so that load is made with a newer one.
+    await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
     await openEditor();
     expect(screen.getByText("Live")).toBeInTheDocument();
     expect(await draftRow()).toBeUndefined();
@@ -307,6 +309,172 @@ describe("what the editor page shows after review", () => {
   });
 });
 
+describe("a publish that stopped half way", () => {
+  const old = () => new Date(NOW.getTime() - STALE_LOCK_MS - 1000);
+
+  async function abandoned(branch: string | null) {
+    const version = await seedDraft();
+    await db.update(cmsDrafts).set({ lockedAt: old() });
+    await insertSubmission({ page: SLUG, state: "pending", submittedBy: EMAIL.publish, submittedAt: old(), baseHash: contentHash(FILE), draftVersion: version, branch });
+    await db.delete(adminAuditLog);
+    return version;
+  }
+
+  it("is recorded as open when its pull request was opened", async () => {
+    const c = github;
+    c.pushTo("main", {}, "noop");
+    await abandoned("cms/field-building-2026-10-15");
+    // The pull request it opened before stopping.
+    const { GitHubAppClient } = await import("@/cms/github");
+    const { gitHubSetup } = await import("@/cms/github-config");
+    const setup = gitHubSetup();
+    if (!setup.ok) throw new Error(setup.problem);
+    const client = new GitHubAppClient(setup.config);
+    const head = (await client.branchHead("main"))!;
+    await client.createBranch("cms/field-building-2026-10-15", head.commit);
+    await client.openPullRequest({ head: "cms/field-building-2026-10-15", base: "main", title: "T", body: "" });
+
+    await openEditor();
+    expect(screen.getByText("Publishing")).toBeInTheDocument();
+    expect(await submissions()).toMatchObject([{ state: "open", prNumber: 1 }]);
+    expect((await draftRow()).lockedAt).not.toBeNull();
+    expect(await audit()).toEqual([{ action: "cms_publish_outcome", actor: EMAIL.publish, detail: { page: SLUG, number: 1, outcome: "recovered" } }]);
+  });
+
+  it("is marked failed, its branch deleted and the draft unlocked when no pull request was opened", async () => {
+    const version = await abandoned("cms/field-building-2026-10-15");
+    const { GitHubAppClient } = await import("@/cms/github");
+    const { gitHubSetup } = await import("@/cms/github-config");
+    const setup = gitHubSetup();
+    if (!setup.ok) throw new Error(setup.problem);
+    const client = new GitHubAppClient(setup.config);
+    await client.createBranch("cms/field-building-2026-10-15", (await client.branchHead("main"))!.commit);
+
+    await openEditor();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(github.branches).toEqual(["main"]);
+    expect(await submissions()).toMatchObject([{ state: "failed", resolvedAt: NOW }]);
+    expect(await draftRow()).toMatchObject({ lockedAt: null, version });
+    expect(await audit()).toEqual([{ action: "cms_publish_outcome", actor: EMAIL.publish, detail: { page: SLUG, outcome: "stale_lock_released" } }]);
+  });
+
+  it("records a branch it could not delete, and settles one that never got a branch", async () => {
+    await abandoned("cms/field-building-2026-10-15");
+    github.failNext("DELETE /git/refs/heads/");
+    await openEditor();
+    expect(await audit()).toEqual([
+      { action: "cms_publish_outcome", actor: EMAIL.publish, detail: { page: SLUG, outcome: "stale_lock_released", cleanup: "failed", leftBranch: "cms/field-building-2026-10-15" } },
+    ]);
+
+    await db.delete(cmsSubmissions);
+    await db.delete(adminAuditLog);
+    github.requests.length = 0;
+    await db.update(cmsDrafts).set({ lockedAt: old() });
+    await insertSubmission({ page: SLUG, state: "pending", submittedBy: EMAIL.publish, submittedAt: old(), baseHash: contentHash(FILE), draftVersion: 1 });
+    await openEditor();
+    expect(await submissions()).toMatchObject([{ state: "failed" }]);
+    expect(github.requests.filter((r) => r.path.includes("/pulls?"))).toEqual([]);
+  });
+
+  it("is left alone while it may still be running, and when GitHub cannot be asked", async () => {
+    const version = await seedDraft();
+    await db.update(cmsDrafts).set({ lockedAt: new Date(NOW.getTime() - 1000) });
+    await insertSubmission({ page: SLUG, state: "pending", submittedBy: EMAIL.publish, submittedAt: NOW, baseHash: contentHash(FILE), draftVersion: version, branch: "cms/x" });
+    await openEditor();
+    expect(screen.getByText("Publishing")).toBeInTheDocument();
+    expect(screen.getByText(/^Sent for publishing on 15 Oct 2026/)).toBeInTheDocument();
+
+    vi.setSystemTime(NOW.getTime() + STALE_LOCK_MS + 60_000);
+    github.failNext("GET /pulls", { status: 502 });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await openEditor();
+    expect(screen.getAllByText("Could not check whether this page has been approved yet. Reload the page to try again.").length).toBeGreaterThan(0);
+    expect(await submissions()).toMatchObject([{ state: "pending" }]);
+    expect((await draftRow()).lockedAt).not.toBeNull();
+  });
+});
+
+describe("resetting the draft after a merge", () => {
+  /** Sends the page, merges it, and records the merge, leaving the draft locked until deployed. */
+  async function mergedNotDeployed() {
+    await sent();
+    github.merge(1);
+    const first = await openEditor();
+    first.unmount();
+    await db.delete(adminAuditLog);
+    return (await submissions())[0];
+  }
+
+  it("deletes only the draft that was sent", async () => {
+    const merged = await mergedNotDeployed();
+    expect(await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish)).toEqual({ checked: true });
+    expect(await draftRow()).toBeUndefined();
+    expect(merged.state).toBe("merged");
+  });
+
+  it("keeps a draft a newer publish has locked, even when it read the merged state first", async () => {
+    await mergedNotDeployed();
+    // A newer publish of the same draft locks it after the merged submission was made.
+    await db.update(cmsDrafts).set({ lockedAt: new Date(NOW.getTime() + 60_000) });
+    await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
+    expect(await draftRow()).toBeDefined();
+  });
+
+  it("keeps a draft started afresh from another file", async () => {
+    const merged = await mergedNotDeployed();
+    await db.update(cmsDrafts).set({ baseHash: "the-new-live-file" });
+    await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
+    expect(await draftRow()).toMatchObject({ baseHash: "the-new-live-file" });
+    expect(merged.baseHash).not.toBe("the-new-live-file");
+  });
+
+  it("keeps a draft whose version moved on", async () => {
+    await mergedNotDeployed();
+    await db.update(cmsDrafts).set({ version: 99 });
+    await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
+    expect(await draftRow()).toMatchObject({ version: 99 });
+  });
+
+  it("releases a newer publish's lock only once that is stale", async () => {
+    await mergedNotDeployed();
+    await db.update(cmsDrafts).set({ lockedAt: new Date(NOW.getTime() + 60_000) });
+    vi.setSystemTime(NOW.getTime() + 60_000 + STALE_LOCK_MS + 1000);
+    await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
+    expect(await draftRow()).toMatchObject({ lockedAt: null });
+  });
+});
+
+describe("two loads reading the same outcome", () => {
+  it("record it once, and the second unlocks nothing", async () => {
+    await sent();
+    github.close(1, { comment: "No." });
+    const fileHash = contentHash(FILE);
+    const results = await Promise.all([refreshPublishing(SLUG, fileHash, EMAIL.publish), refreshPublishing(SLUG, fileHash, EMAIL.draft)]);
+    expect(results).toEqual([{ checked: true }, { checked: true }]);
+    expect((await audit()).filter((a) => a.action === "cms_publish_outcome")).toHaveLength(1);
+    expect(await submissions()).toMatchObject([{ state: "closed", closingNote: "No." }]);
+  });
+
+  it("change nothing once another load has recorded it first", async () => {
+    await sent();
+    github.close(1);
+    const fileHash = contentHash(FILE);
+    // While this load waits on GitHub, another records the outcome and a new publish locks the draft.
+    const realFetch = globalThis.fetch;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const response = await realFetch(input, init);
+      if (String(input instanceof Request ? input.url : input).endsWith("/pulls/1")) {
+        await db.update(cmsSubmissions).set({ state: "closed" });
+        await db.update(cmsDrafts).set({ lockedAt: new Date(NOW.getTime() + 1000) });
+      }
+      return response;
+    });
+    expect(await refreshPublishing(SLUG, fileHash, EMAIL.publish)).toEqual({ checked: true });
+    expect((await draftRow()).lockedAt).toEqual(new Date(NOW.getTime() + 1000));
+    expect(await audit()).toEqual([]);
+  });
+});
+
 describe("a publish that cannot go ahead", () => {
   it("is refused when the live page changed, listing the fields, with the draft unlocked", async () => {
     const version = await seedDraft();
@@ -320,7 +488,7 @@ describe("a publish that cannot go ahead", () => {
     });
     expect((await draftRow()).lockedAt).toBeNull();
     expect(github.branches).toEqual(["main"]);
-    expect(await submissions()).toEqual([]);
+    expect(await submissions()).toMatchObject([{ state: "failed", prNumber: null, branch: null, resolvedAt: NOW }]);
     expect(await audit()).toEqual([{ action: "cms_publish", actor: EMAIL.publish, detail: { page: SLUG, version, outcome: "stale", fields: ["Description"] } }]);
   });
 
@@ -340,7 +508,7 @@ describe("a publish that cannot go ahead", () => {
     expect(github.branches).toEqual(["main"]);
     expect(github.openedPRs).toEqual([]);
     expect((await draftRow()).lockedAt).toBeNull();
-    expect(await submissions()).toEqual([]);
+    expect(await submissions()).toMatchObject([{ state: "failed", prNumber: null, branch: step === "open" ? "cms/field-building-2026-10-15" : null }]);
     expect(await audit()).toEqual([
       { action: "cms_publish", actor: EMAIL.publish, detail: expect.objectContaining({ page: SLUG, version, outcome: "failed", step }) },
     ]);
@@ -363,19 +531,37 @@ describe("a publish that cannot go ahead", () => {
     ]);
   });
 
-  it("withdraws the pull request again when it cannot be recorded", async () => {
+  it("writes its record before touching GitHub, and stops if it cannot", async () => {
+    const version = await seedDraft();
+    await db.execute(sql`ALTER TABLE cms_submissions RENAME TO cms_submissions_unavailable`);
+    try {
+      await signInAs("publish");
+      await expect(publishDraft(SLUG, version)).rejects.toThrow();
+    } finally {
+      await db.execute(sql`ALTER TABLE cms_submissions_unavailable RENAME TO cms_submissions`);
+    }
+    expect(github.requests).toEqual([]);
+    expect((await draftRow()).lockedAt).toBeNull();
+  });
+
+  it("withdraws the pull request again when its number cannot be recorded", async () => {
     const version = await seedDraft();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await db.execute(sql`ALTER TABLE cms_submissions RENAME TO cms_submissions_unavailable`);
+    // The database refuses to mark a submission open, as it might fail at that moment.
+    await db.execute(sql`CREATE FUNCTION refuse_open() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$ LANGUAGE plpgsql`);
+    await db.execute(sql`CREATE TRIGGER refuse_open BEFORE UPDATE ON cms_submissions FOR EACH ROW WHEN (NEW.state = 'open') EXECUTE FUNCTION refuse_open()`);
     try {
       await signInAs("publish");
       expect(await publishDraft(SLUG, version)).toMatchObject({ ok: false, reason: "failed" });
     } finally {
-      await db.execute(sql`ALTER TABLE cms_submissions_unavailable RENAME TO cms_submissions`);
+      await db.execute(sql`DROP TRIGGER refuse_open ON cms_submissions`);
+      await db.execute(sql`DROP FUNCTION refuse_open()`);
     }
     expect(github.openedPRs[0].state).toBe("closed");
     expect(github.branches).toEqual(["main"]);
     expect((await draftRow()).lockedAt).toBeNull();
+    // The row pointed at the pull request (by its branch) the whole time it was open.
+    expect(await submissions()).toMatchObject([{ state: "failed", branch: "cms/field-building-2026-10-15", prNumber: null }]);
     expect(await audit()).toEqual([
       { action: "cms_publish", actor: EMAIL.publish, detail: { page: SLUG, version, outcome: "failed", step: "record", number: 1, cleanup: "done" } },
     ]);

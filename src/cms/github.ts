@@ -53,8 +53,14 @@ export interface GitHubClient {
   updatePullRequestBody(number: number, body: string): Promise<void>;
   getPullRequest(number: number): Promise<PullRequest>;
   closePullRequest(number: number): Promise<void>;
-  /** The most recent comment or review a person (not a bot) left on a pull request. */
+  /**
+   * The most recent comment, review or review comment on a pull request by someone with a
+   * say over the repo (owner, member or collaborator) or by whoever closed it. The repo is
+   * public, so anyone else's comments are left out.
+   */
   lastComment(number: number): Promise<PullRequestComment | null>;
+  /** The number of the pull request opened from `branch`, open or not; null when there is none. */
+  findPullRequest(branch: string): Promise<number | null>;
 }
 
 /** A GitHub request that failed. `status` is 0 when GitHub could not be reached at all. */
@@ -67,6 +73,18 @@ export class GitHubError extends Error {
     this.name = "GitHubError";
   }
 }
+
+/** Each request to GitHub is given up after this long. */
+export const REQUEST_TIMEOUT_MS = 10_000;
+/**
+ * The most requests one client call can send: an installation token and the request, then,
+ * if GitHub refuses the token, a new token and the request again.
+ */
+export const SENDS_PER_CALL = 4;
+/** List endpoints are followed for at most this many pages. */
+const MAX_PAGES = 20;
+/** Whose comments the editor is shown, besides the person who closed the pull request. */
+const TRUSTED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
 /** An installation token is renewed this long before GitHub says it expires. */
 export const TOKEN_RENEW_MARGIN_MS = 5 * 60 * 1000;
@@ -94,7 +112,10 @@ export class GitHubAppClient implements GitHubClient {
   private token: { value: string; expiresAt: number } | null = null;
   private readonly repoPath: string;
 
-  constructor(private readonly config: GitHubConfig) {
+  constructor(
+    private readonly config: GitHubConfig,
+    private readonly timeoutMs = REQUEST_TIMEOUT_MS,
+  ) {
     this.repoPath = `/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}`;
   }
 
@@ -129,8 +150,14 @@ export class GitHubAppClient implements GitHubClient {
 
   /** Sends one request. Returns the JSON body (empty for 204), or throws a GitHubError. */
   private async send(path: string, options: { method?: string; auth: string; body?: unknown }): Promise<Json> {
+    return (await this.sendPage(path, options)).json;
+  }
+
+  /** Sends one request, returning the body and the next page's path, if the answer has one. */
+  private async sendPage(path: string, options: { method?: string; auth: string; body?: unknown }): Promise<{ json: Json; next: string | null }> {
     const method = options.method ?? "GET";
     let response: Response;
+    let text: string;
     try {
       response = await fetch(`${this.config.apiUrl}${path}`, {
         method,
@@ -142,12 +169,13 @@ export class GitHubAppClient implements GitHubClient {
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
+      if (response.status === 204) return { json: {}, next: null };
+      text = await response.text();
     } catch (e) {
       throw new GitHubError(0, `Could not reach GitHub (${method} ${path}): ${(e as Error).message}`);
     }
-    if (response.status === 204) return {};
-    const text = await response.text();
     let json: Json = {};
     try {
       json = text ? (JSON.parse(text) as Json) : {};
@@ -158,7 +186,13 @@ export class GitHubAppClient implements GitHubClient {
       const detail = typeof json.message === "string" ? json.message : `HTTP ${response.status}`;
       throw new GitHubError(response.status, `GitHub refused ${method} ${path}: ${detail}`);
     }
-    return json;
+    return { json, next: this.nextPage(response.headers.get("link")) };
+  }
+
+  /** The path of the `rel="next"` page in a Link header, if it is on this API. */
+  private nextPage(link: string | null): string | null {
+    const url = link?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
+    return url?.startsWith(`${this.config.apiUrl}/`) ? url.slice(this.config.apiUrl.length) : null;
   }
 
   /** A request to the repo as the installation. A refused token is renewed once. */
@@ -170,6 +204,26 @@ export class GitHubAppClient implements GitHubClient {
       this.token = null;
       return this.send(`${this.repoPath}${path}`, { ...options, auth: await this.installationToken() });
     }
+  }
+
+  /** Every item of a list endpoint, following its pages. */
+  private async list(path: string): Promise<Json[]> {
+    const items: Json[] = [];
+    let next: string | null = `${this.repoPath}${path}`;
+    for (let page = 0; next && page < MAX_PAGES; page++) {
+      const auth = await this.installationToken();
+      let answer;
+      try {
+        answer = await this.sendPage(next, { auth });
+      } catch (e) {
+        if (!(e instanceof GitHubError) || e.status !== 401) throw e;
+        this.token = null;
+        answer = await this.sendPage(next, { auth: await this.installationToken() });
+      }
+      if (Array.isArray(answer.json)) items.push(...(answer.json as Json[]));
+      next = answer.next;
+    }
+    return items;
   }
 
   /** Like `repo`, but null for a 404. */
@@ -263,24 +317,30 @@ export class GitHubAppClient implements GitHubClient {
   }
 
   async lastComment(number: number) {
-    // Up to 100 of each kind; a CMS pull request has a handful.
-    const lists = await Promise.all([
-      this.repo(`/issues/${number}/comments?per_page=100`),
-      this.repo(`/pulls/${number}/reviews?per_page=100`),
-      this.repo(`/pulls/${number}/comments?per_page=100`),
+    const [issue, comments, reviews, reviewComments] = await Promise.all([
+      this.repo(`/issues/${number}`),
+      this.list(`/issues/${number}/comments?per_page=100`),
+      this.list(`/pulls/${number}/reviews?per_page=100`),
+      this.list(`/pulls/${number}/comments?per_page=100`),
     ]);
-    const comments = lists
-      .flatMap((list) => list as unknown as Json[])
-      .flatMap((item) => {
-        const user = item.user as Json | null;
-        const at = date(item.submitted_at ?? item.created_at);
-        const body = typeof item.body === "string" ? item.body.trim() : "";
-        // Bots (the deploy preview, CI) are left out: the editor wants what the reviewer said.
-        if (!user || user.type === "Bot" || !body || !at) return [];
-        return [{ author: String(user.login), body, at }];
-      });
-    comments.sort((a, b) => a.at.getTime() - b.at.getTime());
-    return comments.at(-1) ?? null;
+    const closer = (issue.closed_by as Json | null)?.login;
+    const found = [...comments, ...reviews, ...reviewComments].flatMap((item) => {
+      const user = item.user as Json | null;
+      const at = date(item.submitted_at ?? item.created_at);
+      const body = typeof item.body === "string" ? item.body.trim() : "";
+      if (!user || !body || !at) return [];
+      const trusted = TRUSTED_ASSOCIATIONS.has(String(item.author_association)) || (typeof closer === "string" && user.login === closer);
+      return trusted ? [{ author: String(user.login), body, at }] : [];
+    });
+    found.sort((a, b) => a.at.getTime() - b.at.getTime());
+    return found.at(-1) ?? null;
+  }
+
+  async findPullRequest(branch: string) {
+    const head = `${this.config.owner}:${branch}`;
+    const pulls = await this.list(`/pulls?state=all&head=${encodeURIComponent(head)}&per_page=100`);
+    const pr = pulls.find((p) => (p.head as Json | undefined)?.ref === branch);
+    return pr ? Number(pr.number) : null;
   }
 }
 

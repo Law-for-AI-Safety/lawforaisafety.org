@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { gitHubSetup, previewUrl, REQUIRED_GITHUB_ENV } from "./github-config";
 
 const env = {
@@ -29,21 +29,49 @@ describe("gitHubSetup", () => {
     expect(gitHubSetup({ ...env, GITHUB_APP_PRIVATE_KEY: "  " })).toEqual({ ok: false, problem: "Missing GITHUB_APP_PRIVATE_KEY" });
   });
 
-  it.each([
-    ["https://ghe.example.org/api/v3/", "https://ghe.example.org/api/v3"],
-    ["http://localhost:4010", "http://localhost:4010"],
-    ["http://127.0.0.1:4010", "http://127.0.0.1:4010"],
-  ])("accepts the API URL %s", (url, expected) => {
-    const setup = gitHubSetup({ ...env, GITHUB_API_URL: url });
-    expect(setup.ok && setup.config.apiUrl).toBe(expected);
+  it("accepts only GitHub's own API", () => {
+    for (const url of ["https://api.github.com", "https://api.github.com/", " "]) {
+      const setup = gitHubSetup({ ...env, GITHUB_API_URL: url });
+      expect(setup.ok && setup.config.apiUrl).toBe("https://api.github.com");
+    }
   });
 
-  it.each(["http://api.github.com", "not a url", "https://user:pw@api.github.com", "https://api.github.com/?x=1", "ftp://localhost"])(
-    "refuses the API URL %s",
+  it.each(["https://ghe.example.org/api/v3", "http://api.github.com", "https://evil.example", "http://localhost:4010", "not a url"])(
+    "refuses the API URL %s without the test-only flag",
     (url) => {
-      expect(gitHubSetup({ ...env, GITHUB_API_URL: url })).toEqual({ ok: false, problem: "GITHUB_API_URL must be an https URL" });
+      expect(gitHubSetup({ ...env, GITHUB_API_URL: url })).toEqual({ ok: false, problem: "GITHUB_API_URL must be https://api.github.com" });
     },
   );
+
+  describe("with the test-only flag, for the end-to-end tests' fake", () => {
+    const flagged = { ...env, CMS_TEST_LOCAL_GITHUB: "1" };
+
+    it.each([
+      ["http://localhost:4010", "http://localhost:4010"],
+      ["http://127.0.0.1:4010/", "http://127.0.0.1:4010"],
+    ])("accepts %s", (url, expected) => {
+      const setup = gitHubSetup({ ...flagged, GITHUB_API_URL: url });
+      expect(setup.ok && setup.config.apiUrl).toBe(expected);
+    });
+
+    it.each(["https://evil.example", "http://evil.example", "http://localhost:4010/api", "http://user:pw@localhost:1", "http://localhost:1/?x", "not a url"])(
+      "still refuses %s",
+      (url) => {
+        expect(gitHubSetup({ ...flagged, GITHUB_API_URL: url }).ok).toBe(false);
+      },
+    );
+
+    it("is ignored on a Netlify deploy", () => {
+      vi.stubEnv("DEPLOY_CONTEXT", "production");
+      expect(gitHubSetup({ ...flagged, GITHUB_API_URL: "http://localhost:4010" }).ok).toBe(false);
+      vi.stubEnv("DEPLOY_CONTEXT", "deploy-preview");
+      expect(gitHubSetup({ ...flagged, GITHUB_API_URL: "http://localhost:4010" }).ok).toBe(false);
+    });
+
+    it("must be exactly 1", () => {
+      expect(gitHubSetup({ ...env, CMS_TEST_LOCAL_GITHUB: "true", GITHUB_API_URL: "http://localhost:4010" }).ok).toBe(false);
+    });
+  });
 });
 
 describe("previewUrl", () => {

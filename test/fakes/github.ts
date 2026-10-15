@@ -1,5 +1,4 @@
 import { createHash, createPublicKey, generateKeyPairSync, type KeyObject } from "node:crypto";
-import { jwtVerify } from "jose";
 
 /**
  * Stands in for the GitHub REST API, as far as the CMS uses it: a small in-memory repo with a
@@ -49,6 +48,8 @@ export function githubEnv(apiUrl = GITHUB_API): Record<string, string> {
     GITHUB_REPO_OWNER: OWNER,
     GITHUB_REPO_NAME: REPO,
     GITHUB_API_URL: apiUrl,
+    // A fake on this machine is only accepted with this test-only flag.
+    ...(apiUrl === GITHUB_API ? {} : { CMS_TEST_LOCAL_GITHUB: "1" }),
   };
 }
 
@@ -58,7 +59,13 @@ function blobId(text: string): string {
 
 type Tree = Map<string, string>; // path -> blob id
 type Commit = { sha: string; tree: string; parents: string[]; message: string; author: string };
-type Note = { user: string; type: "User" | "Bot"; body: string; at: string };
+/** How GitHub relates a commenter to the repo; only OWNER, MEMBER and COLLABORATOR have a say. */
+export type Association = "OWNER" | "MEMBER" | "COLLABORATOR" | "CONTRIBUTOR" | "NONE";
+type Note = { user: string; type: "User" | "Bot"; association: Association; body: string; at: string };
+type NoteOptions = { by?: string; association?: Association; bot?: boolean; at?: Date };
+
+/** List endpoints answer this many items a page unless asked for another `per_page`. */
+const DEFAULT_PER_PAGE = 30;
 
 export type FakePullRequest = {
   number: number;
@@ -73,6 +80,7 @@ export type FakePullRequest = {
   mergedAt: string | null;
   closedAt: string | null;
   mergeCommitSha: string | null;
+  closedBy: string | null;
   comments: Note[];
   reviews: Note[];
   reviewComments: Note[];
@@ -86,7 +94,7 @@ export type OpenedPR = FakePullRequest & {
   commits: { message: string; author: string }[];
 };
 
-type Failure = { match: string | null; status: number; kind: "http" | "network" };
+type Failure = { match: string | null; status: number; kind: "http" | "network" | "hang" };
 
 class FakeGitHub {
   readonly requests: { method: string; path: string; body: unknown }[] = [];
@@ -100,6 +108,8 @@ class FakeGitHub {
   private tokens = new Map<string, number>();
   private failures: Failure[] = [];
   private counter = 0;
+  /** Where this fake was reached, for the links it sends. */
+  private baseUrl = GITHUB_API;
 
   constructor() {
     this.reset();
@@ -164,9 +174,10 @@ class FakeGitHub {
   /**
    * Makes the next matching request fail: `match` is "METHOD /path" with the path after
    * `/repos/<owner>/<repo>` (or the full path for app endpoints), matched by prefix; no match
-   * fails the next request of any kind. `network` fails to connect instead of answering.
+   * fails the next request of any kind. `network` fails to connect instead of answering;
+   * `hang` never answers, until the request is aborted.
    */
-  failNext(match: string | null = null, { status = 500, kind = "http" }: { status?: number; kind?: "http" | "network" } = {}): void {
+  failNext(match: string | null = null, { status = 500, kind = "http" }: { status?: number; kind?: Failure["kind"] } = {}): void {
     this.failures.push({ match, status, kind });
   }
 
@@ -179,23 +190,31 @@ class FakeGitHub {
     return sha;
   }
 
-  /** Closes a pull request without merging, optionally leaving a comment first. */
-  close(number: number, { comment, by = "reviewer", at = new Date() }: { comment?: string; by?: string; at?: Date } = {}): void {
+  /**
+   * Closes a pull request without merging, as `by` (a maintainer unless `association` says
+   * otherwise), optionally leaving a comment first.
+   */
+  close(number: number, { comment, by = "reviewer", association = "MEMBER", at = new Date() }: { comment?: string } & NoteOptions = {}): void {
     const pr = this.pull(number);
-    if (comment) pr.comments.push({ user: by, type: "User", body: comment, at: at.toISOString() });
-    Object.assign(pr, { state: "closed", closedAt: at.toISOString() });
+    if (comment) pr.comments.push(this.note(comment, { by, association, at }));
+    Object.assign(pr, { state: "closed", closedAt: at.toISOString(), closedBy: by });
   }
 
-  comment(number: number, body: string, { by = "reviewer", bot = false, at = new Date() } = {}): void {
-    this.pull(number).comments.push({ user: by, type: bot ? "Bot" : "User", body, at: at.toISOString() });
+  /** A conversation comment; by a maintainer ("reviewer", MEMBER) unless the options say otherwise. */
+  comment(number: number, body: string, options: NoteOptions = {}): void {
+    this.pull(number).comments.push(this.note(body, options));
   }
 
-  review(number: number, body: string, { by = "reviewer", at = new Date() } = {}): void {
-    this.pull(number).reviews.push({ user: by, type: "User", body, at: at.toISOString() });
+  review(number: number, body: string, options: NoteOptions = {}): void {
+    this.pull(number).reviews.push(this.note(body, options));
   }
 
-  reviewComment(number: number, body: string, { by = "reviewer", at = new Date() } = {}): void {
-    this.pull(number).reviewComments.push({ user: by, type: "User", body, at: at.toISOString() });
+  reviewComment(number: number, body: string, options: NoteOptions = {}): void {
+    this.pull(number).reviewComments.push(this.note(body, options));
+  }
+
+  private note(body: string, { by = "reviewer", association, bot = false, at = new Date() }: NoteOptions): Note {
+    return { user: by, type: bot ? "Bot" : "User", association: association ?? (bot ? "NONE" : "MEMBER"), body, at: at.toISOString() };
   }
 
   /** Pushes a commit to a branch, as a maintainer polishing a pull request would. */
@@ -255,6 +274,7 @@ class FakeGitHub {
 
   async handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    this.baseUrl = url.origin + url.pathname.replace(/\/(app|repos)\/.*$/, "");
     const body = request.method === "GET" || request.method === "DELETE" ? undefined : await request.json().catch(() => undefined);
     // The API may sit under a path prefix (as on GitHub Enterprise); routes start at /app or /repos.
     const path = url.pathname.replace(/^.*?(?=\/(app|repos)\/)/, "");
@@ -264,6 +284,12 @@ class FakeGitHub {
     const local = path.startsWith(repoPrefix) ? path.slice(repoPrefix.length) : path;
     const failure = this.takeFailure(`${request.method} ${local}`);
     if (failure?.kind === "network") throw new TypeError("fetch failed");
+    if (failure?.kind === "hang") {
+      return new Promise<Response>((_, reject) => {
+        if (request.signal.aborted) reject(request.signal.reason);
+        request.signal.addEventListener("abort", () => reject(request.signal.reason));
+      });
+    }
     if (failure) return error(failure.status, "Server Error");
 
     if (request.method === "POST" && path === `/app/installations/${INSTALLATION_ID}/access_tokens`) {
@@ -284,6 +310,9 @@ class FakeGitHub {
   private async issueToken(request: Request, body: { repositories?: string[] } | undefined): Promise<Response> {
     const jwt = request.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
     try {
+      // Loaded on first use: test/setup-env.ts imports this fake before test/setup-dom.ts gives
+      // jsdom a TextEncoder jose can use, and jose keeps the one it finds when it loads.
+      const { jwtVerify } = await import("jose");
       const { payload } = await jwtVerify(jwt, appKeys().publicKey, {
         algorithms: ["RS256"],
         issuer: APP_ID,
@@ -372,6 +401,7 @@ class FakeGitHub {
         mergedAt: null,
         closedAt: null,
         mergeCommitSha: null,
+        closedBy: null,
         comments: [],
         reviews: [],
         reviewComments: [],
@@ -394,9 +424,33 @@ class FakeGitHub {
       if (!pr) return error(404, "Not Found");
       const notes = m[3] === "reviews" ? pr.reviews : m[1] === "issues" ? pr.comments : pr.reviewComments;
       const at = m[3] === "reviews" ? "submitted_at" : "created_at";
-      return Response.json(notes.map((n) => ({ user: { login: n.user, type: n.type }, body: n.body, [at]: n.at })));
+      return this.paged(path, query, notes.map((n) => ({ user: { login: n.user, type: n.type }, author_association: n.association, body: n.body, [at]: n.at })));
+    }
+    if (method === "GET" && (m = path.match(/^\/issues\/(\d+)$/))) {
+      const pr = this.pulls.find((p) => p.number === Number(m![1]));
+      if (!pr) return error(404, "Not Found");
+      return Response.json({ number: pr.number, state: pr.state, closed_by: pr.closedBy ? { login: pr.closedBy } : null, pull_request: {} });
+    }
+    if (method === "GET" && path === "/pulls") {
+      const head = query.get("head");
+      const owner = `${OWNER}:`;
+      const matching = this.pulls.filter((p) => head === null || (head.startsWith(owner) && p.head === head.slice(owner.length)));
+      return this.paged(path, query, matching.map((p) => this.pullJson(p)));
     }
     return error(404, `The fake GitHub has no route for ${method} ${path}`);
+  }
+
+  /** One page of a list, with a Link header to the next page as GitHub sends it. */
+  private paged(path: string, query: URLSearchParams, items: unknown[]): Response {
+    const perPage = Number(query.get("per_page") ?? DEFAULT_PER_PAGE);
+    const page = Number(query.get("page") ?? 1);
+    const headers = new Headers();
+    if (page * perPage < items.length) {
+      const next = new URLSearchParams(query);
+      next.set("page", String(page + 1));
+      headers.set("link", `<${this.baseUrl}/repos/${OWNER}/${REPO}${path}?${next}>; rel="next", <${this.baseUrl}/repos/${OWNER}/${REPO}${path}?page=1>; rel="first"`);
+    }
+    return Response.json(items.slice((page - 1) * perPage, page * perPage), { headers });
   }
 
   private pullJson(pr: FakePullRequest) {

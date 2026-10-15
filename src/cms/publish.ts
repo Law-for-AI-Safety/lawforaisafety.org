@@ -1,6 +1,6 @@
 import { checkContentText, printContent } from "./content-files";
 import { changedFields, type FieldChange } from "./field-diff";
-import { GitHubError, type GitHubClient, type PullRequest, type PullRequestComment } from "./github";
+import { GitHubError, REQUEST_TIMEOUT_MS, SENDS_PER_CALL, type GitHubClient, type PullRequest, type PullRequestComment } from "./github";
 import { MAIN_BRANCH, previewUrl } from "./github-config";
 import { pagePath } from "./pages";
 import type { Route } from "./routes";
@@ -27,7 +27,31 @@ import { pageSchema } from "./schema";
  */
 
 export const CONTENT_DIR = "content";
-const MAX_BRANCH_ATTEMPTS = 20;
+export const MAX_BRANCH_ATTEMPTS = 10;
+
+/**
+ * The most GitHub calls one publish makes: reading main (its head, that commit, the file and
+ * the draft's starting blob), the tree and the commit, every branch name, opening the pull
+ * request, deleting the branch again or adding the preview link, and, if the publish cannot
+ * be recorded, taking it back (reading, closing, deleting).
+ */
+export const MAX_PUBLISH_CALLS = 4 + 2 + MAX_BRANCH_ATTEMPTS + 2 + 3;
+
+/**
+ * The longest a publish can spend waiting on GitHub, every request timing out. A publish lock
+ * must never be taken for abandoned before this has passed (see `STALE_LOCK_MS`).
+ */
+export const PUBLISH_WORST_CASE_MS = MAX_PUBLISH_CALLS * SENDS_PER_CALL * REQUEST_TIMEOUT_MS;
+
+/**
+ * A lock left by a publish that never finished (the server stopped mid-way) is released after
+ * this long: longer than any publish can still be running, with a margin for its database work.
+ */
+export const STALE_LOCK_MS = PUBLISH_WORST_CASE_MS + 5 * 60 * 1000;
+
+export function isStaleLock(lockedAt: Date, now: Date): boolean {
+  return now.getTime() - lockedAt.getTime() > STALE_LOCK_MS;
+}
 
 export function contentFilePath(slug: string): string {
   return `${CONTENT_DIR}/${slug}.json`;
@@ -121,6 +145,11 @@ export type PublishInput = {
   /** What `checkContentText` checks the committed text against. */
   publicDir: string;
   routes: Route[];
+  /**
+   * Records the branch before the pull request is opened, so no pull request exists that the
+   * site has no record of. If it throws, the branch is deleted and the publish stops.
+   */
+  recordBranch: (branch: string) => Promise<void>;
 };
 
 export type PublishStep = "read_main" | "commit" | "branch" | "open";
@@ -140,7 +169,8 @@ export type PublishResult =
   | { ok: false; reason: "missing" }
   | { ok: false; reason: "checks"; problems: string[] }
   | { ok: false; reason: "nothing" }
-  | { ok: false; reason: "github"; step: PublishStep; message: string; leftBranch: string | null };
+  | { ok: false; reason: "github"; step: PublishStep; message: string; leftBranch: string | null }
+  | { ok: false; reason: "record"; error: unknown; leftBranch: string | null };
 
 function parseJson(text: string): unknown {
   try {
@@ -207,19 +237,19 @@ export async function publishToGitHub(github: GitHubClient, input: PublishInput)
     return failure("branch", e);
   }
 
+  try {
+    await input.recordBranch(branch);
+  } catch (error) {
+    return { ok: false, reason: "record", error, leftBranch: await deleteOrKeep(github, branch) };
+  }
+
   // 4. The pull request, or no branch.
   const body = (number: number | null) => pullRequestBody({ slug, editorName, changes, number });
   let opened: { number: number; url: string };
   try {
     opened = await github.openPullRequest({ head: branch, base: MAIN_BRANCH, title: pullRequestTitle(title), body: body(null) });
   } catch (e) {
-    let left: string | null = null;
-    try {
-      await github.deleteBranch(branch);
-    } catch {
-      left = branch;
-    }
-    return failure("open", e, left);
+    return failure("open", e, await deleteOrKeep(github, branch));
   }
 
   // 5. The preview link, now the number is known.
@@ -231,6 +261,16 @@ export async function publishToGitHub(github: GitHubClient, input: PublishInput)
     bodyUpdated = false;
   }
   return { ok: true, number: opened.number, url: opened.url, branch, previewUrl: previewUrl(opened.number, pagePath(slug)), changes, bodyUpdated };
+}
+
+/** Deletes a branch; returns its name if that failed, else null. */
+async function deleteOrKeep(github: GitHubClient, branch: string): Promise<string | null> {
+  try {
+    await github.deleteBranch(branch);
+    return null;
+  } catch {
+    return branch;
+  }
 }
 
 export type WithdrawResult =

@@ -428,6 +428,8 @@ export const cmsDrafts = pgTable("cms_drafts", {
 });
 
 export const cmsSubmissionState = pgEnum("cms_submission_state", [
+  "pending",
+  "failed",
   "open",
   "merged",
   "closed",
@@ -435,7 +437,9 @@ export const cmsSubmissionState = pgEnum("cms_submission_state", [
 ]);
 
 // Each time a page was sent for publishing: the pull request it opened and what became of it.
-// `baseHash` is the blob id of the file on main it replaced and `draftVersion` the draft
+// A row is written as `pending` before GitHub is touched, gets its `branch` before the pull
+// request is opened and its `prNumber` once it is (state `open`), or ends `failed`, so no pull
+// request exists that no row points to. `baseHash` is the blob id of the file on main it replaced and `draftVersion` the draft
 // version it sent. Once merged, `mergedHash` is the file's blob id in the merge commit; once
 // closed without merging, `closingNote` is the reviewer's last comment. `resolvedAt` is when it
 // was merged, closed or withdrawn.
@@ -444,8 +448,8 @@ export const cmsSubmissions = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     page: text("page").notNull(),
-    prNumber: integer("pr_number").notNull(),
-    branch: text("branch").notNull(),
+    prNumber: integer("pr_number"),
+    branch: text("branch"),
     submittedBy: text("submitted_by").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
     state: cmsSubmissionState("state").notNull().default("open"),

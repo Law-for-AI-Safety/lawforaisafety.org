@@ -1,5 +1,5 @@
 {
-  "id": "97d9c4a6-fa70-4229-9cbf-ec49ac8a8bc1",
+  "id": "b132f6f6-43d3-494d-8f42-809b3e862caa",
   "prevId": "2b0c93cd-ada7-4e7b-850d-2a13db540a27",
   "version": "7",
   "dialect": "postgresql",
@@ -436,13 +436,13 @@
           "name": "pr_number",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "branch": {
           "name": "branch",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "submitted_by": {
           "name": "submitted_by",
@@ -1324,6 +1324,8 @@
       "name": "cms_submission_state",
       "schema": "public",
       "values": [
+        "pending",
+        "failed",
         "open",
         "merged",
         "closed",

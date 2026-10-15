@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { cmsDrafts, cmsRoles, cmsSubmissions } from "@/drizzle/schema";
 import type { CmsPermission } from "@/cms/access";
@@ -88,13 +88,36 @@ export async function lockDraft(page: string, version: number): Promise<boolean>
   return rows.length > 0;
 }
 
-export async function unlockDraft(page: string): Promise<void> {
-  await db.update(cmsDrafts).set({ lockedAt: null }).where(eq(cmsDrafts.page, page));
+/** Unlocks a draft; with `lockedAt`, only if it is still that lock. Returns whether it did. */
+export async function unlockDraft(page: string, lockedAt?: Date): Promise<boolean> {
+  const rows = await db
+    .update(cmsDrafts)
+    .set({ lockedAt: null })
+    .where(and(eq(cmsDrafts.page, page), lockedAt ? eq(cmsDrafts.lockedAt, lockedAt) : undefined))
+    .returning({ page: cmsDrafts.page });
+  return rows.length > 0;
 }
 
-/** Deletes a locked draft once what it sent is live: the page starts again from the new file. */
-export async function deleteLockedDraft(page: string): Promise<void> {
-  await db.delete(cmsDrafts).where(eq(cmsDrafts.page, page));
+/**
+ * Deletes the draft a merged submission sent, once it is live, so the page starts again from
+ * the new file. Only that draft: the same version from the same file, locked no later than the
+ * submission was made. A draft started afresh or locked by a newer publish is left alone,
+ * whatever this caller read before. Returns whether it deleted one.
+ */
+export async function deleteMergedDraft(page: string, sent: { baseHash: string; draftVersion: number; submittedAt: Date }): Promise<boolean> {
+  const rows = await db
+    .delete(cmsDrafts)
+    .where(
+      and(
+        eq(cmsDrafts.page, page),
+        eq(cmsDrafts.baseHash, sent.baseHash),
+        eq(cmsDrafts.version, sent.draftVersion),
+        isNotNull(cmsDrafts.lockedAt),
+        lte(cmsDrafts.lockedAt, sent.submittedAt),
+      ),
+    )
+    .returning({ page: cmsDrafts.page });
+  return rows.length > 0;
 }
 
 export type SubmissionRow = typeof cmsSubmissions.$inferSelect;
@@ -128,7 +151,7 @@ export async function latestSubmissions(): Promise<Map<string, SubmissionRow>> {
 export async function updateSubmission(
   id: string,
   from: SubmissionRow["state"],
-  patch: Partial<Pick<SubmissionRow, "state" | "resolvedAt" | "mergedHash" | "closingNote" | "closingNoteBy">>,
+  patch: Partial<Pick<SubmissionRow, "state" | "prNumber" | "branch" | "resolvedAt" | "mergedHash" | "closingNote" | "closingNoteBy">>,
 ): Promise<boolean> {
   const rows = await db
     .update(cmsSubmissions)

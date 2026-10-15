@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { editorState, isDeployed, isStaleLock, STALE_LOCK_MS, type StateInputs } from "./publish-status";
+import { isStaleLock, STALE_LOCK_MS } from "./publish";
+import { editorState, isDeployed, type StateInputs } from "./publish-status";
 
 const base: StateInputs = { pageState: "draft", locked: false, draftVersion: 3, latest: null };
 

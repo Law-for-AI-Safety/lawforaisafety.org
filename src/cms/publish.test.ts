@@ -8,6 +8,9 @@ import { pageSchema } from "./schema";
 import {
   branchName,
   commitMessage,
+  MAX_BRANCH_ATTEMPTS,
+  MAX_PUBLISH_CALLS,
+  PUBLISH_WORST_CASE_MS,
   publishToGitHub,
   pullRequestBody,
   pullRequestTitle,
@@ -44,7 +47,10 @@ function edited() {
 }
 
 let baseHash: string;
+/** Branches the caller was asked to record, in order. */
+let recorded: string[];
 const input = (over: Partial<PublishInput> = {}): PublishInput => ({
+  recordBranch: async (branch) => void recorded.push(branch),
   slug: SLUG,
   draft: edited(),
   baseHash,
@@ -61,6 +67,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   baseHash = github.fileOnMain(PATH, FILE);
+  recorded = [];
 });
 
 const EXPECTED_TEXT = printContent(pageSchema(SLUG).parse({ ...edited(), updatedAt: "2026-10-15" }));
@@ -152,6 +159,25 @@ describe("a publish", () => {
     expect((writes()[3].body as { body: string }).body).toBe(EXPECTED_BODY("The preview link is added here once this pull request has a number."));
   });
 
+  it("has the caller record the branch before the pull request is opened", async () => {
+    const opened: number[] = [];
+    await publishToGitHub(client(), input({ recordBranch: async (branch) => void recorded.push(`${branch} (prs: ${github.openedPRs.length})`) }));
+    opened.push(github.openedPRs.length);
+    expect(recorded).toEqual(["cms/field-building-2026-10-15 (prs: 0)"]);
+    expect(opened).toEqual([1]);
+  });
+
+  it("deletes the branch and opens nothing when the branch cannot be recorded", async () => {
+    const error = new Error("database down");
+    expect(await publishToGitHub(client(), input({ recordBranch: () => Promise.reject(error) }))).toEqual({ ok: false, reason: "record", error, leftBranch: null });
+    expect(github.branches).toEqual(["main"]);
+    expect(github.openedPRs).toEqual([]);
+
+    github.failNext("DELETE /git/refs/heads/");
+    expect(await publishToGitHub(client(), input({ recordBranch: () => Promise.reject(error) }))).toMatchObject({ reason: "record", leftBranch: "cms/field-building-2026-10-15" });
+    expect(github.openedPRs).toEqual([]);
+  });
+
   it("adds a suffix when the branch name is taken", async () => {
     github.pushTo("main", {}, "noop");
     const c = client();
@@ -165,7 +191,7 @@ describe("a publish", () => {
   it("gives up when every branch name is taken, leaving no new branch", async () => {
     const c = client();
     const head = (await c.branchHead("main"))!;
-    for (let i = 1; i <= 20; i++) await c.createBranch(branchName(SLUG, NOW, i), head.commit);
+    for (let i = 1; i <= MAX_BRANCH_ATTEMPTS; i++) await c.createBranch(branchName(SLUG, NOW, i), head.commit);
     const before = github.branches;
     expect(await publishToGitHub(c, input())).toMatchObject({ ok: false, reason: "github", step: "branch", leftBranch: null });
     expect(github.branches).toEqual(before);
@@ -415,4 +441,20 @@ describe("reading what became of a pull request", () => {
     github.failNext("GET /pulls/9", { status: 404 });
     await expect(readOutcome(client(), 9, SLUG)).rejects.toBeInstanceOf(GitHubError);
   });
+});
+
+it("bounds how long a publish can take from the request time limit", async () => {
+  const { REQUEST_TIMEOUT_MS, SENDS_PER_CALL } = await import("./github");
+  const { STALE_LOCK_MS } = await import("./publish");
+  expect(PUBLISH_WORST_CASE_MS).toBe(MAX_PUBLISH_CALLS * SENDS_PER_CALL * REQUEST_TIMEOUT_MS);
+  expect(STALE_LOCK_MS).toBeGreaterThan(PUBLISH_WORST_CASE_MS);
+
+  // Every call a publish that cannot be recorded makes, counted: it stays within MAX_PUBLISH_CALLS.
+  const c = client();
+  await c.branchHead("main");
+  const before = github.requests.length;
+  github.fileOnMain(PATH, FILE);
+  await publishToGitHub(c, input());
+  const calls = github.requests.length - before;
+  expect(calls + 3).toBeLessThanOrEqual(MAX_PUBLISH_CALLS);
 });

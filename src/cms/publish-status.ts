@@ -1,3 +1,4 @@
+// Imported by client components (the state badge), so it imports nothing that needs a server.
 import type { PageState } from "./drafts";
 
 /**
@@ -22,7 +23,7 @@ export const EDITOR_STATE_LABELS: Record<EditorState, string> = {
   not_published: "Not published",
 };
 
-export type SubmissionState = "open" | "merged" | "closed" | "withdrawn";
+export type SubmissionState = "pending" | "failed" | "open" | "merged" | "closed" | "withdrawn";
 
 export type StateInputs = {
   /** Draft versus Live from the draft and the deployed file (`pageState`). */
@@ -48,11 +49,4 @@ export function editorState({ pageState, locked, draftVersion, latest }: StateIn
  */
 export function isDeployed({ deployedHash, baseHash, mergedHash }: { deployedHash: string; baseHash: string; mergedHash: string | null }): boolean {
   return deployedHash !== baseHash || deployedHash === mergedHash;
-}
-
-/** A lock left by a publish that never finished (the server stopped mid-way) is released after this long. */
-export const STALE_LOCK_MS = 10 * 60 * 1000;
-
-export function isStaleLock(lockedAt: Date, now: Date): boolean {
-  return now.getTime() - lockedAt.getTime() > STALE_LOCK_MS;
 }
