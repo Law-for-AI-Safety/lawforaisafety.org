@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/db-ensure.mjs",
+    "predev": "npm run db:ensure",
     "dev": "next dev -p 3001",
     "prebuild": "node scripts/optimize-images.mjs",
     "images": "node scripts/optimize-images.mjs",
@@ -26,6 +26,7 @@
     "lighthouse": "bash scripts/lighthouse.sh dev",
     "lighthouse:build": "bash scripts/lighthouse.sh build",
     "db:generate": "drizzle-kit generate",
+    "db:ensure": "node scripts/db-ensure.mjs",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "node scripts/db-seed.mjs",
     "db:up": "docker compose --env-file .env.local up -d db",
