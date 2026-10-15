@@ -1,0 +1,51 @@
+{
+  "title": "MEP Outreach on AI Containment Incidents",
+  "description": "Briefing Members of the European Parliament on the Hugging Face incident and subsequent AI containment failures, and pressing for enforcement clarity under the AI Act.",
+  "updatedAt": "2026-10-15",
+  "blocks": [
+    {
+      "type": "hero",
+      "heading": "MEP Outreach on AI Containment Incidents",
+      "lede": "Briefing Members of the European Parliament on the significance of the Hugging Face incident and subsequent ==AI containment failures==, and pressing the European Commission for clarity on enforcement."
+    },
+    {
+      "type": "textSection",
+      "body": "Our team participated in drafting and sending [emails and briefing documents](https://drive.google.com/drive/folders/15L9w4uBOOIvWjbZLIej65rCJIyC8cPWo?usp=sharing) to Members of the European Parliament (MEPs) about the significance of the Hugging Face incident and subsequent containment failures. We asked them to submit formal questions to the European Commission."
+    },
+    {
+      "type": "cardList",
+      "style": "numbered",
+      "items": [
+        {
+          "title": "Does the AI Act already cover this?",
+          "body": "Whether the activities involved in the OpenAI and Anthropic incidents fall within the scope of the AI Act, including whether Article 2(8) excludes any relevant activities and, if so, on what basis."
+        },
+        {
+          "title": "Has the Commission acted?",
+          "body": "Whether the Commission considers that the incidents warrant supervisory action and, to the extent it can disclose, what action it has taken or intends to take in response."
+        },
+        {
+          "title": "Is a safety threshold coming?",
+          "body": "Whether the Commission intends to propose legislation establishing a threshold above which frontier AI development would require prior evidence of safety."
+        }
+      ]
+    },
+    {
+      "type": "quoteBand",
+      "quote": "“Legal clarity on this issue, as well as willingness to enforce existing AI regulations, is of paramount importance.”"
+    },
+    {
+      "type": "textSection",
+      "heading": "Supporting signatories",
+      "body": "- ControlAI\n- Existential Risk Observatory\n- London Futurists\n- Global AI Governance Alliance\n- Anonymous Signatory"
+    },
+    {
+      "type": "applicationSection",
+      "form": "apply",
+      "heading": "Help us brief Parliament in person",
+      "intro": "We are seeking funding to enable more effective in-person briefings on this topic, as well as in-person events for Members of the European Parliament and Members of the UK Parliament.",
+      "showForm": true,
+      "closedMessage": "Applications aren't open right now. Email [info@lawforaisafety.org](mailto:info@lawforaisafety.org) to register your interest."
+    }
+  ]
+}
