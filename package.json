@@ -14,6 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:no-db": "vitest run --project node --project dom",
+    "e2e": "vitest run --config vitest.e2e.config.mts",
+    "e2e:browser": "playwright install --with-deps chromium",
     "test:coverage": "node scripts/test-coverage.mjs",
     "coverage:report": "node scripts/coverage-report.mjs",
     "check-all": "node scripts/check-all.mjs",
