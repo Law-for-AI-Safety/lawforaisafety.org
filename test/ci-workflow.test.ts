@@ -139,7 +139,7 @@ describe("cms-guard.yml", () => {
 
   it("runs on every pull request, with the trigger that gets no secrets and a read-only token", () => {
     expect(guard).toBeDefined();
-    expect(guard!.doc.on).toEqual({ pull_request: null });
+    expect(guard!.doc.on).toEqual({ pull_request: { types: ["opened", "synchronize", "reopened", "edited"] } });
   });
 
   it("checks out the pull request's whole history without keeping the token", () => {
@@ -151,6 +151,8 @@ describe("cms-guard.yml", () => {
     const step = steps().find((s) => typeof s.run === "string")!;
     expect((step.env as Yaml).CMS_BOT_LOGIN).toBe("${{ vars.CMS_BOT_LOGIN }}");
     expect(step.run).toContain("git show origin/main:scripts/cms-guard.mjs");
+    // Falls back to the pull request's copy only while main has no guard workflow at all.
+    expect(step.run).toMatch(/elif git cat-file -e origin\/main:\.github\/workflows\/cms-guard\.yml[^\n]*\n[^\n]*\n\s*exit 1/);
     expect(step.run).toMatch(/node "\$RUNNER_TEMP\/cms-guard\.mjs"\s*$/);
     // Nothing from the pull request is installed or run: no npm, no setup step.
     expect(steps().map((s) => String(s.uses ?? "").split("@")[0])).toEqual(["actions/checkout", ""]);
@@ -158,4 +160,11 @@ describe("cms-guard.yml", () => {
     // Values from the pull request reach the script only through env, never inline in the script.
     expect(step.run).not.toContain("${{");
   });
+});
+
+it("CODEOWNERS gives the workflows and the CMS guard to a maintainer", () => {
+  const owners = fs.readFileSync(path.resolve(".github/CODEOWNERS"), "utf8");
+  for (const pattern of ["/.github/", "/scripts/cms-guard.mjs", "/scripts/cms-guard.test.ts"]) {
+    expect(owners).toMatch(new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+@hturnbull93$`, "m"));
+  }
 });

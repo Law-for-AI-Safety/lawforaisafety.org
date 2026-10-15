@@ -8,6 +8,8 @@ name: CMS guard
 # `pull_request`, never `pull_request_target`: the job gets a read-only token and no secrets.
 on:
   pull_request:
+    # `edited` too: changing a pull request's base changes which commits it holds.
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -35,13 +37,18 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        # The guard is main's copy, so a pull request cannot rewrite the check that judges it;
-        # the pull request's own copy is used only until the guard first reaches main. It is
-        # run with node directly, not `npm run`, because the pull request's package.json could
-        # redefine an npm script. Nothing from the pull request is installed or executed.
+        # Normally the copy of the guard on main runs, so a pull request cannot change the
+        # check that judges it. Main has no guard yet: until the pull request adding it is
+        # merged, a pull request's own copy runs. Once this workflow is on main, a main
+        # without the script fails rather than falling back. It runs with node directly, not
+        # `npm run`, because the pull request's package.json could redefine an npm script.
+        # Nothing from the pull request is installed or executed.
         run: |
           if git cat-file -e origin/main:scripts/cms-guard.mjs 2>/dev/null; then
             git show origin/main:scripts/cms-guard.mjs > "$RUNNER_TEMP/cms-guard.mjs"
+          elif git cat-file -e origin/main:.github/workflows/cms-guard.yml 2>/dev/null; then
+            echo "::error::main has the CMS guard workflow but not scripts/cms-guard.mjs."
+            exit 1
           else
             cp scripts/cms-guard.mjs "$RUNNER_TEMP/cms-guard.mjs"
           fi

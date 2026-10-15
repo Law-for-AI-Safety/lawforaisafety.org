@@ -59,6 +59,12 @@ describe("checkPullRequest", () => {
     expect(checkPullRequest({ ...pr, commits: [commit(bot, ["content-evil/x.json", "contents/x.json"])] })).toHaveLength(1);
   });
 
+  it("refuses a login that is not a bot's", () => {
+    expect(checkPullRequest({ ...pr, botLogin: "hturnbull93", commits: [] })).toEqual([
+      'CMS_BOT_LOGIN is "hturnbull93", which is not a GitHub App\'s bot login (those end in [bot]).',
+    ]);
+  });
+
   it("fails closed when the bot's login is not configured", () => {
     for (const botLogin of ["", "  "]) {
       expect(checkPullRequest({ ...pr, botLogin, commits: [] })).toEqual([expect.stringMatching(/^CMS_BOT_LOGIN is not set/)]);
@@ -130,6 +136,15 @@ describe("the script, on a real repository", () => {
       expect.stringMatching(/^::error::Commit [0-9a-f]{12} by lais-cms\[bot\] changes files outside content\/: src\/app\.ts$/),
       expect.stringMatching(/^::error::Commit [0-9a-f]{12} by lais-cms\[bot\] changes files outside content\/: x\.json$/),
     ]);
+  });
+
+  it("reads paths with spaces, quotes, newlines and non-ASCII characters as they are", () => {
+    const base = run(["rev-parse", "HEAD"]);
+    const head = commitAs(bot, { "content/a b.json": "{}\n", 'content/"q".json': "{}\n", "content/é.json": "{}\n", "src/new\nline.ts": "x\n" });
+    const { code, lines } = guard({ BASE_SHA: base, HEAD_SHA: head });
+    expect(code).toBe(1);
+    // The line break is encoded, so the path cannot start a workflow command of its own.
+    expect(lines).toEqual([expect.stringMatching(/changes files outside content\/: src\/new%0Aline\.ts$/)]);
   });
 
   it("fails a bot merge commit that brings in code", () => {

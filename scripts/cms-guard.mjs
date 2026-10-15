@@ -54,6 +54,10 @@ export function checkPullRequest({ botLogin, prAuthor, headRef, commits }) {
         "Set the repository variable CMS_BOT_LOGIN to the GitHub App's bot login (see github-app-setup.md).",
     ];
   }
+  if (!login.endsWith("[bot]")) {
+    // A person's login here would let the bot's commits pass as a maintainer's and restrict that person instead.
+    return [`CMS_BOT_LOGIN is "${login}", which is not a GitHub App's bot login (those end in [bot]).`];
+  }
   const problems = [];
   if (prAuthor.toLowerCase() === login.toLowerCase() && !headRef.startsWith(BRANCH_PREFIX)) {
     problems.push(`${login} opened this pull request from ${headRef}, which is not a ${BRANCH_PREFIX}* branch.`);
@@ -83,11 +87,21 @@ export function readCommits(base, head, cwd) {
   const shas = git(["rev-list", "--reverse", `${base}..${head}`], cwd).split("\n").filter(Boolean);
   return shas.map((sha) => {
     const [an, ae, cn, ce] = git(["show", "-s", "--format=%an%x00%ae%x00%cn%x00%ce", sha], cwd).trimEnd().split("\0");
-    const files = git(["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-m", "--root", sha], cwd)
-      .split("\n")
+    // -z: paths come NUL-separated and unquoted, whatever characters they hold.
+    const files = git(["diff-tree", "-z", "--no-commit-id", "--name-only", "-r", "--no-renames", "-m", "--root", sha], cwd)
+      .split("\0")
       .filter(Boolean);
     return { sha, author: { name: an, email: ae }, committer: { name: cn, email: ce }, files: [...new Set(files)] };
   });
+}
+
+/**
+ * A workflow command's message, encoded as GitHub expects, so a path holding a line break
+ * cannot start a command of its own.
+ * @param {string} text
+ */
+export function escapeCommand(text) {
+  return text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 
 /**
@@ -108,7 +122,7 @@ export function main(env, cwd, log = console.log) {
     headRef: env.HEAD_REF ?? "",
     commits,
   });
-  for (const problem of problems) log(`::error::${problem}`);
+  for (const problem of problems) log(`::error::${escapeCommand(problem)}`);
   if (problems.length) return 1;
   log(`CMS guard: ${commits.length} commit(s) checked; nothing by ${env.CMS_BOT_LOGIN} outside ${ALLOWED_DIR}.`);
   return 0;
