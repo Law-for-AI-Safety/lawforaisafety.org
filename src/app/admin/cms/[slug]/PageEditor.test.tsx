@@ -1,6 +1,6 @@
 import fs from "node:fs";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Problem } from "@/cms/publish-checks";
 import type { PublishDraftResult, SaveDraftResult, WithdrawResult } from "../actions";
 import PageEditor, { type PageEditorProps } from "./PageEditor";
@@ -285,6 +285,8 @@ it("links to the preview in a new tab", () => {
 
 describe("the preview beside the fields", () => {
   const frame = () => screen.getByTitle<HTMLIFrameElement>("Preview of /field-building");
+  const ready = { type: "cms-preview-ready", slug: "field-building" };
+  const draft = (content: unknown, showChanges = false) => ({ type: "cms-preview-draft", slug: "field-building", content, showChanges });
 
   function fromFrame(source: unknown, data: unknown, origin = window.location.origin) {
     const event = new MessageEvent("message", { data, origin });
@@ -293,6 +295,20 @@ describe("the preview beside the fields", () => {
       window.dispatchEvent(event);
     });
   }
+
+  /** Renders the editor with its preview listening, and returns what the preview is sent. */
+  function withPreview(props: Partial<PageEditorProps> = {}) {
+    renderEditor(fakeServer(), props);
+    const preview = frame().contentWindow!;
+    const post = vi.spyOn(preview, "postMessage").mockImplementation(() => {});
+    fromFrame(preview, ready);
+    return { preview, post };
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    Element.prototype.scrollIntoView = vi.fn();
+  });
 
   it("frames the preview page, and sends it the draft once it is ready and on every change", () => {
     renderEditor();
@@ -303,28 +319,61 @@ describe("the preview beside the fields", () => {
     fireEvent.change(title(), { target: { value: "Before it is ready" } });
     expect(post).not.toHaveBeenCalled();
 
-    fromFrame(preview, { type: "cms-preview-ready", slug: "field-building" });
-    expect(post).toHaveBeenLastCalledWith({ type: "cms-preview-draft", slug: "field-building", content: { ...file, title: "Before it is ready" } }, window.location.origin);
+    fromFrame(preview, ready);
+    expect(post).toHaveBeenLastCalledWith(draft({ ...file, title: "Before it is ready" }), window.location.origin);
 
     fireEvent.change(title(), { target: { value: "Typed" } });
-    expect(post).toHaveBeenLastCalledWith({ type: "cms-preview-draft", slug: "field-building", content: { ...file, title: "Typed" } }, window.location.origin);
+    expect(post).toHaveBeenLastCalledWith(draft({ ...file, title: "Typed" }), window.location.origin);
 
     // A reloaded preview says it is ready again, and is sent the draft again.
     post.mockClear();
-    fromFrame(preview, { type: "cms-preview-ready", slug: "field-building" });
+    fromFrame(preview, ready);
     expect(post).toHaveBeenCalledTimes(1);
   });
 
   it("listens only to its own frame", () => {
     renderEditor();
     const post = vi.spyOn(frame().contentWindow!, "postMessage").mockImplementation(() => {});
-    fromFrame(window, { type: "cms-preview-ready", slug: "field-building" });
-    fromFrame(frame().contentWindow, { type: "cms-preview-ready", slug: "field-building" }, "https://evil.example");
-    fromFrame(frame().contentWindow, { type: "cms-preview-ready", slug: "about" });
+    fromFrame(window, ready);
+    fromFrame(frame().contentWindow, ready, "https://evil.example");
+    fromFrame(frame().contentWindow, { ...ready, slug: "about" });
     expect(post).not.toHaveBeenCalled();
   });
 
-  it("switches between a desktop and a mobile window width, and can be hidden", () => {
+  it("asks the preview to mark changed blocks when the editor ticks the box", () => {
+    const { post } = withPreview();
+    fireEvent.click(screen.getByLabelText("Mark changes since the live page"));
+    expect(post).toHaveBeenLastCalledWith(draft(file, true), window.location.origin);
+  });
+
+  it("scrolls the preview to the block whose fields are being edited", () => {
+    const { post } = withPreview();
+    const quote = screen.getByRole("region", { name: "Block 2: Quote band" });
+    fireEvent.focus(within(quote).getAllByRole("textbox")[0]);
+    expect(post).toHaveBeenLastCalledWith({ type: "cms-preview-show", slug: "field-building", index: 1 }, window.location.origin);
+    expect(quote.className).toContain("border-brand-navy");
+    post.mockClear();
+    fireEvent.focus(within(quote).getAllByRole("textbox")[1]);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("opens and scrolls to a block's fields when it is clicked in the preview", () => {
+    const { preview, post } = withPreview();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+    fromFrame(preview, { type: "cms-preview-select", slug: "field-building", index: 2 });
+    const cards = screen.getByRole("region", { name: "Block 3: Card list" });
+    expect(within(cards).getAllByRole("textbox").length).toBeGreaterThan(0);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts[0]).toBe(cards);
+    expect(cards.className).toContain("border-brand-navy");
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-pressed", "true");
+    // The preview chose the block, so it is not sent back to scroll there.
+    expect(post).not.toHaveBeenCalledWith(expect.objectContaining({ type: "cms-preview-show" }), expect.anything());
+  });
+
+  it("switches between a desktop and a mobile window width, and can be hidden, remembering each choice", () => {
     renderEditor();
     expect(screen.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "true");
     expect(frame().style.width).toBe("1280px");
@@ -334,8 +383,47 @@ describe("the preview beside the fields", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Hide preview" }));
     expect(screen.queryByRole("complementary", { name: "Preview" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+
+    cleanup();
+    renderEditor();
+    expect(screen.queryByRole("complementary", { name: "Preview" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show preview" }));
-    expect(frame()).toBeInTheDocument();
+    expect(frame().style.width).toBe("390px");
+  });
+
+  it("keeps the choices for the page's life where the browser keeps nothing", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Mobile" }));
+    expect(frame().style.width).toBe("390px");
+  });
+
+  it("ignores a remembered setting it does not understand", () => {
+    localStorage.setItem("cms-editor-preview", "{not json");
+    renderEditor();
+    expect(frame().style.width).toBe("1280px");
+    cleanup();
+    localStorage.setItem("cms-editor-preview", JSON.stringify({ show: "yes", view: "tablet", changes: 1 }));
+    renderEditor();
+    expect(frame().style.width).toBe("1280px");
+    expect(screen.getByLabelText("Mark changes since the live page")).not.toBeChecked();
+  });
+
+  it("takes turns with the fields on a narrow screen", () => {
+    renderEditor();
+    const fields = title().closest("main")!.parentElement!;
+    const pane = screen.getByRole("complementary", { name: "Preview" });
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-pressed", "true");
+    expect(pane.className).toMatch(/(^| )hidden /);
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(pane.className).not.toMatch(/(^| )hidden /);
+    expect(fields.className).toMatch(/(^| )hidden /);
   });
 
   it("scales the frame down to fit the pane", () => {
@@ -351,6 +439,52 @@ describe("the preview beside the fields", () => {
   it("stays while the page is locked for publishing", () => {
     renderEditor(fakeServer(), { initialState: "publishing", initialVersion: 3 });
     expect(frame()).toBeInTheDocument();
+  });
+});
+
+describe("collapsing blocks", () => {
+  const region = (name: string) => screen.getByRole("region", { name });
+  const toggle = (name: string) => within(region(name)).getByRole("button", { expanded: true });
+
+  it("hides a block's fields, saying how many problems they hold", () => {
+    renderEditor(fakeServer(), {
+      initialProblems: [
+        { path: ["blocks", 1, "quote"], message: "Required" },
+        { path: ["blocks", 1, "caption"], message: "A caption needs a photo" },
+        { path: ["blocks", 0, "heading"], message: "Required" },
+      ],
+    });
+    fireEvent.click(toggle("Block 2: Quote band"));
+    expect(within(region("Block 2: Quote band")).queryAllByRole("textbox")).toEqual([]);
+    expect(region("Block 2: Quote band")).toHaveTextContent("2 things to fix");
+    fireEvent.click(toggle("Block 1: Page heading"));
+    expect(region("Block 1: Page heading")).toHaveTextContent("1 thing to fix");
+    fireEvent.click(within(region("Block 2: Quote band")).getByRole("button", { expanded: false }));
+    expect(within(region("Block 2: Quote band")).getAllByRole("textbox").length).toBeGreaterThan(0);
+  });
+
+  it("collapses and expands every block at once, card list style included", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryByLabelText("Page title")).toBeInTheDocument();
+    expect(screen.queryAllByRole("radio")).toEqual([]);
+    expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(file.blocks.length);
+    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.queryAllByRole("button", { expanded: false })).toEqual([]);
+  });
+
+  it("keeps a block collapsed as it moves, and opens them all when a block is removed", () => {
+    renderEditor();
+    fireEvent.click(toggle("Block 2: Quote band"));
+    fireEvent.click(within(region("Block 2: Quote band")).getByRole("button", { name: "Move down" }));
+    expect(within(region("Block 3: Quote band")).getByRole("button", { expanded: false })).toBeInTheDocument();
+    expect(within(region("Block 2: Card list")).getByRole("button", { expanded: true })).toBeInTheDocument();
+
+    vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Remove block 3" }));
+    expect(within(region("Block 3: Quote band")).getByRole("button", { expanded: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove block 3" }));
+    expect(screen.queryAllByRole("button", { expanded: false })).toEqual([]);
   });
 });
 

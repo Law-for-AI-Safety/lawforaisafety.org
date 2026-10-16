@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { isValidDraft } from "@/cms/drafts";
-import { parsePage } from "@/cms/schema";
+import { previewBlocks } from "@/cms/preview";
+import { pageSchema } from "@/cms/schema";
 import { requireCms } from "@/lib/cms-access";
 import { loadCmsPage } from "@/lib/cms-pages";
 import NoCmsAccess from "../../cms/NoCmsAccess";
@@ -29,6 +29,14 @@ export default async function CmsPreviewPage({ params }: { params: Promise<{ slu
   const page = await loadCmsPage(slug);
   if (!page) notFound();
 
-  const initial = isValidDraft(slug, page.content) ? parsePage(slug, page.content) : null;
-  return <LivePreview slug={slug} initial={initial} of={page.state === "draft" ? "the draft" : "the live page"} />;
+  const file = pageSchema(slug).safeParse(JSON.parse(page.file.text));
+  const live = file.success ? file.data.blocks : [];
+  return (
+    <LivePreview
+      slug={slug}
+      initial={previewBlocks(page.content, [], live)}
+      live={live}
+      of={page.state === "draft" ? "the draft" : "the live page"}
+    />
+  );
 }

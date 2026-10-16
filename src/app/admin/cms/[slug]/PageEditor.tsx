@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Autosaver, type AutosaveStatus, type SaveResult } from "@/cms/autosave";
 import type { FieldChange } from "@/cms/field-diff";
 import type { EditorState } from "@/cms/publish-status";
@@ -13,6 +13,7 @@ import type { DiscardDraftResult, PublishDraftResult, SaveDraftResult, WithdrawR
 import PageStateBadge from "../PageStateBadge";
 import { Fields, type FieldContext, type Path } from "./FieldEditor";
 import PreviewPane from "./PreviewPane";
+import { usePreviewSettings } from "./preview-settings";
 
 export type PageEditorProps = {
   slug: string;
@@ -70,7 +71,17 @@ export default function PageEditor(props: PageEditorProps) {
   const [status, setStatus] = useState<AutosaveStatus>({ state: "saved" });
   const [notice, setNotice] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [adding, setAdding] = useState<BlockType | "">("");
-  const [showPreview, setShowPreview] = useState(true);
+  const [{ show: showPreview }, setPreviewSettings] = usePreviewSettings();
+  // Below the wide layout the fields and the preview take turns.
+  const [tab, setTab] = useState<"edit" | "preview">("edit");
+  const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set());
+  // The block last worked on, and where: its fields (the preview follows) or the preview (the fields follow).
+  const [active, setActive] = useState<{ index: number; from: "fields" | "preview" } | null>(null);
+  const sections = useRef<(HTMLElement | null)[]>([]);
+
+  useEffect(() => {
+    if (active?.from === "preview") sections.current[active.index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [active]);
 
   const [saver] = useState(
     () =>
@@ -121,6 +132,35 @@ export default function PageEditor(props: PageEditorProps) {
   };
   const blocks = Array.isArray(page.blocks) ? page.blocks : [];
   const setBlocks = (next: DraftBlock[]) => update((current) => ({ ...current, blocks: next }));
+  const blockProblems = (i: number) => problems.filter((p) => p.path[0] === "blocks" && p.path[1] === i).length;
+  const toggle = (i: number) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(i)) next.add(i);
+      return next;
+    });
+  const move = (i: number, by: -1 | 1) => {
+    setBlocks(moveBlock(blocks, i, by));
+    // A collapsed block stays collapsed where it moves to.
+    setCollapsed((current) => {
+      const next = new Set(current);
+      const [a, b] = [current.has(i), current.has(i + by)];
+      for (const [at, on] of [[i, b], [i + by, a]] as const) {
+        if (on) next.add(at);
+        else next.delete(at);
+      }
+      return next;
+    });
+  };
+  const showFields = (index: number) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      next.delete(index);
+      return next;
+    });
+    setTab("edit");
+    setActive({ index, from: "preview" });
+  };
   const addable = addableBlockTypes(slug, blocks);
 
   const publish = async () => {
@@ -160,8 +200,19 @@ export default function PageEditor(props: PageEditorProps) {
   };
 
   return (
-    <div className="flex flex-1 flex-col lg:flex-row lg:items-start">
-    <main className={`flex w-full flex-col gap-8 px-4 py-8 ${showPreview ? "lg:max-w-2xl lg:shrink-0" : "mx-auto max-w-3xl"}`}>
+    <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
+    {showPreview && (
+      <div className="flex gap-2 border-b border-brand-black/15 px-4 py-2 text-sm lg:hidden">
+        {(["edit", "preview"] as const).map((t) => (
+          <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)} className="rounded-sm border border-brand-black/30 px-3 py-1 aria-pressed:bg-brand-black aria-pressed:text-brand-white">
+            {t === "edit" ? "Edit" : "Preview"}
+          </button>
+        ))}
+      </div>
+    )}
+    {/* Positioned, so the fields' visually hidden labels scroll with it rather than stretch the window. */}
+    <div className={`relative lg:min-h-0 lg:overflow-y-auto ${showPreview ? `lg:w-[42rem] lg:shrink-0 ${tab === "preview" ? "hidden lg:block" : ""}` : "lg:flex-1"}`}>
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8">
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-sans text-3xl text-brand-black">Edit /{slug}</h1>
@@ -174,7 +225,7 @@ export default function PageEditor(props: PageEditorProps) {
           <a href={`/admin/preview/${slug}`} target="_blank" rel="noopener" className="underline">
             Preview (opens a new tab)
           </a>
-          <button type="button" onClick={() => setShowPreview((shown) => !shown)} className="text-sm underline">
+          <button type="button" onClick={() => setPreviewSettings({ show: !showPreview })} className="text-sm underline">
             {showPreview ? "Hide preview" : "Show preview"}
           </button>
           {version > 0 && !locked && (
@@ -249,25 +300,49 @@ export default function PageEditor(props: PageEditorProps) {
       </section>
 
       <section className="flex flex-col gap-6">
-        <h2 className="text-xl text-brand-black">Blocks</h2>
+        <div className="flex flex-wrap items-center gap-4">
+          <h2 className="text-xl text-brand-black">Blocks</h2>
+          <button type="button" onClick={() => setCollapsed(new Set(blocks.map((_, i) => i)))} className="text-sm underline">
+            Collapse all
+          </button>
+          <button type="button" onClick={() => setCollapsed(new Set())} className="text-sm underline">
+            Expand all
+          </button>
+        </div>
         {blocks.map((block, i) => (
-          <section key={i} aria-label={`Block ${i + 1}: ${BLOCK_LABELS[block.type]}`} className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
+          <section
+            key={i}
+            ref={(el) => {
+              sections.current[i] = el;
+            }}
+            aria-label={`Block ${i + 1}: ${BLOCK_LABELS[block.type]}`}
+            onFocusCapture={() => setActive((current) => (current?.index === i && current.from === "fields" ? current : { index: i, from: "fields" }))}
+            className={`flex scroll-mt-4 flex-col gap-4 rounded-sm border p-4 ${active?.index === i ? "border-brand-navy ring-2 ring-brand-navy/30" : "border-brand-black/15"}`}
+          >
             <div className="flex flex-wrap items-center gap-3">
               <h3 className="text-lg text-brand-black">
-                {i + 1}. {BLOCK_LABELS[block.type]}
+                <button type="button" aria-expanded={!collapsed.has(i)} onClick={() => toggle(i)} className="flex items-center gap-2 text-left">
+                  <span aria-hidden="true" className="text-sm">{collapsed.has(i) ? "▸" : "▾"}</span>
+                  {i + 1}. {BLOCK_LABELS[block.type]}
+                </button>
               </h3>
+              {collapsed.has(i) && blockProblems(i) > 0 && (
+                <span className="text-sm text-brand-red">{blockProblems(i) === 1 ? "1 thing to fix" : `${blockProblems(i)} things to fix`}</span>
+              )}
               {!isLockedBlock(blocks, i) && (
                 <>
-                  <button type="button" disabled={!canMoveBlock(blocks, i, -1)} onClick={() => setBlocks(moveBlock(blocks, i, -1))} className="text-sm underline disabled:no-underline disabled:opacity-40">
+                  <button type="button" disabled={!canMoveBlock(blocks, i, -1)} onClick={() => move(i, -1)} className="text-sm underline disabled:no-underline disabled:opacity-40">
                     Move up
                   </button>
-                  <button type="button" disabled={!canMoveBlock(blocks, i, 1)} onClick={() => setBlocks(moveBlock(blocks, i, 1))} className="text-sm underline disabled:no-underline disabled:opacity-40">
+                  <button type="button" disabled={!canMoveBlock(blocks, i, 1)} onClick={() => move(i, 1)} className="text-sm underline disabled:no-underline disabled:opacity-40">
                     Move down
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm(`Remove block ${i + 1} (${BLOCK_LABELS[block.type]})?`)) setBlocks(removeBlock(blocks, i));
+                      if (!window.confirm(`Remove block ${i + 1} (${BLOCK_LABELS[block.type]})?`)) return;
+                      setBlocks(removeBlock(blocks, i));
+                      setCollapsed(new Set());
                     }}
                     className="text-sm text-brand-red underline"
                   >
@@ -276,7 +351,7 @@ export default function PageEditor(props: PageEditorProps) {
                 </>
               )}
             </div>
-            {block.type === "cardList" && (
+            {!collapsed.has(i) && block.type === "cardList" && (
               <fieldset className="flex flex-wrap gap-4 text-sm text-brand-black/80">
                 <legend className="sr-only">Card list style</legend>
                 {(["bullets", "numbered"] as const).map((style) => (
@@ -292,7 +367,7 @@ export default function PageEditor(props: PageEditorProps) {
                 ))}
               </fieldset>
             )}
-            <Fields fields={blockFields(block)} value={block} path={["blocks", i]} ctx={ctx} />
+            {!collapsed.has(i) && <Fields fields={blockFields(block)} value={block} path={["blocks", i]} ctx={ctx} />}
           </section>
         ))}
         {addable.length > 0 && (
@@ -371,7 +446,16 @@ export default function PageEditor(props: PageEditorProps) {
         </p>
       )}
     </main>
-    {showPreview && <PreviewPane slug={slug} page={page} />}
+    </div>
+    {showPreview && (
+      <PreviewPane
+        slug={slug}
+        page={page}
+        editing={active?.from === "fields" ? active.index : null}
+        onSelect={showFields}
+        className={tab === "edit" ? "hidden lg:flex" : "flex"}
+      />
+    )}
     </div>
   );
 }
