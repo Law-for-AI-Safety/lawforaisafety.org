@@ -9,7 +9,7 @@ import { STALE_LOCK_MS } from "@/cms/publish";
 import { rememberPerson } from "@/lib/admin-people";
 import { refreshPublishing } from "@/lib/cms-publishing";
 import { insertSubmission, setStoredCmsPermission } from "@/lib/cms-store";
-import { createAdminSessionCookie } from "@/lib/session";
+import { startAdminSession } from "@/lib/session";
 import { BOT_LOGIN, github, githubEnv } from "../../../../test/fakes/github";
 import { cookieJar } from "../../../../test/next-headers";
 import { discardDraft, publishDraft, saveDraft, withdrawPublish } from "./actions";
@@ -36,7 +36,7 @@ const EMAIL: Record<Who, string> = { draft: "draft@example.com", publish: "publi
 
 async function signInAs(who: Who) {
   cookieJar.reset();
-  await createAdminSessionCookie({ email: EMAIL[who], name: `${who} person` });
+  await startAdminSession({ email: EMAIL[who], name: `${who} person` });
 }
 
 beforeEach(async () => {

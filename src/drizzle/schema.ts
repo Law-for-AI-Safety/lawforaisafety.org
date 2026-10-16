@@ -256,6 +256,7 @@ export const adminAuditAction = pgEnum("admin_audit_action", [
   "cms_publish",
   "cms_withdraw",
   "cms_publish_outcome",
+  "sessions_end",
 ]);
 
 // Append-only record of who did what in the admin panel. The application row
@@ -315,6 +316,26 @@ export const taskTrackerStatus = pgEnum("task_tracker_status", [
  * than the login already puts in the session cookie, and assignments are
  * still stored as the email (the stable identifier), never as a name.
  */
+// One row per admin sign-in. The browser holds a random token in the admin_session cookie; only
+// its SHA-256 is stored, so a copy of this table or a backup holds no session that works. A
+// session is good until `expiresAt`, unless `endedAt` is set: by logging out, or by a technical
+// admin ending that person's sessions.
+export const adminSessions = pgTable(
+  "admin_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tokenHash: text("token_hash").notNull().unique(),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    endedBy: text("ended_by"),
+  },
+  (table) => [index("admin_sessions_email_idx").on(table.email)],
+);
+
 export const adminPeople = pgTable("admin_people", {
   email: text("email").primaryKey(),
   name: text("name").notNull(),

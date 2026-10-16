@@ -1,25 +1,15 @@
-import { SignJWT } from 'jose'
 import type { DemoCookie } from './engine'
-import { DEMO_ADMIN } from './data'
-import { DEMO_SESSION_SECRET } from './server'
+import { DEMO_SESSION_TOKEN } from './data'
 
 /**
- * Skips LinkedIn OAuth by signing the same admin_session JWT the login
- * callback would. Cookie name, issuer and audience must match
- * src/lib/session.ts — if login breaks in a recording, check there first.
+ * Skips LinkedIn OAuth with the session demo/seed.ts puts in the demo
+ * database for the demo admin. Cookie name must match src/lib/session.ts —
+ * if login breaks in a recording, check there first.
  */
 export async function demoAdminCookie(): Promise<DemoCookie> {
-  const token = await new SignJWT({ email: DEMO_ADMIN.email, name: DEMO_ADMIN.name })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuer('lawforaisafety.org')
-    .setAudience('admin_session')
-    .setIssuedAt()
-    .setExpirationTime('2h')
-    .sign(new TextEncoder().encode(DEMO_SESSION_SECRET))
-
   return {
     name: 'admin_session',
-    value: token,
+    value: DEMO_SESSION_TOKEN,
     domain: 'localhost',
     path: '/',
     httpOnly: true,

@@ -10,7 +10,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 const NEXT_BINARY = path.join(PROJECT_ROOT, 'node_modules', '.bin', 'next')
 const ENV_FILE = path.join(PROJECT_ROOT, '.env.local')
 
-// Throwaway per run: the demo server trusts only cookies minted by this process.
+// Throwaway per run: the demo server signs its OAuth state with this.
 export const DEMO_SESSION_SECRET = crypto.randomBytes(32).toString('hex')
 
 let demoServer: ChildProcess | null = null
