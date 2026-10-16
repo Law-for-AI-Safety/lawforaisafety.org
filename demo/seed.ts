@@ -1,5 +1,6 @@
 import { Client } from 'pg'
-import { DEMO_ADMIN } from './data'
+import { hashSessionToken } from '../src/lib/session-token'
+import { DEMO_ADMIN, DEMO_SESSION_TOKEN } from './data'
 
 // Demo-only data. Same shape as scripts/seed-task-tracker.mjs, but every date
 // is relative to the day of recording, so "Overdue", "Due in the next week"
@@ -150,6 +151,12 @@ export async function seedDemoData(databaseUrl: string): Promise<void> {
     for (const [email, name] of PEOPLE) {
       await client.query('INSERT INTO admin_people (email, name) VALUES ($1, $2)', [email, name])
     }
+
+    // The session the recording browser signs in with (demo/auth.ts).
+    await client.query(
+      `INSERT INTO admin_sessions (token_hash, email, name, expires_at) VALUES ($1, $2, $3, now() + interval '2 hours')`,
+      [hashSessionToken(DEMO_SESSION_TOKEN), DEMO_ADMIN.email, DEMO_ADMIN.name],
+    )
 
     for (const project of PROJECTS) {
       const {

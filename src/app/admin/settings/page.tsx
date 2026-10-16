@@ -9,6 +9,7 @@ import {
   isAdminEmailAllowed,
   isTechAdminConfigured,
   isTechAdminEmail,
+  listSignedInAdmins,
   pinnedAdminSubs,
 } from "@/lib/session";
 import { getRedLinesFlagState, getSignupFlagState } from "@/lib/feature-flags";
@@ -17,6 +18,8 @@ import { isPolicyServed } from "../../privacy-policy/visibility";
 import SignupToggle from "./SignupToggle";
 import RedLinesToggle from "./RedLinesToggle";
 import CmsRoleSelect from "./CmsRoleSelect";
+import EndSessionsButton from "./EndSessionsButton";
+import { endSessions } from "./session-actions";
 import { setCmsRole } from "./cms-actions";
 import { listPeople } from "@/lib/admin-people";
 import { listCmsRoles } from "@/lib/cms-store";
@@ -79,6 +82,7 @@ export default async function AdminSettingsPage({
   const redLinesFlag = await getRedLinesFlagState();
   const redLinesEnabled = redLinesFlag?.enabled ?? false;
   const logins = await getAdminLogins();
+  const signedIn = await listSignedInAdmins();
   const pinned = pinnedAdminSubs();
   const cmsRoles = new Map((await listCmsRoles()).map((r) => [r.email, r.permission]));
   // Everyone who has logged in, plus anyone holding a CMS role who has not (so it can be removed).
@@ -246,6 +250,42 @@ export default async function AdminSettingsPage({
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl text-brand-black">Signed in now</h2>
+          <p className="text-brand-black/70">
+            Everyone signed in to the admin, on any device. If an account may
+            be compromised, end its sessions: each device is logged out at its
+            next request. They can sign in again unless they are also removed
+            from ADMIN_EMAILS.
+          </p>
+        </div>
+
+        <ul className="flex flex-col gap-3">
+          {signedIn.map((person) => (
+            <li
+              key={person.email}
+              className="flex flex-wrap items-start justify-between gap-2 border-t border-brand-black/10 pt-3"
+            >
+              <div className="flex flex-col">
+                <span className="text-brand-black">{person.name}</span>
+                <span className="break-all text-sm text-brand-black/60">{person.email}</span>
+                <span className="text-sm text-brand-black/60">
+                  {person.sessions === 1 ? "1 session" : `${person.sessions} sessions`} · last active{" "}
+                  {person.lastSeenAt.toLocaleString("en-GB", { timeZone: "UTC" })} UTC
+                </span>
+              </div>
+              <EndSessionsButton
+                email={person.email}
+                name={person.name}
+                isYou={person.email === session.email.toLowerCase()}
+                endSessions={endSessions}
+              />
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">

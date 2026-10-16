@@ -5,7 +5,7 @@ import {
   oauthStateCookieMatches,
 } from "@/lib/oauth-state-cookie";
 import {
-  createAdminSessionCookie,
+  startAdminSession,
   isAdminEmailAllowed,
   isAdminSubAllowed,
   isAdminSubPinningConfigured,
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
     );
   }
 
-  await createAdminSessionCookie({ email: userInfo.email, name: userInfo.name });
+  await startAdminSession({ email: userInfo.email, name: userInfo.name });
   // Kept so the task tracker can offer people by name; see adminPeople.
   await rememberPerson(userInfo.email, userInfo.name);
   // The sub is kept so a technical admin can read every admin's LinkedIn id

@@ -8,6 +8,19 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## Signing in to the dev server
+
+To check a change in a browser as a particular admin, never use LinkedIn. `npm run dev:accounts` lets in four made-up accounts, one per kind of access (`src/lib/dev-accounts.ts`): it adds them to `ADMIN_EMAILS` and `TECH_ADMIN_EMAILS` in `.env.local`, keeping what is there, and gives them their CMS roles in the local database. It refuses a database that is not on this machine. Restart the dev server after it changes `.env.local`.
+
+Each account signs in on its own localhost subdomain of the dev server's port, by opening `/api/admin/dev-login` there:
+
+- `tech.localhost` → `tech@example.com`, technical admin: everything
+- `publish.localhost` → `publish@example.com`, edits and publishes pages
+- `draft.localhost` → `draft@example.com`, edits page drafts
+- `reviewer.localhost` → `reviewer@example.com`, reviews applications only
+
+For example `http://publish.localhost:3001/api/admin/dev-login` (add `?next=/admin/cms` to land elsewhere). Cookies are kept per subdomain, so several accounts can be open side by side, and plain `localhost` stays signed out. `?as=publish` signs in on any host. The route answers 404 anywhere but `next dev`.
+
 ## Testing
 
 `npm run check-all` runs typecheck, lint and every test with coverage; run it before raising a PR. CI runs the same on every PR and push to `main`, against a Postgres service container.

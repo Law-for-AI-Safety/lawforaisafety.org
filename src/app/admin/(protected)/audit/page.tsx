@@ -26,6 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
   cms_draft_save: "Edited a page draft",
   cms_draft_discard: "Discarded a page draft",
   cms_publish: "Tried to publish a page",
+  sessions_end: "Ended someone's sessions",
 };
 
 const MAX_ENTRIES = 100;

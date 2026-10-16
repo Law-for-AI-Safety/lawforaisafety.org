@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { adminAuditLog, cmsDrafts, cmsRoles } from "@/drizzle/schema";
 import { rememberPerson } from "@/lib/admin-people";
 import { setStoredCmsPermission } from "@/lib/cms-store";
-import { createAdminSessionCookie } from "@/lib/session";
+import { startAdminSession } from "@/lib/session";
 import { cookieJar } from "../../../../test/next-headers";
 import { discardDraft, publishDraft, saveDraft } from "./actions";
 import CmsPagesPage from "./page";
@@ -39,7 +39,7 @@ const EMAIL: Record<Exclude<Who, "signed out">, string> = {
 async function signInAs(who: Who) {
   cookieJar.reset();
   if (who === "signed out") return;
-  await createAdminSessionCookie({ email: EMAIL[who], name: who });
+  await startAdminSession({ email: EMAIL[who], name: who });
 }
 
 beforeEach(async () => {
