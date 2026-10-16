@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { Fragment, Suspense, type ReactNode } from "react";
 import ApplyToast from "../app/ApplyToast";
 import Footer from "../app/Footer";
 import Nav from "../app/Nav";
@@ -11,8 +11,19 @@ import type { PageContent } from "./schema";
 
 const SITE_NAME = "Law for AI Safety";
 
-/** A content page: nav, the apply toast, each block in its band, and the footer. */
-export default function PageView({ slug, page }: { slug: string; page: PageContent }) {
+/**
+ * A content page: nav, the apply toast, each block in its band, and the footer. The preview
+ * passes `renderBlock` to wrap each rendered block.
+ */
+export default function PageView({
+  slug,
+  page,
+  renderBlock = (_index, block) => block,
+}: {
+  slug: string;
+  page: Pick<PageContent, "blocks">;
+  renderBlock?: (index: number, block: ReactNode) => ReactNode;
+}) {
   const path = pagePath(slug);
   const tones = bandTones(page.blocks.map((block) => block.type));
   const anchors = blockAnchors(slug, page);
@@ -24,7 +35,7 @@ export default function PageView({ slug, page }: { slug: string; page: PageConte
       <Suspense fallback={null}>{redLines ? <RedLinesApplyToast /> : <ApplyToast />}</Suspense>
 
       {page.blocks.map((block, i) => (
-        <Block key={i} block={block} tone={tones[i]} path={path} id={anchors[i]} />
+        <Fragment key={i}>{renderBlock(i, <Block block={block} tone={tones[i]} path={path} id={anchors[i]} />)}</Fragment>
       ))}
 
       <Footer />
@@ -33,7 +44,7 @@ export default function PageView({ slug, page }: { slug: string; page: PageConte
 }
 
 /** Each block's anchor id from the page's rules: the first block of a type named there gets it. */
-export function blockAnchors(slug: string, page: PageContent): (string | undefined)[] {
+export function blockAnchors(slug: string, page: Pick<PageContent, "blocks">): (string | undefined)[] {
   const anchors = pageRules(slug).anchors ?? {};
   const seen = new Set<string>();
   return page.blocks.map((block) => {

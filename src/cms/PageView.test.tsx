@@ -37,6 +37,15 @@ describe("the field-building page", () => {
     expect(sections[4].querySelector('input[name="source"]')).toHaveValue("field_building");
   });
 
+  it("lets the preview wrap each block", () => {
+    const { container } = render(
+      <PageView slug="field-building" page={fieldBuilding} renderBlock={(i, block) => <div data-block={i}>{block}</div>} />,
+    );
+    const wrappers = [...container.querySelectorAll("[data-block]")];
+    expect(wrappers.map((w) => w.getAttribute("data-block"))).toEqual(["0", "1", "2", "3", "4"]);
+    expect(wrappers[0].querySelector("h1")).toHaveTextContent("Field-building and Coordination");
+  });
+
   it("shows the apply toast after an application", () => {
     window.history.replaceState(null, "", "/field-building?applied=1");
     render(<PageView slug="field-building" page={fieldBuilding} />);

@@ -331,7 +331,16 @@ describe("the preview", () => {
     expect(screen.getByRole("note")).toHaveTextContent("Preview of the live page.");
   });
 
-  it("says what to do instead of rendering an unfinished draft", async () => {
+  it("renders the finished blocks of a draft, and a gap for one that is not finished", async () => {
+    await seedDraft({ ...edited(), blocks: [{ ...file.blocks[0], heading: "" }, ...file.blocks.slice(1)] });
+    await signInAs("draft");
+    render(await CmsPreviewPage({ params: Promise.resolve({ slug: SLUG }) }));
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    expect(screen.getByText("Block 1 (Page heading) is not finished, so it is not shown yet.")).toBeInTheDocument();
+    expect(document.querySelector('[data-block="1"] blockquote')).toHaveTextContent(/^Our mission/);
+  });
+
+  it("says what to do instead of rendering a draft with no finished block", async () => {
     await seedDraft({ ...edited(), blocks: [{ ...file.blocks[0], heading: "" }] });
     await signInAs("draft");
     render(await CmsPreviewPage({ params: Promise.resolve({ slug: SLUG }) }));
@@ -415,7 +424,8 @@ describe("a draft holding an unsafe link", () => {
     unmount();
 
     const preview = render(await CmsPreviewPage({ params: Promise.resolve({ slug: SLUG }) }));
-    expect(screen.getByRole("heading", { name: "This draft is not finished" })).toBeInTheDocument();
+    expect(screen.getByText("Block 1 (Page heading) is not finished, so it is not shown yet.")).toBeInTheDocument();
+    expect(screen.getByText(/^Introduction: Only https:, mailto: and site links/)).toBeInTheDocument();
     expect(document.querySelector('a[href^="javascript"]')).toBeNull();
     preview.unmount();
 

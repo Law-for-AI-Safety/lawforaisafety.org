@@ -7,8 +7,9 @@ const isDev = process.env.NODE_ENV === "development";
 // pages are static. 'unsafe-inline' for scripts is the cost of that (Next's
 // own inline bootstrap + the JSON-LD blocks need it) — what this policy still
 // buys is that script can only *load* from us or Turnstile, the page can't be
-// framed, forms can only post to us, and nothing can be embedded as a plugin.
-const contentSecurityPolicy = [
+// framed (except the CMS preview, by us), forms can only post to us, and nothing
+// can be embedded as a plugin.
+const contentSecurityPolicy = (frameAncestors: string) => [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
@@ -16,7 +17,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https://*.licdn.com https://*.googleusercontent.com",
   "font-src 'self'",
   "connect-src 'self'",
-  "frame-src https://challenges.cloudflare.com",
+  "frame-src 'self' https://challenges.cloudflare.com",
   // pdf.js renders CVs (admin) and the Red Lines Dialogues letter (public)
   // as canvases via a worker, rather than in an iframe or native PDF plugin.
   "worker-src 'self' blob:",
@@ -26,12 +27,12 @@ const contentSecurityPolicy = [
   // redirect chain, so the apply routes never redirect a post off-site: they
   // answer with a page that navigates to the provider (src/lib/oauth-handoff.ts).
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  `frame-ancestors ${frameAncestors}`,
   ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy("'none'") },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -69,6 +70,14 @@ const nextConfig: NextConfig = {
       // The admin, including draft previews, is never indexed. robots.ts also disallows it,
       // and its pages carry a robots meta tag.
       { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      // The CMS editor frames its preview. Being later, these replace the headers above.
+      {
+        source: "/admin/preview/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: contentSecurityPolicy("'self'") },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      },
     ];
   },
   // The CMS editor and preview read the content files, the page files (for the routes links
