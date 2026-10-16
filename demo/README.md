@@ -14,7 +14,7 @@ npm run demo -- task-tracker --skip-build # reuse the last `next build` while tw
 
 Output lands in `demo/output/<flow>.mp4` (plus a `.webm`). Share the `.mp4`. Videos aren't committed, only the flow scripts — re-record after UI changes instead of editing footage.
 
-Needs: Docker running (same local Postgres as `npm run dev`), `ffmpeg` with libopus and libx264 (`brew install ffmpeg`), and Playwright's Chromium (`npx playwright install chromium`). The first run downloads the Kokoro text-to-speech model (~90 MB) from Hugging Face.
+Needs: Docker running (same local Postgres as `npm run dev`), `ffmpeg` with libopus and libx264 (`brew install ffmpeg`), and Playwright's Chromium (`npx playwright install chromium`). The text-to-speech engine has its own `demo/package.json`, so the site's install never carries it: `npm run demo` installs it into `demo/node_modules` (about 740 MB, mostly ONNX Runtime) on first use, and the first recording then downloads the Kokoro model (~90 MB) from Hugging Face into it.
 
 ## What a run does
 
