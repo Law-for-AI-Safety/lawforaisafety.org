@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { adminAuditLog } from "@/drizzle/schema";
 import {
   getAdminSession,
+  isAdminEmailAllowed,
   isTechAdminConfigured,
   isTechAdminEmail,
   pinnedAdminSubs,
@@ -15,6 +16,10 @@ import TechAdminOnly from "../TechAdminOnly";
 import { isPolicyServed } from "../../privacy-policy/visibility";
 import SignupToggle from "./SignupToggle";
 import RedLinesToggle from "./RedLinesToggle";
+import CmsRoleSelect from "./CmsRoleSelect";
+import { setCmsRole } from "./cms-actions";
+import { listPeople } from "@/lib/admin-people";
+import { listCmsRoles } from "@/lib/cms-store";
 
 export const metadata: Metadata = {
   title: "LAIS - Settings",
@@ -75,6 +80,13 @@ export default async function AdminSettingsPage({
   const redLinesEnabled = redLinesFlag?.enabled ?? false;
   const logins = await getAdminLogins();
   const pinned = pinnedAdminSubs();
+  const cmsRoles = new Map((await listCmsRoles()).map((r) => [r.email, r.permission]));
+  // Everyone who has logged in, plus anyone holding a CMS role who has not (so it can be removed).
+  const known = await listPeople();
+  const people = [
+    ...known,
+    ...[...cmsRoles.keys()].filter((email) => !known.some((p) => p.email === email)).map((email) => ({ email, name: email })),
+  ];
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8">
@@ -91,9 +103,14 @@ export default async function AdminSettingsPage({
         <div className="flex flex-col gap-1">
           <h2 className="text-xl text-brand-black">Public signup</h2>
           <p className="text-brand-black/70">
-            Newsletter signup and apply-to-work-with-us on the homepage. When
-            off, the forms are hidden and their endpoints refuse requests.
-            Reviewing applications is not affected.
+            Newsletter signup and the apply-to-work-with-us forms on the
+            homepage and project pages. When off, their endpoints refuse
+            submissions. Reviewing applications is not affected.
+          </p>
+          <p className="text-brand-black/70">
+            Switching this off is an emergency stop: submissions are refused
+            within a minute, but the forms stay visible on the site until the
+            pages are changed to hide them.
           </p>
         </div>
 
@@ -107,8 +124,8 @@ export default async function AdminSettingsPage({
             }`}
           >
             {justChanged === "on"
-              ? "Done. Signup is now ON: the newsletter and application forms are live on the homepage."
-              : "Done. Signup is now OFF: the forms are hidden and their endpoints refuse requests."}
+              ? "Done. Signup is now ON: the newsletter and application forms accept submissions."
+              : "Done. Signup is now OFF: within a minute the forms' endpoints refuse submissions. The forms stay visible until the pages are changed to hide them."}
           </p>
         )}
 
@@ -136,9 +153,14 @@ export default async function AdminSettingsPage({
         <div className="flex flex-col gap-1">
           <h2 className="text-xl text-brand-black">Red Lines Dialogues applications</h2>
           <p className="text-brand-black/70">
-            The application form on /red-lines-dialogue. When off, the form is
-            hidden and its endpoints refuse requests. Reviewing applications is
-            not affected.
+            The application form on /red-lines-dialogue. When off, its
+            endpoints refuse submissions. Reviewing applications is not
+            affected.
+          </p>
+          <p className="text-brand-black/70">
+            Switching this off is an emergency stop: submissions are refused
+            within a minute, but the form stays visible until the page is
+            changed to hide it.
           </p>
         </div>
 
@@ -152,8 +174,8 @@ export default async function AdminSettingsPage({
             }`}
           >
             {redLinesJustChanged === "on"
-              ? "Done. Applications are now ON: the form is live on /red-lines-dialogue."
-              : "Done. Applications are now OFF: the form is hidden and its endpoint refuses requests."}
+              ? "Done. Applications are now ON: the form on /red-lines-dialogue accepts submissions."
+              : "Done. Applications are now OFF: within a minute its endpoints refuse submissions. The form stays visible until the page is changed to hide it."}
           </p>
         )}
 
@@ -175,6 +197,55 @@ export default async function AdminSettingsPage({
         )}
 
         <RedLinesToggle enabled={redLinesEnabled} policyPublished={isPolicyServed()} />
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl text-brand-black">Website editors</h2>
+          <p className="text-brand-black/70">
+            Who may change the website&apos;s pages. Editing drafts includes
+            previewing them; publishing includes editing. Technical admins can
+            always do both. People appear here after their first admin login.
+          </p>
+        </div>
+
+        {people.length === 0 ? (
+          <p className="text-brand-black/60">Nobody has logged in yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {people.map((person) => (
+              <li
+                key={person.email}
+                className="flex flex-wrap items-start justify-between gap-2 border-t border-brand-black/10 pt-3"
+              >
+                <div className="flex flex-col">
+                  <span className="text-brand-black">{person.name}</span>
+                  <span className="break-all text-sm text-brand-black/60">{person.email}</span>
+                  {!isAdminEmailAllowed(person.email) &&
+                    (cmsRoles.has(person.email) ? (
+                      <span className="text-sm text-brand-red">
+                        Inactive (not an admin): this access has no effect until they are in ADMIN_EMAILS.
+                      </span>
+                    ) : (
+                      <span className="text-sm text-brand-black/60">
+                        Not in ADMIN_EMAILS, so cannot log in.
+                      </span>
+                    ))}
+                </div>
+                {isTechAdminEmail(person.email) ? (
+                  <span className="text-sm text-brand-black/70">Technical admin: full access</span>
+                ) : (
+                  <CmsRoleSelect
+                    email={person.email}
+                    name={person.name}
+                    initial={cmsRoles.get(person.email) ?? "none"}
+                    setRole={setCmsRole}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">

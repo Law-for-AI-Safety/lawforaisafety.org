@@ -30,18 +30,24 @@ export default function FormSubmissionTabs({
   googleAction,
   emailAction,
   submittingTo,
+  disabled,
   nameInputRef,
   emailInputRef,
+  kept,
 }: {
   heading?: string;
   linkedinAction: string;
   googleAction: string;
   emailAction: string;
   submittingTo: string | null;
+  /** Holds the submit buttons off (with no change in their look) until the form can submit. */
+  disabled: boolean;
   nameInputRef: RefObject<HTMLInputElement | null>;
   emailInputRef: RefObject<HTMLInputElement | null>;
+  /** Name and email kept from a refused submission; the name and email tab opens with them. */
+  kept?: { name?: string; email?: string };
 }) {
-  const [activeTab, setActiveTab] = useState<VerifyTabId>("linkedin");
+  const [activeTab, setActiveTab] = useState<VerifyTabId>(() => (kept?.name || kept?.email ? "email" : "linkedin"));
 
   return (
     <div className="flex flex-col gap-5">
@@ -77,6 +83,7 @@ export default function FormSubmissionTabs({
           <WipeSubmitButton
             type="submit"
             formAction={linkedinAction}
+            disabled={disabled}
             busy={submittingTo !== null}
             className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
             hoverBg="rgba(255,255,255,0.15)"
@@ -99,6 +106,7 @@ export default function FormSubmissionTabs({
           <WipeSubmitButton
             type="submit"
             formAction={googleAction}
+            disabled={disabled}
             busy={submittingTo !== null}
             className="self-start bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
             hoverBg="rgba(255,255,255,0.15)"
@@ -119,6 +127,7 @@ export default function FormSubmissionTabs({
               type="text"
               name="name"
               maxLength={200}
+              defaultValue={kept?.name}
               className={FIELD_CLASSES}
             />
           </label>
@@ -129,6 +138,7 @@ export default function FormSubmissionTabs({
               type="email"
               name="email"
               maxLength={320}
+              defaultValue={kept?.email}
               className={FIELD_CLASSES}
             />
           </label>
@@ -139,6 +149,7 @@ export default function FormSubmissionTabs({
           <WipeSubmitButton
             type="submit"
             formAction={emailAction}
+            disabled={disabled}
             busy={submittingTo !== null}
             className="self-start bg-brand-black px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
             hoverBg="rgba(255,255,255,0.15)"

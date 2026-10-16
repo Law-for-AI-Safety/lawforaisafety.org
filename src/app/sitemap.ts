@@ -2,50 +2,13 @@ import type { MetadataRoute } from "next";
 import { POLICY_DATES } from "./privacy-policy/dates";
 import { LOCALES, localeHref } from "./privacy-policy/locales";
 import { isPolicyServed } from "./privacy-policy/visibility";
+import { SITE_URL, siteDirs, sitemapEntries } from "@/cms/site";
 
 export const dynamic = "force-static";
 
-const SITE_URL = "https://lawforaisafety.org";
-
 export default function sitemap(): MetadataRoute.Sitemap {
-  const entries: MetadataRoute.Sitemap = [
-    {
-      url: SITE_URL,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 1,
-    },
-    {
-      url: `${SITE_URL}/red-lines-dialogue`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.7,
-    },
-    {
-      url: `${SITE_URL}/mep-outreach`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-    {
-      url: `${SITE_URL}/council-of-europe`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-    {
-      url: `${SITE_URL}/field-building`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-    {
-      url: `${SITE_URL}/freedom-of-information`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-  ];
+  // Content pages are dated by their files' updatedAt; see sitemapEntries.
+  const entries: MetadataRoute.Sitemap = sitemapEntries(siteDirs());
 
   // Only while the policy is actually served: a sitemap that lists a URL
   // returning 404 is an error in Search Console. Each language version lists

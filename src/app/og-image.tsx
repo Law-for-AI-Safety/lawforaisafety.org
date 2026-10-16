@@ -7,11 +7,19 @@ export const size = {
   height: 630,
 }
 
-export async function renderShareImage() {
+const TAGLINE = 'Building the legal foundations for safe artificial intelligence.'
+
+/**
+ * The share card: the logo beside a line of text. With no `title` the line is the site's
+ * tagline, set in a font subset to just its letters; a page's card shows its title instead,
+ * set in the full Latin font (WOFF, which next/og reads; it cannot read WOFF2).
+ */
+export async function renderShareImage(title?: string) {
+  const fontFile = title ? 'cormorant-garamond-latin-400.woff' : 'cormorant-garamond-subset.ttf'
   const [logomarkData, logoData, fontData] = await Promise.all([
     readFile(join(process.cwd(), 'src/app/og-assets/logomark-white.png'), 'base64'),
     readFile(join(process.cwd(), 'src/app/og-assets/logo-white.png'), 'base64'),
-    readFile(join(process.cwd(), 'src/app/og-assets/cormorant-garamond-subset.ttf')),
+    readFile(join(process.cwd(), 'src/app/og-assets', fontFile)),
   ])
 
   return new ImageResponse(
@@ -62,13 +70,14 @@ export async function renderShareImage() {
             style={{
               display: 'flex',
               fontFamily: 'Cormorant Garamond',
-              fontSize: 43,
+              // Long titles step down a size so they stay inside the band.
+              fontSize: title && title.length > 60 ? 36 : 43,
               lineHeight: 1.35,
               color: '#f3f0ec',
               maxWidth: 560,
             }}
           >
-            Building the legal foundations for safe artificial intelligence.
+            {title ?? TAGLINE}
           </div>
         </div>
       </div>

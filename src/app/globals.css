@@ -1,4 +1,5 @@
-@import "tailwindcss";
+/* Class names are only scanned for in src/ (this file's parent folder). */
+@import "tailwindcss" source("..");
 
 @theme {
   --color-*: initial;

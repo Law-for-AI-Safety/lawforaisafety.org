@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { defaultDirs, servedRedirects } from "./src/cms/content-files";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -45,6 +46,8 @@ const securityHeaders = [
   },
 ];
 
+const CMS_RUNTIME_FILES = ["./content/*.json", "./src/app/**/page.{ts,tsx,js,jsx,mdx}", "./public/**/*"];
+
 const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
@@ -55,8 +58,27 @@ const nextConfig: NextConfig = {
   env: {
     DEPLOY_CONTEXT: process.env.CONTEXT ?? "",
   },
+  // Old page addresses kept working after a page moves (content/_redirects.json). They are
+  // checked here too, so a redirect that breaks the rules fails the build, not only CI.
+  async redirects() {
+    return servedRedirects(defaultDirs()).map(({ from, to }) => ({ source: from, destination: to, permanent: true }));
+  },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The admin, including draft previews, is never indexed. robots.ts also disallows it,
+      // and its pages carry a robots meta tag.
+      { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+    ];
+  },
+  // The CMS editor and preview read the content files, the page files (for the routes links
+  // may point at) and the image list at run time, so their functions ship with them.
+  outputFileTracingIncludes: {
+    "/admin/cms": CMS_RUNTIME_FILES,
+    "/admin/cms/**": CMS_RUNTIME_FILES,
+    "/admin/preview/**": CMS_RUNTIME_FILES,
+    // Prerendered at build time; traced as well in case a page is ever rendered on request.
+    "/[slug]": ["./content/*.json"],
   },
 };
 

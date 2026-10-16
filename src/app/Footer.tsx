@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import FooterYear from "./FooterYear";
 import { detailValue } from "./organisation";
 import { isPolicyServed } from "./privacy-policy/visibility";
 
@@ -51,7 +52,7 @@ export default function Footer() {
             className="w-36 brightness-0 invert opacity-40"
           />
           <p className="text-lg font-light text-brand-white/85 flex flex-wrap items-center gap-x-3">
-            <span>© {new Date().getFullYear()} Law for AI Safety. All rights reserved.</span>
+            <span>© <FooterYear builtYear={new Date().getFullYear()} /> Law for AI Safety. All rights reserved.</span>
             {isPolicyServed() && (
               <Link href="/privacy-policy" className="underline hover:text-brand-white">
                 Privacy Policy
