@@ -123,21 +123,6 @@ export function isTaskTrackerTeamEmail(email: string): boolean {
   return allowed.includes(email.toLowerCase());
 }
 
-/**
- * The admin identity the dev-only login shortcut signs in as (see
- * src/app/api/admin/auth/dev-login). Prefers a technical admin so the seeded
- * session gets full CMS access with no extra config; null means neither
- * ADMIN_EMAILS nor TECH_ADMIN_EMAILS is set yet.
- */
-export function devSeedAdminEmail(): string | null {
-  const firstOf = (value: string | undefined) =>
-    (value ?? "")
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean)[0];
-  return firstOf(process.env.TECH_ADMIN_EMAILS) ?? firstOf(process.env.ADMIN_EMAILS) ?? null;
-}
-
 export function pinnedAdminSubs(): string[] {
   return (process.env.ADMIN_LINKEDIN_SUBS ?? "")
     .split(",")
