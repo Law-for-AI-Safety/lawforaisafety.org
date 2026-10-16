@@ -14,10 +14,16 @@ describe("the draft preview is never indexed", () => {
     expect(admin?.headers).toContainEqual({ key: "X-Robots-Tag", value: "noindex, nofollow" });
   });
 
-  it("keeps the site from being framed, so the preview opens in its own tab", async () => {
+  it("keeps the site from being framed, except the preview, by the site's own editor", async () => {
     const rules = await nextConfig.headers!();
-    const csp = rules.find((rule) => rule.source === "/:path*")!.headers.find((h) => h.key === "Content-Security-Policy");
-    expect(csp?.value).toContain("frame-ancestors 'none'");
+    const header = (source: string, key: string) => rules.find((rule) => rule.source === source)!.headers.find((h) => h.key === key)?.value;
+    expect(header("/:path*", "Content-Security-Policy")).toContain("frame-ancestors 'none'");
+    expect(header("/:path*", "X-Frame-Options")).toBe("DENY");
+    // Being the later rule, the preview's headers replace the site's.
+    expect(rules.findIndex((rule) => rule.source === "/admin/preview/:path*")).toBeGreaterThan(rules.findIndex((rule) => rule.source === "/:path*"));
+    expect(header("/admin/preview/:path*", "Content-Security-Policy")).toContain("frame-ancestors 'self'");
+    expect(header("/admin/preview/:path*", "X-Frame-Options")).toBe("SAMEORIGIN");
+    expect(header("/:path*", "Content-Security-Policy")).toMatch(/frame-src 'self' /);
   });
 
   it("is disallowed in robots.txt", () => {

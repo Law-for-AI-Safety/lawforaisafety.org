@@ -283,6 +283,77 @@ it("links to the preview in a new tab", () => {
   expect(link).toHaveAttribute("target", "_blank");
 });
 
+describe("the preview beside the fields", () => {
+  const frame = () => screen.getByTitle<HTMLIFrameElement>("Preview of /field-building");
+
+  function fromFrame(source: unknown, data: unknown, origin = window.location.origin) {
+    const event = new MessageEvent("message", { data, origin });
+    Object.defineProperty(event, "source", { value: source });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+  }
+
+  it("frames the preview page, and sends it the draft once it is ready and on every change", () => {
+    renderEditor();
+    expect(frame()).toHaveAttribute("src", "/admin/preview/field-building");
+    const preview = frame().contentWindow!;
+    const post = vi.spyOn(preview, "postMessage").mockImplementation(() => {});
+
+    fireEvent.change(title(), { target: { value: "Before it is ready" } });
+    expect(post).not.toHaveBeenCalled();
+
+    fromFrame(preview, { type: "cms-preview-ready", slug: "field-building" });
+    expect(post).toHaveBeenLastCalledWith({ type: "cms-preview-draft", slug: "field-building", content: { ...file, title: "Before it is ready" } }, window.location.origin);
+
+    fireEvent.change(title(), { target: { value: "Typed" } });
+    expect(post).toHaveBeenLastCalledWith({ type: "cms-preview-draft", slug: "field-building", content: { ...file, title: "Typed" } }, window.location.origin);
+
+    // A reloaded preview says it is ready again, and is sent the draft again.
+    post.mockClear();
+    fromFrame(preview, { type: "cms-preview-ready", slug: "field-building" });
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it("listens only to its own frame", () => {
+    renderEditor();
+    const post = vi.spyOn(frame().contentWindow!, "postMessage").mockImplementation(() => {});
+    fromFrame(window, { type: "cms-preview-ready", slug: "field-building" });
+    fromFrame(frame().contentWindow, { type: "cms-preview-ready", slug: "field-building" }, "https://evil.example");
+    fromFrame(frame().contentWindow, { type: "cms-preview-ready", slug: "about" });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("switches between a desktop and a mobile window width, and can be hidden", () => {
+    renderEditor();
+    expect(screen.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "true");
+    expect(frame().style.width).toBe("1280px");
+    fireEvent.click(screen.getByRole("button", { name: "Mobile" }));
+    expect(screen.getByRole("button", { name: "Mobile" })).toHaveAttribute("aria-pressed", "true");
+    expect(frame().style.width).toBe("390px");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide preview" }));
+    expect(screen.queryByRole("complementary", { name: "Preview" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show preview" }));
+    expect(frame()).toBeInTheDocument();
+  });
+
+  it("scales the frame down to fit the pane", () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(640);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(500);
+    renderEditor();
+    expect(frame().style.transform).toBe("scale(0.5)");
+    expect(frame().style.height).toBe("1000px");
+    fireEvent.click(screen.getByRole("button", { name: "Mobile" }));
+    expect(frame().style.transform).toBe("scale(1)");
+  });
+
+  it("stays while the page is locked for publishing", () => {
+    renderEditor(fakeServer(), { initialState: "publishing", initialVersion: 3 });
+    expect(frame()).toBeInTheDocument();
+  });
+});
+
 describe("publishing states", () => {
   const sent = { at: new Date("2026-10-15T12:00:00Z"), by: "pat@example.com" };
 

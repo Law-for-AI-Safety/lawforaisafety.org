@@ -12,6 +12,7 @@ import type { Problem } from "@/cms/publish-checks";
 import type { DiscardDraftResult, PublishDraftResult, SaveDraftResult, WithdrawResult } from "../actions";
 import PageStateBadge from "../PageStateBadge";
 import { Fields, type FieldContext, type Path } from "./FieldEditor";
+import PreviewPane from "./PreviewPane";
 
 export type PageEditorProps = {
   slug: string;
@@ -55,7 +56,8 @@ function byPath(problems: Problem[]): Map<string, string[]> {
 
 /**
  * The page editor: page fields, then the block list, each block's fields, and the publish
- * checks. Every change is saved to the shared draft after a short pause (see `Autosaver`).
+ * checks, beside a preview that follows every change. Every change is saved to the shared
+ * draft after a short pause (see `Autosaver`).
  */
 export default function PageEditor(props: PageEditorProps) {
   const { slug, canPublish, images, documents = [] } = props;
@@ -68,6 +70,7 @@ export default function PageEditor(props: PageEditorProps) {
   const [status, setStatus] = useState<AutosaveStatus>({ state: "saved" });
   const [notice, setNotice] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [adding, setAdding] = useState<BlockType | "">("");
+  const [showPreview, setShowPreview] = useState(true);
 
   const [saver] = useState(
     () =>
@@ -157,7 +160,8 @@ export default function PageEditor(props: PageEditorProps) {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8">
+    <div className="flex flex-1 flex-col lg:flex-row lg:items-start">
+    <main className={`flex w-full flex-col gap-8 px-4 py-8 ${showPreview ? "lg:max-w-2xl lg:shrink-0" : "mx-auto max-w-3xl"}`}>
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-sans text-3xl text-brand-black">Edit /{slug}</h1>
@@ -170,6 +174,9 @@ export default function PageEditor(props: PageEditorProps) {
           <a href={`/admin/preview/${slug}`} target="_blank" rel="noopener" className="underline">
             Preview (opens a new tab)
           </a>
+          <button type="button" onClick={() => setShowPreview((shown) => !shown)} className="text-sm underline">
+            {showPreview ? "Hide preview" : "Show preview"}
+          </button>
           {version > 0 && !locked && (
             <button type="button" onClick={discard} className="text-sm text-brand-red underline">
               Discard draft
@@ -364,5 +371,7 @@ export default function PageEditor(props: PageEditorProps) {
         </p>
       )}
     </main>
+    {showPreview && <PreviewPane slug={slug} page={page} />}
+    </div>
   );
 }
