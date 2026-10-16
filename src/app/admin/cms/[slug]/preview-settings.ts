@@ -2,7 +2,9 @@ import { useSyncExternalStore } from "react";
 
 /**
  * How each editor likes the preview, kept in their browser. Where the browser keeps nothing
- * (a private window, blocked storage), the choice lasts until the page is closed.
+ * (a private window, blocked storage), the choice lasts until the page is closed. Only the
+ * choices made are kept: until one is made, a phone-sized screen previews the mobile layout
+ * and a larger one the desktop layout.
  */
 export type PreviewSettings = {
   /** Whether the preview shows beside the fields. */
@@ -15,9 +17,12 @@ export type PreviewSettings = {
 const KEY = "cms-editor-preview";
 const DEFAULTS: PreviewSettings = { show: true, view: "desktop", changes: false };
 
+/** Below Tailwind's `md` breakpoint, where the site itself shows its mobile layout. */
+const PHONE = "(max-width: 47.99rem)";
+
 const listeners = new Set<() => void>();
 let memory: string | null = null;
-let last: { raw: string | null; settings: PreviewSettings } = { raw: null, settings: DEFAULTS };
+let last: { raw: string | null; phone: boolean; settings: PreviewSettings } | null = null;
 
 function read(): string | null {
   try {
@@ -27,22 +32,27 @@ function read(): string | null {
   }
 }
 
-function parse(raw: string | null): PreviewSettings {
+/** The choices made so far; anything not understood counts as not chosen. */
+function chosen(raw: string | null): Partial<PreviewSettings> {
+  let value: Partial<Record<keyof PreviewSettings, unknown>>;
   try {
-    const value = JSON.parse(raw ?? "{}") as Partial<PreviewSettings>;
-    return {
-      show: typeof value.show === "boolean" ? value.show : DEFAULTS.show,
-      view: value.view === "mobile" ? "mobile" : "desktop",
-      changes: typeof value.changes === "boolean" ? value.changes : DEFAULTS.changes,
-    };
+    value = Object(JSON.parse(raw ?? "{}"));
   } catch {
-    return DEFAULTS;
+    return {};
   }
+  return {
+    ...(typeof value.show === "boolean" ? { show: value.show } : {}),
+    ...(value.view === "desktop" || value.view === "mobile" ? { view: value.view } : {}),
+    ...(typeof value.changes === "boolean" ? { changes: value.changes } : {}),
+  };
 }
 
 function snapshot(): PreviewSettings {
   const raw = read();
-  if (raw !== last.raw) last = { raw, settings: parse(raw) };
+  const phone = window.matchMedia?.(PHONE).matches ?? false;
+  if (last === null || raw !== last.raw || phone !== last.phone) {
+    last = { raw, phone, settings: { ...DEFAULTS, view: phone ? "mobile" : DEFAULTS.view, ...chosen(raw) } };
+  }
   return last.settings;
 }
 
@@ -52,7 +62,7 @@ function subscribe(listener: () => void) {
 }
 
 function update(change: Partial<PreviewSettings>) {
-  const raw = JSON.stringify({ ...snapshot(), ...change });
+  const raw = JSON.stringify({ ...chosen(read()), ...change });
   try {
     window.localStorage.setItem(KEY, raw);
   } catch {

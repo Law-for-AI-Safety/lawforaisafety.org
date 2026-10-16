@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Problem } from "@/cms/publish-checks";
 import type { PublishDraftResult, SaveDraftResult, WithdrawResult } from "../actions";
 import PageEditor, { type PageEditorProps } from "./PageEditor";
@@ -309,6 +309,9 @@ describe("the preview beside the fields", () => {
     localStorage.clear();
     Element.prototype.scrollIntoView = vi.fn();
   });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it("frames the preview page, and sends it the draft once it is ready and on every change", () => {
     renderEditor();
@@ -404,12 +407,33 @@ describe("the preview beside the fields", () => {
     expect(frame().style.width).toBe("390px");
   });
 
+  it("previews the mobile layout on a phone until a view is chosen", () => {
+    const phone = vi.fn((query: string) => ({ matches: query === "(max-width: 47.99rem)" }) as MediaQueryList);
+    vi.stubGlobal("matchMedia", phone);
+    renderEditor();
+    expect(phone).toHaveBeenCalled();
+    expect(frame().style.width).toBe("390px");
+    // Hiding the preview is not a choice of view.
+    fireEvent.click(screen.getByRole("button", { name: "Hide preview" }));
+    expect(JSON.parse(localStorage.getItem("cms-editor-preview")!)).toEqual({ show: false });
+    fireEvent.click(screen.getByRole("button", { name: "Show preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Desktop" }));
+    cleanup();
+    renderEditor();
+    expect(frame().style.width).toBe("1280px");
+  });
+
   it("ignores a remembered setting it does not understand", () => {
     localStorage.setItem("cms-editor-preview", "{not json");
     renderEditor();
     expect(frame().style.width).toBe("1280px");
     cleanup();
     localStorage.setItem("cms-editor-preview", JSON.stringify({ show: "yes", view: "tablet", changes: 1 }));
+    renderEditor();
+    expect(frame().style.width).toBe("1280px");
+    expect(screen.getByLabelText("Mark changes since the live page")).not.toBeChecked();
+    cleanup();
+    localStorage.setItem("cms-editor-preview", "null");
     renderEditor();
     expect(frame().style.width).toBe("1280px");
     expect(screen.getByLabelText("Mark changes since the live page")).not.toBeChecked();
