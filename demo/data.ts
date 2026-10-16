@@ -1,3 +1,5 @@
+import crypto from 'crypto'
+
 export const DEMO_PORT = 3099
 export const BASE_URL = `http://localhost:${DEMO_PORT}`
 export const SPEED = 1 // <1 = slower, >1 = faster
@@ -12,3 +14,7 @@ export const DEMO_ADMIN = {
   email: 'sam.rivera@example.com',
   name: 'Sam Rivera',
 }
+
+// Throwaway per run: the demo admin's session, seeded into the demo database
+// (demo/seed.ts) and set as the recording browser's cookie (demo/auth.ts).
+export const DEMO_SESSION_TOKEN = crypto.randomBytes(32).toString('base64url')

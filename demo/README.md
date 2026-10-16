@@ -21,7 +21,7 @@ Needs: Docker running (same local Postgres as `npm run dev`), `ffmpeg` with libo
 1. `next build` of the current checkout.
 2. Recreates a separate `lawforaisafety_demo` database in the local Docker Postgres, migrates it, and seeds it from `demo/seed.ts`. Dates are relative to today, so the video looks the same whenever it's re-recorded. Your dev database is never touched.
 3. Starts `next start` on port 3099 with its own `SESSION_SECRET` and `ADMIN_EMAILS` set to a fictional admin (`demo/data.ts`), and Slack/Brevo keys blanked.
-4. Skips LinkedIn login by signing that admin's session cookie directly (`demo/auth.ts`).
+4. Skips LinkedIn login with a session seeded for that admin, set as the browser's cookie (`demo/auth.ts`).
 5. Runs the flow, then stitches the segments together with narration and sound effects mixed in.
 
 Narration audio is cached in `demo/.tts-cache/` by text — edit a line and only that line is regenerated.

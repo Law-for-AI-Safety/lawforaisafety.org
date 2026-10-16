@@ -29,6 +29,7 @@
     "db:ensure": "node scripts/db-ensure.mjs",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "node scripts/db-seed.mjs",
+    "dev:accounts": "node --import tsx scripts/dev-accounts.ts",
     "db:up": "docker compose --env-file .env.local up -d db",
     "db:down": "docker compose --env-file .env.local down",
     "db:reset": "docker compose --env-file .env.local down -v && docker compose --env-file .env.local up -d db",
