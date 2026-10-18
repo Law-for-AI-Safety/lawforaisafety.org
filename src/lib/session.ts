@@ -1,39 +1,39 @@
-import { SignJWT, jwtVerify } from "jose";
+import { randomBytes } from "node:crypto";
+import { cache } from "react";
+import { and, count, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { adminSessions } from "@/drizzle/schema";
+import { db } from "@/lib/db";
+import { hashSessionToken } from "@/lib/session-token";
 
 const SESSION_COOKIE_NAME = "admin_session";
 // One working day. Logging in again is a single click, and a stolen cookie
 // stops working the same day rather than a week later.
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
-
-// SESSION_SECRET also signs the admin OAuth state token. Issuer + audience
-// keep the two kinds of token from ever being accepted in each other's place.
-const SESSION_ISSUER = "lawforaisafety.org";
-const SESSION_AUDIENCE = "admin_session";
+// How stale a session's last-seen time may get before a request refreshes it,
+// so that most requests only read the row.
+const SEEN_INTERVAL_MS = 5 * 60 * 1000;
+// Ended and expired sessions are kept this long, then deleted at a later login.
+const KEEP_DAYS = 30;
 
 export type AdminSessionPayload = {
   email: string;
   name: string;
 };
 
-function getSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) {
-    throw new Error("Missing required env var: SESSION_SECRET");
-  }
-  return new TextEncoder().encode(secret);
-}
-
-export async function createAdminSessionCookie(
-  payload: AdminSessionPayload,
-): Promise<void> {
-  const token = await new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuer(SESSION_ISSUER)
-    .setAudience(SESSION_AUDIENCE)
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
-    .sign(getSecret());
+/** Starts a session for someone who has just signed in, and gives their browser its cookie. */
+export async function startAdminSession(payload: AdminSessionPayload): Promise<void> {
+  const token = randomBytes(32).toString("base64url");
+  const now = new Date();
+  await db.delete(adminSessions).where(lt(adminSessions.expiresAt, new Date(now.getTime() - KEEP_DAYS * 24 * 60 * 60 * 1000)));
+  await db.insert(adminSessions).values({
+    tokenHash: hashSessionToken(token),
+    email: payload.email.toLowerCase(),
+    name: payload.name,
+    createdAt: now,
+    lastSeenAt: now,
+    expiresAt: new Date(now.getTime() + SESSION_TTL_SECONDS * 1000),
+  });
 
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
@@ -45,32 +45,75 @@ export async function createAdminSessionCookie(
   });
 }
 
-export async function clearAdminSessionCookie(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
-}
+const live = () => and(isNull(adminSessions.endedAt), gt(adminSessions.expiresAt, new Date()));
 
-export async function getAdminSession(): Promise<AdminSessionPayload | null> {
+/**
+ * The signed-in admin, or null. Read from the database on each request (once per request
+ * when rendering), so a session that is ended stops working on its next request.
+ */
+export const getAdminSession = cache(async (): Promise<AdminSessionPayload | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
-  try {
-    const { payload } = await jwtVerify(token, getSecret(), {
-      algorithms: ["HS256"],
-      issuer: SESSION_ISSUER,
-      audience: SESSION_AUDIENCE,
-    });
-    if (typeof payload.email !== "string" || typeof payload.name !== "string") {
-      return null;
-    }
-    // Checked on every request, not just at login — removing someone from
-    // ADMIN_EMAILS ends their session on their next request.
-    if (!isAdminEmailAllowed(payload.email)) return null;
-    return { email: payload.email, name: payload.name };
-  } catch {
-    return null;
+  const [session] = await db
+    .select()
+    .from(adminSessions)
+    .where(and(eq(adminSessions.tokenHash, hashSessionToken(token)), live()));
+  if (!session) return null;
+  // Checked on every request, not just at login — removing someone from
+  // ADMIN_EMAILS ends their session on their next request.
+  if (!isAdminEmailAllowed(session.email)) return null;
+  if (Date.now() - session.lastSeenAt.getTime() > SEEN_INTERVAL_MS) {
+    await db.update(adminSessions).set({ lastSeenAt: new Date() }).where(eq(adminSessions.id, session.id));
   }
+  return { email: session.email, name: session.name };
+});
+
+/** Logs this browser out: its session ends, so a copy of the cookie stops working too. */
+export async function endAdminSession(): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (token) {
+    await db
+      .update(adminSessions)
+      .set({ endedAt: new Date(), endedBy: sql`${adminSessions.email}` })
+      .where(and(eq(adminSessions.tokenHash, hashSessionToken(token)), isNull(adminSessions.endedAt)));
+  }
+  cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
+/** Ends every live session of `email`, on every device. Returns how many were ended. */
+export async function endSessionsOf(email: string, endedBy: string): Promise<number> {
+  const ended = await db
+    .update(adminSessions)
+    .set({ endedAt: new Date(), endedBy })
+    .where(and(eq(adminSessions.email, email.toLowerCase()), live()))
+    .returning({ id: adminSessions.id });
+  return ended.length;
+}
+
+export type SignedInAdmin = {
+  email: string;
+  name: string;
+  sessions: number;
+  lastSeenAt: Date;
+};
+
+/** Everyone with a live session, most recently active first. */
+export async function listSignedInAdmins(): Promise<SignedInAdmin[]> {
+  const lastSeenAt = sql<Date>`max(${adminSessions.lastSeenAt})`.mapWith(adminSessions.lastSeenAt);
+  return db
+    .select({
+      email: adminSessions.email,
+      name: sql<string>`max(${adminSessions.name})`,
+      sessions: count(),
+      lastSeenAt,
+    })
+    .from(adminSessions)
+    .where(live())
+    .groupBy(adminSessions.email)
+    .orderBy(sql`max(${adminSessions.lastSeenAt}) desc`);
 }
 
 export function isAdminEmailAllowed(email: string): boolean {

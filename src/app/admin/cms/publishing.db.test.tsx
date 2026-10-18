@@ -9,7 +9,7 @@ import { STALE_LOCK_MS } from "@/cms/publish";
 import { rememberPerson } from "@/lib/admin-people";
 import { refreshPublishing } from "@/lib/cms-publishing";
 import { insertSubmission, setStoredCmsPermission } from "@/lib/cms-store";
-import { createAdminSessionCookie } from "@/lib/session";
+import { startAdminSession } from "@/lib/session";
 import { BOT_LOGIN, github, githubEnv } from "../../../../test/fakes/github";
 import { cookieJar } from "../../../../test/next-headers";
 import { discardDraft, publishDraft, saveDraft, withdrawPublish } from "./actions";
@@ -36,7 +36,7 @@ const EMAIL: Record<Who, string> = { draft: "draft@example.com", publish: "publi
 
 async function signInAs(who: Who) {
   cookieJar.reset();
-  await createAdminSessionCookie({ email: EMAIL[who], name: `${who} person` });
+  await startAdminSession({ email: EMAIL[who], name: `${who} person` });
 }
 
 beforeEach(async () => {
@@ -604,8 +604,24 @@ describe("a publish that cannot go ahead", () => {
   it("is refused when another publish holds the lock", async () => {
     const version = await seedDraft();
     await signInAs("publish");
-    const [a, b] = await Promise.all([publishDraft(SLUG, version), publishDraft(SLUG, version)]);
-    expect([a.ok, b.ok].sort()).toEqual([false, true]);
+    // Holding the draft's row makes both publishes pass their checks and queue at the lock, so
+    // the one that loses is refused by the lock itself rather than by seeing it already taken.
+    const { publishes } = await db.transaction(async (tx) => {
+      await tx.select().from(cmsDrafts).where(eq(cmsDrafts.page, SLUG)).for("update");
+      const publishes = Promise.all([publishDraft(SLUG, version), publishDraft(SLUG, version)]);
+      await vi.waitFor(
+        async () => {
+          const { rows } = await db.execute<{ waiting: number }>(
+            sql`SELECT count(*)::int AS waiting FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+          );
+          expect(rows[0].waiting).toBe(2);
+        },
+        { timeout: 5_000 },
+      );
+      return { publishes };
+    });
+    const [a, b] = await publishes;
+    expect([a, b].filter((result) => !result.ok)).toEqual([{ ok: false, reason: "conflict", message: expect.any(String) }]);
     expect(github.openedPRs).toHaveLength(1);
   });
 

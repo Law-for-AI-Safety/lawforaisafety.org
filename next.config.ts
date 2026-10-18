@@ -54,6 +54,8 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   poweredByHeader: false,
+  // The dev accounts each sign in on their own localhost subdomain (src/lib/dev-accounts.ts).
+  allowedDevOrigins: ["*.localhost"],
   // Netlify's CONTEXT only exists at build time; this inlines it so runtime
   // code can still tell production from a preview (src/lib/deploy-context.ts).
   env: {

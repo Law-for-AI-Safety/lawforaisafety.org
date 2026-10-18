@@ -11,8 +11,8 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-// Shares SESSION_SECRET with the session cookie — issuer + audience keep a
-// state token from ever being accepted as a session, and vice versa.
+// Issuer + audience keep a state token from being accepted as any other kind
+// of token signed with SESSION_SECRET.
 const STATE_ISSUER = "lawforaisafety.org";
 const STATE_AUDIENCE = "admin_oauth_state";
 
