@@ -1,10 +1,11 @@
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
-import { SignJWT } from "jose";
 import { Client } from "pg";
 import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cloneName, createTestDb, dropRun, newRunId, prepareTestDb, testDbUrl } from "../test/pg";
 import { githubEnv } from "../test/fakes/github";
+import { hashSessionToken } from "../src/lib/session-token";
 import { freePort, startApp } from "./app-server";
 import { serveFakeGitHub } from "./fake-github-server";
 
@@ -24,6 +25,7 @@ const PUBLISHER = "publisher@example.com";
 const DRAFTER = "drafter@example.com";
 
 let runId: string;
+let databaseUrl: string;
 let browser: Browser;
 let app: { url: string; stop: () => void };
 let fake: Awaited<ReturnType<typeof serveFakeGitHub>>;
@@ -33,7 +35,7 @@ beforeAll(async () => {
   await prepareTestDb(runId);
   const name = cloneName(runId);
   await createTestDb(runId, name);
-  const databaseUrl = testDbUrl(name);
+  databaseUrl = testDbUrl(name);
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
@@ -66,13 +68,18 @@ afterAll(async () => {
 
 /** A browser signed in to the admin as `email`, as the login flow would leave it. */
 async function signedIn(email: string, name: string): Promise<BrowserContext> {
-  const token = await new SignJWT({ email, name })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuer("lawforaisafety.org")
-    .setAudience("admin_session")
-    .setIssuedAt()
-    .setExpirationTime("1h")
-    .sign(new TextEncoder().encode(SESSION_SECRET));
+  const token = randomBytes(32).toString("base64url");
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    await client.query("INSERT INTO admin_sessions (token_hash, email, name, expires_at) VALUES ($1, $2, $3, now() + interval '1 hour')", [
+      hashSessionToken(token),
+      email,
+      name,
+    ]);
+  } finally {
+    await client.end();
+  }
   const context = await browser.newContext();
   await context.addCookies([{ name: "admin_session", value: token, url: app.url, httpOnly: true, secure: true, sameSite: "Lax" }]);
   return context;
