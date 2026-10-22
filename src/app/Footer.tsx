@@ -53,6 +53,9 @@ export default function Footer() {
           />
           <p className="text-lg font-light text-brand-white/85 flex flex-wrap items-center gap-x-3">
             <span>© <FooterYear builtYear={new Date().getFullYear()} /> Law for AI Safety. All rights reserved.</span>
+            <Link href="/opportunities" className="underline hover:text-brand-white">
+              Opportunities
+            </Link>
             {isPolicyServed() && (
               <Link href="/privacy-policy" className="underline hover:text-brand-white">
                 Privacy Policy

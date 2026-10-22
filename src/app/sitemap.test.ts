@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
+import { getOpportunities } from "@/opportunities/data";
 import sitemap from "./sitemap";
 
 describe("sitemap.xml", () => {
@@ -20,5 +21,12 @@ describe("sitemap.xml", () => {
 
   it("leaves out the admin, the flows' steps and anything not a page", () => {
     for (const url of urls) expect(url).not.toMatch(/\/(admin|api|apply|newsletter|og-assets)\b|\/(confirm|retry)$|\[/);
+  });
+
+  it("lists the opportunities board and every opportunity's own page", () => {
+    expect(urls).toContain("https://lawforaisafety.org/opportunities");
+    for (const opportunity of getOpportunities()) {
+      expect(urls, opportunity.slug).toContain(`https://lawforaisafety.org/opportunities/${opportunity.slug}`);
+    }
   });
 });
