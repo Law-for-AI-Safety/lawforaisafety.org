@@ -235,6 +235,7 @@ describe("processCandidate", () => {
       claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
       "git checkout": { stdout: "" },
       "git ls-remote": { exitCode: 2 },
+      "gh pr list --head": { stdout: "[]" },
       "git add": { stdout: "" },
       "git commit": { stdout: "" },
       "git push": { stdout: "" },
@@ -259,6 +260,66 @@ describe("processCandidate", () => {
     const commentCall = calls.find((c) => c.startsWith("gh pr comment 42"));
     expect(commentCall).toContain("Engineer A");
     expect(commentCall).toContain("Engineer B");
+  });
+
+  it("reuses an item's pull request from an earlier, interrupted split instead of duplicating it", async () => {
+    fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers" }));
+    const itemA = { ...EXTRACTION, title: "Engineer A" };
+    const itemB = { ...EXTRACTION, title: "Engineer B" };
+    const run = fakeRun({
+      claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
+      "git checkout": { stdout: "" },
+      "git ls-remote": { exitCode: 2 },
+      "gh pr list --head opportunities/acme-engineer-a": { stdout: JSON.stringify([{ number: 7, url: "https://github.com/example/repo/pull/7" }]) },
+      "gh pr list --head": { stdout: "[]" },
+      "git add": { stdout: "" },
+      "git commit": { stdout: "" },
+      "git push": { stdout: "" },
+      "gh pr create": { stdout: "https://github.com/example/repo/pull/101\n" },
+      "gh pr comment": { stdout: "" },
+      "gh pr close": { stdout: "" },
+    });
+
+    const result = await processCandidate(candidate, { run, dir, existingSlugs: new Set(), now: NOW });
+    expect(result.ok).toBe(true);
+    expect(result.detail).toContain("split into 2 opportunity pull request(s)");
+
+    const calls = (run as Run & { calls: string[] }).calls;
+    expect(calls.some((c) => c.startsWith("git push origin opportunities/acme-engineer-a"))).toBe(false);
+    expect(calls.filter((c) => c.startsWith("gh pr create")).length).toBe(1);
+    expect(calls.some((c) => c.startsWith("gh pr close 42"))).toBe(true);
+    const commentCall = calls.find((c) => c.startsWith("gh pr comment 42"));
+    expect(commentCall).toContain("https://github.com/example/repo/pull/7");
+  });
+
+  it("isolates one item's failure: the rest still get pull requests, and the stub stays open", async () => {
+    fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers" }));
+    const itemA = { ...EXTRACTION, title: "Engineer A" };
+    const itemB = { ...EXTRACTION, title: "Engineer B" };
+    const run = fakeRun({
+      claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
+      "git checkout": { stdout: "" },
+      "git ls-remote": { exitCode: 2 },
+      "gh pr list --head": { stdout: "[]" },
+      "git add": { stdout: "" },
+      "git commit": { stdout: "" },
+      "git push origin opportunities/acme-engineer-a": "throw",
+      "git push": { stdout: "" },
+      "gh pr create": { stdout: "https://github.com/example/repo/pull/101\n" },
+      "gh pr comment": { stdout: "" },
+      "gh pr close": { stdout: "" },
+    });
+
+    const result = await processCandidate(candidate, { run, dir, existingSlugs: new Set(), now: NOW });
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain("split 1/2 opportunity pull request(s), 1 failed");
+
+    const calls = (run as Run & { calls: string[] }).calls;
+    expect(calls.filter((c) => c.startsWith("gh pr create")).length).toBe(1);
+    expect(calls.some((c) => c.startsWith("gh pr close 42"))).toBe(false);
+    const commentCall = calls.find((c) => c.startsWith("gh pr comment 42"));
+    expect(commentCall).toContain("Engineer B");
+    expect(commentCall).toContain("retried on the next run");
   });
 });
 
