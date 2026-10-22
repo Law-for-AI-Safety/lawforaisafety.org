@@ -13,7 +13,6 @@
  */
 import { execFile } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -21,7 +20,7 @@ import { z } from "zod";
 import { opportunitySlugs, printOpportunity } from "../src/opportunities/files";
 import { branchName as sharedBranchName, isoDay } from "../src/cms/branch-publish";
 import { createPullRequestBody, createPullRequestTitle } from "../src/opportunities/github-publish";
-import { extractionListSchema, stubSchema, type Extraction, type ExtractionList } from "../src/opportunities/schema";
+import { extractionListSchema, opportunitySchema, stubSchema, type Extraction, type ExtractionList } from "../src/opportunities/schema";
 import { slugify, uniqueSlug } from "../src/opportunities/slug";
 import type { Opportunity } from "../src/opportunities/types";
 
@@ -80,13 +79,10 @@ export function parseExtractionOutput(stdout: string): ExtractResult {
 /**
  * Runs the extraction as a sandboxed subprocess: `--tools WebFetch` alone means the model can
  * fetch the url and return structured JSON, and nothing else - no reading credentials, no
- * writing files, no running other tools. NOTE: verify `--json-schema`'s exact argument shape
- * (inline JSON vs a file path) against `claude --help` before relying on this in production;
- * written from current docs research, not confirmed against a live run.
+ * writing files, no running other tools. `--json-schema` takes the schema inline, as a JSON
+ * string (confirmed against `claude --help`), not a file path.
  */
 export async function runClaudeExtract(url: string, run: Run = execFileAsync): Promise<ExtractResult> {
-  const schemaFile = path.join(os.tmpdir(), `opportunity-extraction-schema-${process.pid}.json`);
-  fs.writeFileSync(schemaFile, JSON.stringify(z.toJSONSchema(extractionListSchema)));
   try {
     const { stdout } = await run("claude", [
       "--bare",
@@ -103,22 +99,24 @@ export async function runClaudeExtract(url: string, run: Run = execFileAsync): P
       "--max-budget-usd",
       "5",
       "--json-schema",
-      schemaFile,
+      JSON.stringify(z.toJSONSchema(extractionListSchema)),
       "--output-format",
       "json",
     ]);
     return parseExtractionOutput(stdout);
   } catch (e) {
     return { ok: false, error: `claude -p failed: ${(e as Error).message}` };
-  } finally {
-    fs.rmSync(schemaFile, { force: true });
   }
 }
 
-/** The full opportunity to commit: the model's extraction, plus the fields it never sets. */
+/**
+ * The full opportunity to commit: the model's extraction, plus the fields it never sets.
+ * Parsed back through `opportunitySchema`, same as every other writer of these files, so the
+ * key order on disk matches the schema's declared order regardless of the extraction's own.
+ */
 export function finalizeOpportunity(extracted: Extraction, sourceUrl: string, now: Date, existingSlugs: ReadonlySet<string>): Opportunity {
   const slug = uniqueSlug(slugify(`${extracted.org} ${extracted.title}`), existingSlugs);
-  return { ...extracted, slug, sourceUrl, publishedAt: isoDay(now) };
+  return opportunitySchema.parse({ ...extracted, slug, sourceUrl, publishedAt: isoDay(now) });
 }
 
 function fact(label: string, value: string | undefined): string | null {
@@ -167,14 +165,19 @@ export type ProcessDeps = { run: Run; dir: string; existingSlugs: ReadonlySet<st
 export const MAX_SPLIT_BRANCH_ATTEMPTS = 10;
 const SPLIT_EDITOR_NAME = "the opportunity import script";
 
-/** A branch name for a split-out opportunity that isn't already taken on the remote. */
-async function uniqueRemoteBranchName(run: Run, slug: string, now: Date): Promise<string> {
+/**
+ * A branch name for a split-out opportunity that isn't already taken on the remote. `git
+ * ls-remote --exit-code` exits 2 specifically for "no match" - anything else (network error,
+ * auth failure) is a real failure and must not be read as "the name is free".
+ */
+export async function uniqueRemoteBranchName(run: Run, slug: string, now: Date): Promise<string> {
   for (let attempt = 1; attempt <= MAX_SPLIT_BRANCH_ATTEMPTS; attempt++) {
     const name = sharedBranchName("opportunities", slug, now, attempt);
     try {
       await run("git", ["ls-remote", "--exit-code", "--heads", "origin", name]);
       // A match: this name is already taken on the remote, try the next attempt.
-    } catch {
+    } catch (e) {
+      if ((e as { code?: unknown }).code !== 2) throw e;
       return name;
     }
   }
@@ -283,9 +286,12 @@ async function main() {
   console.log(`${candidates.length} pending import PR(s) to process.`);
   for (const candidate of candidates) {
     try {
+      // Read while still on main (left there by the previous iteration's resetToMain, or the
+      // one above the loop) - the candidate branch's own tree can be missing anything merged
+      // to main since that branch was created, which would let uniqueSlug mint a taken slug.
+      const existingSlugs = new Set(opportunitySlugs(opportunitiesDir).filter((slug) => !slug.startsWith("pending-")));
       await run("git", ["fetch", "origin", candidate.branch]);
       await run("git", ["checkout", candidate.branch]);
-      const existingSlugs = new Set(opportunitySlugs(opportunitiesDir).filter((slug) => !slug.startsWith("pending-")));
       const result = await processCandidate(candidate, { run, dir: opportunitiesDir, existingSlugs, now: new Date() });
       console.log(result.detail);
     } catch (e) {

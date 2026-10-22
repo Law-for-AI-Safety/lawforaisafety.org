@@ -49,6 +49,14 @@ describe("opportunitySchema", () => {
     expect(opportunitySchema.safeParse({ ...valid(), deadline: "1 Feb 2026" }).success).toBe(false);
   });
 
+  it("rejects a date that doesn't exist on the calendar", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), deadline: "2024-02-30" }).success).toBe(false);
+  });
+
+  it("accepts a real leap day", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), deadline: "2024-02-29" }).success).toBe(true);
+  });
+
   it("rejects a non-URL applyUrl", () => {
     expect(opportunitySchema.safeParse({ ...valid(), applyUrl: "not a url" }).success).toBe(false);
   });

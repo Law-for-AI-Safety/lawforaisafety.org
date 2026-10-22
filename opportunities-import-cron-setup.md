@@ -9,10 +9,11 @@ This is a one-time setup on that machine. It does not touch this repo's GitHub A
 1. Resets its working clone to a clean `main`.
 2. Lists open pull requests, keeping only branches matching `^opportunities/pending-` (`isImportBranch`).
 3. For each: checks out the branch, finds the one `content/opportunities/pending-*.json` stub file, confirms it's still just `{ "url": ... }` (skips it otherwise - either already done, or not actually a stub).
-4. Runs `claude -p`, sandboxed to the `WebFetch` tool only, to fetch the URL and extract the opportunity's fields as structured JSON. It cannot read credentials, write files, or do anything but fetch that one page and return JSON matching the schema it's given.
-5. Validates the result, computes a slug, writes the real `content/opportunities/<slug>.json` in place of the stub, commits, pushes to the same branch, and posts a PR comment rendering the populated listing.
-6. On failure (the page couldn't be fetched, or the extraction didn't validate), posts a comment explaining what went wrong and leaves the stub in place for an admin to finish by hand.
-7. Merging is always a manual, human decision on GitHub - this script never merges anything.
+4. Runs `claude -p`, sandboxed to the `WebFetch` tool only, to fetch the URL and extract every opportunity the page describes (an array - most pages have one listing, but an aggregator or careers-index page can have several). It cannot read credentials, write files, or do anything but fetch pages and return JSON matching the schema it's given.
+5. **One listing found:** validates the result, computes a slug, writes the real `content/opportunities/<slug>.json` in place of the stub, commits, pushes to the same branch, and posts a PR comment rendering the populated listing.
+6. **Several listings found (an aggregator page):** opens a separate branch and pull request per listing instead, so each can be reviewed and merged independently; the original stub pull request gets a comment linking to all of them and is closed rather than populated - expect to see it close and several new ones appear in its place.
+7. On failure (the page couldn't be fetched, or the extraction didn't validate), posts a comment explaining what went wrong and leaves the stub in place for an admin to finish by hand.
+8. Merging is always a manual, human decision on GitHub - this script never merges anything.
 
 ## Prerequisites on the machine that will run this
 

@@ -154,6 +154,7 @@ export type PublishResult =
   | { ok: false; reason: "invalid"; problems: string[] }
   | { ok: false; reason: "exists" }
   | { ok: false; reason: "missing" }
+  | { ok: false; reason: "corrupt"; path: string; message: string }
   | { ok: false; reason: "nothing" }
   | { ok: false; reason: "github"; step: Step; message: string; leftBranch: string | null };
 
@@ -254,13 +255,19 @@ export async function updateOpportunity(github: GitHubClient, input: UpdateInput
 
   const main = await readMainHead(github);
   if (!main.ok) return main;
-  let before: Opportunity;
+  let existingText: string;
   try {
     const existing = await github.readFile(path, main.head.commit);
     if (!existing) return { ok: false, reason: "missing" };
-    before = opportunitySchema.parse(JSON.parse(existing.text));
+    existingText = existing.text;
   } catch (e) {
     return failure("read_main", e);
+  }
+  let before: Opportunity;
+  try {
+    before = opportunitySchema.parse(JSON.parse(existingText));
+  } catch (e) {
+    return { ok: false, reason: "corrupt", path, message: (e as Error).message };
   }
 
   const changes = changedFields(before, parsed.data);
@@ -288,13 +295,19 @@ export async function deleteOpportunity(github: GitHubClient, input: DeleteInput
 
   const main = await readMainHead(github);
   if (!main.ok) return main;
-  let opportunity: Opportunity;
+  let existingText: string;
   try {
     const existing = await github.readFile(path, main.head.commit);
     if (!existing) return { ok: false, reason: "missing" };
-    opportunity = opportunitySchema.parse(JSON.parse(existing.text));
+    existingText = existing.text;
   } catch (e) {
     return failure("read_main", e);
+  }
+  let opportunity: Opportunity;
+  try {
+    opportunity = opportunitySchema.parse(JSON.parse(existingText));
+  } catch (e) {
+    return { ok: false, reason: "corrupt", path, message: (e as Error).message };
   }
 
   const step = await commitAndBranch(github, {

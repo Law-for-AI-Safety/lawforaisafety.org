@@ -133,6 +133,20 @@ describe("updateOpportunity", () => {
     expect(result).toMatchObject({ ok: true });
     expect(JSON.parse(github.openedPRs[0].files[PATH]).slug).toBe(JOB.slug);
   });
+
+  it("refuses cleanly, instead of throwing, when the file on main isn't valid JSON", async () => {
+    github.fileOnMain(PATH, "not json");
+    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: JOB, editorName: "Jane", now: NOW });
+    expect(result).toMatchObject({ ok: false, reason: "corrupt", path: PATH });
+    expect(writes()).toEqual([]);
+  });
+
+  it("refuses cleanly, instead of throwing, when the file on main fails the schema", async () => {
+    github.fileOnMain(PATH, JSON.stringify({ ...JOB, title: "" }));
+    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: JOB, editorName: "Jane", now: NOW });
+    expect(result).toMatchObject({ ok: false, reason: "corrupt", path: PATH });
+    expect(writes()).toEqual([]);
+  });
 });
 
 describe("deleteOpportunity", () => {
@@ -149,6 +163,13 @@ describe("deleteOpportunity", () => {
   it("refuses when the slug has no file on main", async () => {
     const result = await deleteOpportunity(client(), { slug: "no-such-slug", editorName: "Jane", now: NOW });
     expect(result).toEqual({ ok: false, reason: "missing" });
+  });
+
+  it("refuses cleanly, instead of throwing, when the file on main isn't valid JSON", async () => {
+    github.fileOnMain(PATH, "not json");
+    const result = await deleteOpportunity(client(), { slug: JOB.slug, editorName: "Jane", now: NOW });
+    expect(result).toMatchObject({ ok: false, reason: "corrupt", path: PATH });
+    expect(writes()).toEqual([]);
   });
 });
 

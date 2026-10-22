@@ -62,32 +62,30 @@ export async function requireTechAdmin(
   return session;
 }
 
+/** As requireAdmin, but only when `allowed` passes; `deniedMessage` is sent back with it otherwise. */
+async function requireTeam(
+  request: Request,
+  allowed: (email: string) => boolean,
+  deniedMessage: string,
+): Promise<AdminSessionPayload | NextResponse> {
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
+  if (!allowed(session.email)) {
+    return NextResponse.json({ error: deniedMessage }, { status: 403 });
+  }
+  return session;
+}
+
 /** As requireAdmin, but for the task tracker team. */
 export async function requireTaskTracker(
   request: Request,
 ): Promise<AdminSessionPayload | NextResponse> {
-  const session = await requireAdmin(request);
-  if (session instanceof NextResponse) return session;
-  if (!isTaskTrackerTeamEmail(session.email)) {
-    return NextResponse.json(
-      { error: "This action is restricted to the task tracker team" },
-      { status: 403 },
-    );
-  }
-  return session;
+  return requireTeam(request, isTaskTrackerTeamEmail, "This action is restricted to the task tracker team");
 }
 
 /** As requireAdmin, but for the opportunities board team. */
 export async function requireOpportunities(
   request: Request,
 ): Promise<AdminSessionPayload | NextResponse> {
-  const session = await requireAdmin(request);
-  if (session instanceof NextResponse) return session;
-  if (!isOpportunitiesTeamEmail(session.email)) {
-    return NextResponse.json(
-      { error: "This action is restricted to the opportunities board team" },
-      { status: 403 },
-    );
-  }
-  return session;
+  return requireTeam(request, isOpportunitiesTeamEmail, "This action is restricted to the opportunities board team");
 }

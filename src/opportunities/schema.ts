@@ -11,7 +11,17 @@ import type { Opportunity } from "./types";
  */
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const isoDate = (label: string) => z.string().regex(ISO_DATE, `${label} must be an ISO date (YYYY-MM-DD)`);
+/** Matches the format, then rejects anything Date rolls over to a different day (e.g. "2024-02-30"). */
+function isRealCalendarDate(value: string): boolean {
+  const [y, m, d] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+const isoDate = (label: string) =>
+  z
+    .string()
+    .regex(ISO_DATE, `${label} must be an ISO date (YYYY-MM-DD)`)
+    .refine(isRealCalendarDate, `${label} must be a real calendar date`);
 const url = (label: string) =>
   z
     .string()

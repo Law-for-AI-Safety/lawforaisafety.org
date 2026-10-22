@@ -12,6 +12,7 @@ import {
   renderFailureComment,
   renderSplitComment,
   renderSuccessComment,
+  uniqueRemoteBranchName,
   type Run,
 } from "./run-opportunity-imports";
 import type { Extraction } from "../src/opportunities/schema";
@@ -30,7 +31,9 @@ const EXTRACTION: Extraction = {
   applyUrl: "https://example.com/apply",
 };
 
-function fakeRun(responses: Record<string, { stdout: string; stderr?: string } | "throw">): Run {
+type Outcome = { stdout: string; stderr?: string } | "throw" | { exitCode: number };
+
+function fakeRun(responses: Record<string, Outcome>): Run {
   const calls: string[] = [];
   const run = (async (cmd: string, args: string[]) => {
     const key = `${cmd} ${args.join(" ")}`;
@@ -39,6 +42,11 @@ function fakeRun(responses: Record<string, { stdout: string; stderr?: string } |
     const outcome = match ? responses[match] : undefined;
     if (outcome === "throw") throw new Error(`command failed: ${key}`);
     if (!outcome) throw new Error(`unexpected command: ${key}`);
+    if ("exitCode" in outcome) {
+      const err = new Error(`command failed: ${key}`) as Error & { code: number };
+      err.code = outcome.exitCode;
+      throw err;
+    }
     return { stdout: outcome.stdout, stderr: outcome.stderr ?? "" };
   }) as Run;
   (run as Run & { calls: string[] }).calls = calls;
@@ -226,7 +234,7 @@ describe("processCandidate", () => {
     const run = fakeRun({
       claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
       "git checkout": { stdout: "" },
-      "git ls-remote": "throw",
+      "git ls-remote": { exitCode: 2 },
       "git add": { stdout: "" },
       "git commit": { stdout: "" },
       "git push": { stdout: "" },
@@ -251,6 +259,31 @@ describe("processCandidate", () => {
     const commentCall = calls.find((c) => c.startsWith("gh pr comment 42"));
     expect(commentCall).toContain("Engineer A");
     expect(commentCall).toContain("Engineer B");
+  });
+});
+
+describe("uniqueRemoteBranchName", () => {
+  it("uses the base name when git ls-remote finds no match (exit code 2)", async () => {
+    const run = fakeRun({ "git ls-remote": { exitCode: 2 } });
+    expect(await uniqueRemoteBranchName(run, "acme-job", NOW)).toBe("opportunities/acme-job-2026-10-22");
+  });
+
+  it("tries the next attempt when a name is already taken on the remote", async () => {
+    const calls: string[] = [];
+    const run = (async (cmd: string, args: string[]) => {
+      const key = `${cmd} ${args.join(" ")}`;
+      calls.push(key);
+      if (key.endsWith("acme-job-2026-10-22")) return { stdout: "abc123\trefs/heads/opportunities/acme-job-2026-10-22", stderr: "" };
+      const err = new Error("no match") as Error & { code: number };
+      err.code = 2;
+      throw err;
+    }) as Run;
+    expect(await uniqueRemoteBranchName(run, "acme-job", NOW)).toBe("opportunities/acme-job-2026-10-22-2");
+  });
+
+  it("does not treat a real failure (not exit code 2) as the name being free", async () => {
+    const run = fakeRun({ "git ls-remote": { exitCode: 128 } });
+    await expect(uniqueRemoteBranchName(run, "acme-job", NOW)).rejects.toThrow("command failed");
   });
 });
 

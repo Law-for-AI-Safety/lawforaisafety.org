@@ -21,6 +21,9 @@ export function publishResponse(result: PublishResult): NextResponse {
       return NextResponse.json({ error: "A listing with that slug already exists." }, { status: 409 });
     case "missing":
       return NextResponse.json({ error: "There is no such listing on the live site." }, { status: 404 });
+    case "corrupt":
+      console.error(`[opportunities] ${result.path} on main is not a valid listing: ${result.message}`);
+      return NextResponse.json({ error: "This listing's file on the live site isn't valid - it can't be edited automatically. Fix it by hand in a pull request." }, { status: 500 });
     case "nothing":
       return NextResponse.json({ error: "Nothing has changed." }, { status: 400 });
     case "github":
