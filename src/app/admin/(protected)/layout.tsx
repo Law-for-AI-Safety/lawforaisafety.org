@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getAdminSession, isTechAdminEmail, isTaskTrackerTeamEmail } from "@/lib/session";
+import { getAdminSession, isTechAdminEmail, isTaskTrackerTeamEmail, isOpportunitiesTeamEmail } from "@/lib/session";
 import { cmsCan } from "@/cms/access";
 import { getCmsActor } from "@/lib/cms-access";
 
@@ -38,6 +38,11 @@ export default async function ProtectedAdminLayout({
           {isTaskTrackerTeamEmail(session.email) && (
             <Link href="/admin/task-tracker" className="underline">
               Project Tracker
+            </Link>
+          )}
+          {isOpportunitiesTeamEmail(session.email) && (
+            <Link href="/admin/opportunities" className="underline">
+              Opportunities
             </Link>
           )}
           {cms && cmsCan(cms.access, "edit") && (

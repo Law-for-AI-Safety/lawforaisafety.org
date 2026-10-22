@@ -357,8 +357,13 @@ class FakeGitHub {
       const base = this.trees.get(String(body.base_tree));
       if (!base) return error(422, "Invalid tree info");
       const tree = new Map(base);
-      for (const entry of body.tree as { path: string; mode: string; type: string; content: string }[]) {
+      for (const entry of body.tree as { path: string; mode: string; type: string; content?: string; sha?: string | null }[]) {
         if (entry.mode !== "100644" || entry.type !== "blob") return error(422, "Invalid tree info");
+        if (entry.sha === null) {
+          tree.delete(entry.path);
+          continue;
+        }
+        if (typeof entry.content !== "string") return error(422, "Invalid tree info");
         const blob = blobId(entry.content);
         this.blobs.set(blob, entry.content);
         tree.set(entry.path, blob);

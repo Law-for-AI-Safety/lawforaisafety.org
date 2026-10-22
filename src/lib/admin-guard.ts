@@ -3,6 +3,7 @@ import {
   getAdminSession,
   isTechAdminEmail,
   isTaskTrackerTeamEmail,
+  isOpportunitiesTeamEmail,
   type AdminSessionPayload,
 } from "@/lib/session";
 
@@ -70,6 +71,21 @@ export async function requireTaskTracker(
   if (!isTaskTrackerTeamEmail(session.email)) {
     return NextResponse.json(
       { error: "This action is restricted to the task tracker team" },
+      { status: 403 },
+    );
+  }
+  return session;
+}
+
+/** As requireAdmin, but for the opportunities board team. */
+export async function requireOpportunities(
+  request: Request,
+): Promise<AdminSessionPayload | NextResponse> {
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
+  if (!isOpportunitiesTeamEmail(session.email)) {
+    return NextResponse.json(
+      { error: "This action is restricted to the opportunities board team" },
       { status: 403 },
     );
   }

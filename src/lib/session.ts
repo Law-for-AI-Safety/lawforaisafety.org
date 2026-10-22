@@ -166,6 +166,24 @@ export function isTaskTrackerTeamEmail(email: string): boolean {
   return allowed.includes(email.toLowerCase());
 }
 
+/**
+ * Access to the opportunities board's admin pages. Like TASK_TRACKER_TEAM_EMAILS, this
+ * defaults to *everyone* in ADMIN_EMAILS when OPPORTUNITIES_TEAM_EMAILS is unset, so the
+ * feature works immediately without a second env var to remember; setting
+ * OPPORTUNITIES_TEAM_EMAILS narrows access to that list, same "narrows, never grants" rule as
+ * isTechAdminEmail.
+ */
+export function isOpportunitiesTeamEmail(email: string): boolean {
+  if (!isAdminEmailAllowed(email)) return false;
+  const configured = (process.env.OPPORTUNITIES_TEAM_EMAILS ?? "").trim() !== "";
+  if (!configured) return true;
+  const allowed = (process.env.OPPORTUNITIES_TEAM_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(email.toLowerCase());
+}
+
 export function pinnedAdminSubs(): string[] {
   return (process.env.ADMIN_LINKEDIN_SUBS ?? "")
     .split(",")
