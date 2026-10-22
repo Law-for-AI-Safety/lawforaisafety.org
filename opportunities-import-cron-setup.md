@@ -77,10 +77,12 @@ With no pending imports it prints `0 pending import PR(s) to process.` and exits
 Cron runs with a minimal environment - no inherited shell profile, no inherited `PATH` beyond a bare default. Set everything the command needs explicitly:
 
 ```cron
-*/15 * * * * cd /path/to/opportunities-import-clone && ANTHROPIC_API_KEY=sk-ant-... PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin" /usr/bin/npm run opportunities:import >> /path/to/opportunities-import-clone/cron.log 2>&1
+*/15 * * * * cd /path/to/opportunities-import-clone && flock -n /tmp/opportunities-import.lock -c 'ANTHROPIC_API_KEY=sk-ant-... PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin" /usr/bin/npm run opportunities:import' >> /path/to/opportunities-import-clone/cron.log 2>&1
 ```
 
 Replace `/path/to/opportunities-import-clone` with the real path, and the `PATH` entries with wherever `node`, `npm`, `git`, `gh` and `claude` actually live on this machine (check with `which node npm git gh claude`). Every 15 minutes is a reasonable starting interval; imports aren't time-critical, so less frequent (hourly) is just as reasonable if you'd rather not poll that often.
+
+The `flock -n` wrapper matters: this script checks out branches and pushes in one shared clone, so two overlapping runs (a slow extraction still going when the next tick fires) would race on the same working tree. `flock -n` simply skips a run if the previous one is still going, rather than queuing it up - the next tick 15 minutes later picks up whatever's still pending.
 
 If `gh` was authenticated with a personal access token in step 2 rather than `gh auth login`, add `GH_TOKEN=<token>` to the crontab line too (cron won't see `gh`'s own stored auth unless it's the same user account that ran `gh auth login` interactively).
 

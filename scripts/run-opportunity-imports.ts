@@ -151,25 +151,31 @@ export function renderFailureComment(url: string, error: string): string {
 
 /**
  * Posted to the original stub PR when its page turned out to list more than one opportunity.
- * `failed` is only non-empty when a split run itself hit an error partway through - the stub
- * stays open in that case, and this says so instead of telling the admin to close it.
+ * `failed` is only non-empty when a split run itself hit an error partway through, and
+ * `alreadyLive` lists items recognized as already published under their plain slug (an earlier
+ * run's item, merged before a sibling item in the same batch finished) - the stub stays open
+ * only while something has failed, and this says so instead of telling the admin to close it.
  */
 export function renderSplitComment(
   sourceUrl: string,
   opened: { opportunity: Opportunity; prUrl: string }[],
-  failed: { opportunity: Opportunity; error: string }[] = [],
+  failed: { title: string; org: string; error: string }[] = [],
+  alreadyLive: { title: string; org: string }[] = [],
 ): string {
   const lines = [
-    `${sourceUrl} listed ${opened.length + failed.length} separate opportunities, so each is being opened as its own pull request instead of filling in this one:`,
+    `${sourceUrl} listed ${opened.length + failed.length + alreadyLive.length} separate opportunities, so each is being opened as its own pull request instead of filling in this one:`,
     "",
     ...opened.map((o) => `- [${o.opportunity.title} at ${o.opportunity.org}](${o.prUrl})`),
   ];
+  if (alreadyLive.length) {
+    lines.push("", ...alreadyLive.map((o) => `- **${o.title}** at ${o.org}: already published separately`));
+  }
   if (failed.length) {
     lines.push(
       "",
       `${failed.length} could not be opened this time and will be retried on the next run:`,
       "",
-      ...failed.map((f) => `- **${f.opportunity.title}** at ${f.opportunity.org}: ${f.error}`),
+      ...failed.map((f) => `- **${f.title}** at ${f.org}: ${f.error}`),
       "",
       "This pull request stays open until every listing above has its own pull request.",
     );
@@ -203,23 +209,36 @@ export async function uniqueRemoteBranchName(run: Run, slug: string, now: Date):
   throw new Error(`Every branch name up to attempt ${MAX_SPLIT_BRANCH_ATTEMPTS} for "${slug}" is taken`);
 }
 
-/** The open pull request already targeting `branch`, if there is one. */
-async function findOpenPRForHead(run: Run, branch: string): Promise<{ number: number; url: string } | null> {
-  const { stdout } = await run("gh", ["pr", "list", "--head", branch, "--state", "open", "--json", "number,url", "--limit", "1"]);
-  const prs = JSON.parse(stdout) as { number: number; url: string }[];
-  return prs[0] ?? null;
+/**
+ * The open pull request already split out for `slug`, if an earlier run already opened one -
+ * matched by branch prefix (`opportunities/<slug>-`), not by recomputing the exact branch name,
+ * since that name is pinned to the date it was first created and a retry run may be a different
+ * calendar day.
+ */
+async function findOpenPRForSlug(run: Run, slug: string): Promise<{ number: number; url: string } | null> {
+  const { stdout } = await run("gh", ["pr", "list", "--state", "open", "--json", "number,url,headRefName", "--limit", "100"]);
+  const prs = JSON.parse(stdout) as { number: number; url: string; headRefName: string }[];
+  const prefix = `opportunities/${slug}-`;
+  return prs.find((pr) => pr.headRefName.startsWith(prefix)) ?? null;
 }
 
 /**
  * A page that turned out to list more than one opportunity: each gets its own branch, file and
  * pull request off `main`. One item failing (a push rejected, `gh` timing out) doesn't stop the
  * rest - it's recorded and the loop moves on, so a flaky network blip costs one retry, not the
- * whole batch. The stub PR is only closed once every item has succeeded; while any have failed
- * it stays open with a comment on what's left, so the next run retries just those.
+ * whole batch. On a failure, the branch (local and, if it got that far, remote) is deleted and
+ * any file already written for that item is removed, so a retry starts clean instead of hitting
+ * "branch already exists" forever or bundling a dead item's file into the next one's commit. The
+ * stub PR is only closed once every item has succeeded; while any have failed it stays open with
+ * a comment on what's left, so the next run retries just those.
  *
- * Reruns are safe: before creating an item's branch, this checks whether an earlier run already
- * opened a pull request for it (by its canonical, first-attempt branch name) and reuses that
- * instead of opening a duplicate.
+ * Reruns are safe for an item that already has an open pull request (`findOpenPRForSlug`
+ * reuses it) or that's already published under its plain slug - the common case where an
+ * earlier run's item was merged before a sibling item in the same batch finished. That check is
+ * by exact plain slug only: an item that had to take a numbered slug the first time (because an
+ * unrelated listing already held the plain one) won't be recognized as a duplicate on retry and
+ * would be opened again - rare enough, and this feature deliberately keeps no state besides git
+ * and open pull requests, not to guard against further.
  */
 async function splitIntoPullRequests(
   candidate: Candidate,
@@ -230,23 +249,32 @@ async function splitIntoPullRequests(
   const { run, dir, now } = deps;
   const existingSlugs = new Set(deps.existingSlugs);
   const opened: { opportunity: Opportunity; prUrl: string }[] = [];
-  const failed: { opportunity: Opportunity; error: string }[] = [];
+  const failed: { title: string; org: string; error: string }[] = [];
+  const alreadyLive: { title: string; org: string }[] = [];
 
   for (const item of items) {
-    const opportunity = finalizeOpportunity(item, sourceUrl, now, existingSlugs);
-    existingSlugs.add(opportunity.slug);
+    const baseSlug = uniqueSlug(slugify(`${item.org} ${item.title}`), new Set());
+    let branch: string | null = null;
+    let opportunity: Opportunity | null = null;
 
     try {
       await run("git", ["checkout", "main"]);
 
-      const canonicalBranch = sharedBranchName("opportunities", opportunity.slug, now, 1);
-      const existingPR = await findOpenPRForHead(run, canonicalBranch);
+      if (fs.existsSync(path.join(dir, `${baseSlug}.json`))) {
+        alreadyLive.push({ title: item.title, org: item.org });
+        continue;
+      }
+
+      opportunity = finalizeOpportunity(item, sourceUrl, now, existingSlugs);
+      existingSlugs.add(opportunity.slug);
+
+      const existingPR = await findOpenPRForSlug(run, opportunity.slug);
       if (existingPR) {
         opened.push({ opportunity, prUrl: existingPR.url });
         continue;
       }
 
-      const branch = await uniqueRemoteBranchName(run, opportunity.slug, now);
+      branch = await uniqueRemoteBranchName(run, opportunity.slug, now);
       await run("git", ["checkout", "-b", branch]);
       fs.writeFileSync(path.join(dir, `${opportunity.slug}.json`), printOpportunity(opportunity));
       await run("git", ["add", "-A", "content/opportunities"]);
@@ -266,18 +294,25 @@ async function splitIntoPullRequests(
       ]);
       opened.push({ opportunity, prUrl: stdout.trim() });
     } catch (e) {
-      failed.push({ opportunity, error: (e as Error).message });
+      failed.push({ title: item.title, org: item.org, error: (e as Error).message });
+      // Best-effort: a cleanup step failing doesn't change what's already recorded above.
+      await run("git", ["checkout", "main"]).catch(() => {});
+      if (branch) {
+        await run("git", ["branch", "-D", branch]).catch(() => {});
+        await run("git", ["push", "origin", "--delete", branch]).catch(() => {});
+      }
+      if (opportunity) fs.rmSync(path.join(dir, `${opportunity.slug}.json`), { force: true });
     }
   }
 
   await run("git", ["checkout", "main"]);
-  await run("gh", ["pr", "comment", String(candidate.number), "--body", renderSplitComment(sourceUrl, opened, failed)]);
+  await run("gh", ["pr", "comment", String(candidate.number), "--body", renderSplitComment(sourceUrl, opened, failed, alreadyLive)]);
   if (failed.length === 0) await run("gh", ["pr", "close", String(candidate.number)]);
 
   const detail =
     failed.length === 0
-      ? `PR #${candidate.number}: split into ${opened.length} opportunity pull request(s)`
-      : `PR #${candidate.number}: split ${opened.length}/${items.length} opportunity pull request(s), ${failed.length} failed`;
+      ? `PR #${candidate.number}: split into ${opened.length + alreadyLive.length} opportunity pull request(s)`
+      : `PR #${candidate.number}: split ${opened.length + alreadyLive.length}/${items.length} opportunity pull request(s), ${failed.length} failed`;
   return { ok: failed.length === 0, detail };
 }
 
@@ -345,7 +380,13 @@ async function main() {
     } catch (e) {
       console.error(`PR #${candidate.number}: ${(e as Error).message}`);
     } finally {
-      await resetToMain(run);
+      // A failure here must not escape the loop - it would abort every candidate after this
+      // one, exactly the all-or-nothing failure per-item isolation above exists to avoid.
+      try {
+        await resetToMain(run);
+      } catch (e) {
+        console.error(`Failed to reset to main after PR #${candidate.number}: ${(e as Error).message}`);
+      }
     }
   }
 }

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { printOpportunity } from "../src/opportunities/files";
 import {
   findPendingSlug,
   finalizeOpportunity,
@@ -235,7 +236,7 @@ describe("processCandidate", () => {
       claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
       "git checkout": { stdout: "" },
       "git ls-remote": { exitCode: 2 },
-      "gh pr list --head": { stdout: "[]" },
+      "gh pr list --state open --json number,url,headRefName": { stdout: "[]" },
       "git add": { stdout: "" },
       "git commit": { stdout: "" },
       "git push": { stdout: "" },
@@ -262,7 +263,7 @@ describe("processCandidate", () => {
     expect(commentCall).toContain("Engineer B");
   });
 
-  it("reuses an item's pull request from an earlier, interrupted split instead of duplicating it", async () => {
+  it("reuses an item's pull request from an earlier, interrupted split instead of duplicating it, even across a date change", async () => {
     fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers" }));
     const itemA = { ...EXTRACTION, title: "Engineer A" };
     const itemB = { ...EXTRACTION, title: "Engineer B" };
@@ -270,8 +271,11 @@ describe("processCandidate", () => {
       claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
       "git checkout": { stdout: "" },
       "git ls-remote": { exitCode: 2 },
-      "gh pr list --head opportunities/acme-engineer-a": { stdout: JSON.stringify([{ number: 7, url: "https://github.com/example/repo/pull/7" }]) },
-      "gh pr list --head": { stdout: "[]" },
+      // Item A's pull request was opened on an earlier calendar day than `now` below - proves
+      // the reuse check isn't tied to recomputing today's exact branch name.
+      "gh pr list --state open --json number,url,headRefName": {
+        stdout: JSON.stringify([{ number: 7, url: "https://github.com/example/repo/pull/7", headRefName: "opportunities/acme-engineer-a-2026-10-20" }]),
+      },
       "git add": { stdout: "" },
       "git commit": { stdout: "" },
       "git push": { stdout: "" },
@@ -292,6 +296,35 @@ describe("processCandidate", () => {
     expect(commentCall).toContain("https://github.com/example/repo/pull/7");
   });
 
+  it("recognizes an item already published under its plain slug, instead of duplicating it", async () => {
+    fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers" }));
+    fs.writeFileSync(path.join(dir, "acme-engineer-a.json"), printOpportunity(finalizeOpportunity({ ...EXTRACTION, title: "Engineer A" }, "https://example.com/elsewhere", NOW, new Set())));
+    const itemA = { ...EXTRACTION, title: "Engineer A" };
+    const itemB = { ...EXTRACTION, title: "Engineer B" };
+    const run = fakeRun({
+      claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
+      "git checkout": { stdout: "" },
+      "git ls-remote": { exitCode: 2 },
+      "gh pr list --state open --json number,url,headRefName": { stdout: "[]" },
+      "git add": { stdout: "" },
+      "git commit": { stdout: "" },
+      "git push": { stdout: "" },
+      "gh pr create": { stdout: "https://github.com/example/repo/pull/101\n" },
+      "gh pr comment": { stdout: "" },
+      "gh pr close": { stdout: "" },
+    });
+
+    const result = await processCandidate(candidate, { run, dir, existingSlugs: new Set(), now: NOW });
+    expect(result.ok).toBe(true);
+    expect(result.detail).toContain("split into 2 opportunity pull request(s)");
+
+    const calls = (run as Run & { calls: string[] }).calls;
+    expect(calls.some((c) => c.startsWith("git push origin opportunities/acme-engineer-a"))).toBe(false);
+    expect(calls.filter((c) => c.startsWith("gh pr create")).length).toBe(1);
+    const commentCall = calls.find((c) => c.startsWith("gh pr comment 42"));
+    expect(commentCall).toContain("already published separately");
+  });
+
   it("isolates one item's failure: the rest still get pull requests, and the stub stays open", async () => {
     fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers" }));
     const itemA = { ...EXTRACTION, title: "Engineer A" };
@@ -300,7 +333,7 @@ describe("processCandidate", () => {
       claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
       "git checkout": { stdout: "" },
       "git ls-remote": { exitCode: 2 },
-      "gh pr list --head": { stdout: "[]" },
+      "gh pr list --state open --json number,url,headRefName": { stdout: "[]" },
       "git add": { stdout: "" },
       "git commit": { stdout: "" },
       "git push origin opportunities/acme-engineer-a": "throw",
