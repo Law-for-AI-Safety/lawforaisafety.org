@@ -76,6 +76,13 @@ export function isStub(value: unknown): value is Stub {
 export const extractionSchema = opportunitySchema.omit({ slug: true, publishedAt: true, sourceUrl: true });
 export type Extraction = z.infer<typeof extractionSchema>;
 
+/**
+ * What the import script actually asks `claude -p` for: a fetched page may describe one
+ * listing or, for an aggregator/careers-index page, several - one array item per listing found.
+ */
+export const extractionListSchema = z.array(extractionSchema).min(1);
+export type ExtractionList = z.infer<typeof extractionListSchema>;
+
 /** Parses and validates an opportunity's full content. Throws a readable `ZodError` on failure. */
 export function parseOpportunity(value: unknown): Opportunity {
   return opportunitySchema.parse(value);

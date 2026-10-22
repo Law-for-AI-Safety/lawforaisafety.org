@@ -10,6 +10,7 @@ import {
   parseExtractionOutput,
   processCandidate,
   renderFailureComment,
+  renderSplitComment,
   renderSuccessComment,
   type Run,
 } from "./run-opportunity-imports";
@@ -94,9 +95,15 @@ describe("findPendingSlug", () => {
 });
 
 describe("parseExtractionOutput", () => {
-  it("parses a valid structured_output", () => {
-    const result = parseExtractionOutput(JSON.stringify({ structured_output: EXTRACTION }));
-    expect(result).toEqual({ ok: true, data: EXTRACTION });
+  it("parses a single-item structured_output", () => {
+    const result = parseExtractionOutput(JSON.stringify({ structured_output: [EXTRACTION] }));
+    expect(result).toEqual({ ok: true, data: [EXTRACTION] });
+  });
+
+  it("parses a multi-item structured_output", () => {
+    const second = { ...EXTRACTION, title: "Other Role" };
+    const result = parseExtractionOutput(JSON.stringify({ structured_output: [EXTRACTION, second] }));
+    expect(result).toEqual({ ok: true, data: [EXTRACTION, second] });
   });
 
   it("fails on invalid JSON", () => {
@@ -107,8 +114,13 @@ describe("parseExtractionOutput", () => {
     expect(parseExtractionOutput(JSON.stringify({ result: "text" }))).toEqual({ ok: false, error: expect.stringContaining("no structured_output") });
   });
 
-  it("fails when the structured_output doesn't match the schema", () => {
-    const result = parseExtractionOutput(JSON.stringify({ structured_output: { ...EXTRACTION, title: "" } }));
+  it("fails when an item in structured_output doesn't match the schema", () => {
+    const result = parseExtractionOutput(JSON.stringify({ structured_output: [{ ...EXTRACTION, title: "" }] }));
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("failed validation") });
+  });
+
+  it("fails when structured_output is an empty array", () => {
+    const result = parseExtractionOutput(JSON.stringify({ structured_output: [] }));
     expect(result).toEqual({ ok: false, error: expect.stringContaining("failed validation") });
   });
 });
@@ -171,7 +183,7 @@ describe("processCandidate", () => {
   it("extracts, writes the real file, commits, pushes and comments on success", async () => {
     fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers/role" }));
     const run = fakeRun({
-      claude: { stdout: JSON.stringify({ structured_output: EXTRACTION }) },
+      claude: { stdout: JSON.stringify({ structured_output: [EXTRACTION] }) },
       "git add": { stdout: "" },
       "git commit": { stdout: "" },
       "git push": { stdout: "" },
@@ -205,5 +217,49 @@ describe("processCandidate", () => {
     const run = fakeRun({});
     const result = await processCandidate(candidate, { run, dir, existingSlugs: new Set(), now: NOW });
     expect(result).toEqual({ ok: false, detail: expect.stringContaining("no longer a stub") });
+  });
+
+  it("splits a page listing several opportunities into one pull request each, and closes the stub PR", async () => {
+    fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers" }));
+    const itemA = { ...EXTRACTION, title: "Engineer A" };
+    const itemB = { ...EXTRACTION, title: "Engineer B" };
+    const run = fakeRun({
+      claude: { stdout: JSON.stringify({ structured_output: [itemA, itemB] }) },
+      "git checkout": { stdout: "" },
+      "git ls-remote": "throw",
+      "git add": { stdout: "" },
+      "git commit": { stdout: "" },
+      "git push": { stdout: "" },
+      "gh pr create": { stdout: "https://github.com/example/repo/pull/101\n" },
+      "gh pr comment": { stdout: "" },
+      "gh pr close": { stdout: "" },
+    });
+
+    const result = await processCandidate(candidate, { run, dir, existingSlugs: new Set(), now: NOW });
+    expect(result.ok).toBe(true);
+    expect(result.detail).toContain("split into 2 opportunity pull request(s)");
+
+    expect(fs.existsSync(path.join(dir, "pending-example-com-aaaa.json"))).toBe(true);
+    const slugA = finalizeOpportunity(itemA, "https://example.com/careers", NOW, new Set()).slug;
+    const slugB = finalizeOpportunity(itemB, "https://example.com/careers", NOW, new Set([slugA])).slug;
+    expect(JSON.parse(fs.readFileSync(path.join(dir, `${slugA}.json`), "utf8"))).toMatchObject({ title: "Engineer A" });
+    expect(JSON.parse(fs.readFileSync(path.join(dir, `${slugB}.json`), "utf8"))).toMatchObject({ title: "Engineer B" });
+
+    const calls = (run as Run & { calls: string[] }).calls;
+    expect(calls.filter((c) => c.startsWith("gh pr create")).length).toBe(2);
+    expect(calls.some((c) => c.startsWith("gh pr close 42"))).toBe(true);
+    const commentCall = calls.find((c) => c.startsWith("gh pr comment 42"));
+    expect(commentCall).toContain("Engineer A");
+    expect(commentCall).toContain("Engineer B");
+  });
+});
+
+describe("renderSplitComment", () => {
+  it("lists each opened pull request and says the original is closing", () => {
+    const opportunity = finalizeOpportunity(EXTRACTION, "https://example.com/careers", NOW, new Set());
+    const comment = renderSplitComment("https://example.com/careers", [{ opportunity, prUrl: "https://github.com/example/repo/pull/101" }]);
+    expect(comment).toContain("listed 1 separate opportunities");
+    expect(comment).toContain("[Senior Engineer at Acme](https://github.com/example/repo/pull/101)");
+    expect(comment).toContain("Closing this pull request");
   });
 });
