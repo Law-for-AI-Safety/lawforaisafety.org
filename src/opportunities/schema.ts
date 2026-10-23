@@ -61,6 +61,9 @@ export const opportunitySchema = z
   .strict();
 
 export type OpportunityInput = z.input<typeof opportunitySchema>;
+
+/** An opportunity's editable fields, without `slug` (identity, never edited) or `publishedAt` (set once, on create). */
+export const opportunityFieldsSchema = opportunitySchema.omit({ slug: true, publishedAt: true });
 // A compile-time check that the schema's output matches the hand-written `Opportunity` type.
 type _AssertShapeMatches = z.infer<typeof opportunitySchema> extends Opportunity
   ? Opportunity extends z.infer<typeof opportunitySchema>

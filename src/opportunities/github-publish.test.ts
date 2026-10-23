@@ -3,6 +3,7 @@ import { BOT_LOGIN, github, githubEnv } from "../../test/fakes/github";
 import { GitHubAppClient, type GitHubClient } from "../cms/github";
 import { gitHubSetup } from "../cms/github-config";
 import { opportunityFilePath, printOpportunity } from "./files";
+import type { OpportunityFields } from "./form-fields";
 import { opportunitySchema } from "./schema";
 import {
   branchName,
@@ -37,6 +38,17 @@ const JOB: Opportunity = {
   remote: true,
   applyUrl: "https://example.com/apply",
   publishedAt: "2026-10-22",
+};
+
+const FIELDS: OpportunityFields = {
+  type: JOB.type,
+  title: JOB.title,
+  org: JOB.org,
+  summary: JOB.summary,
+  description: JOB.description,
+  location: JOB.location,
+  remote: JOB.remote,
+  applyUrl: JOB.applyUrl,
 };
 
 const PATH = opportunityFilePath(JOB.slug);
@@ -97,13 +109,13 @@ describe("updateOpportunity", () => {
     github.fileOnMain(PATH, printOpportunity(JOB));
   });
 
-  it("opens a pull request listing only the changed fields, keeping the slug", async () => {
-    const edited = { ...JOB, title: "Acme Senior Job", compensation: "$100k" };
+  it("opens a pull request listing only the changed fields, keeping the slug and published date", async () => {
+    const edited = { ...FIELDS, title: "Acme Senior Job", compensation: "$100k" };
     const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: edited, editorName: "Jane", now: NOW });
     expect(result).toEqual({ ok: true, number: 1, url: expect.any(String), branch: "opportunities/acme-job-2026-10-22" });
 
     const [pr] = github.openedPRs;
-    expect(pr.files).toEqual({ [PATH]: printOpportunity(opportunitySchema.parse(edited)) });
+    expect(pr.files).toEqual({ [PATH]: printOpportunity(opportunitySchema.parse({ ...edited, slug: JOB.slug, publishedAt: JOB.publishedAt })) });
     expect(pr.title).toBe("Update opportunity: Acme Senior Job");
     expect(pr.body).toContain("### Title");
     expect(pr.body).toContain("Before: `Acme Job`");
@@ -113,37 +125,39 @@ describe("updateOpportunity", () => {
   });
 
   it("refuses an opportunity that fails the schema", async () => {
-    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: { ...JOB, applyUrl: "nope" }, editorName: "Jane", now: NOW });
+    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: { ...FIELDS, applyUrl: "nope" }, editorName: "Jane", now: NOW });
     expect(result).toMatchObject({ ok: false, reason: "invalid" });
   });
 
   it("refuses when the slug has no file on main", async () => {
-    const result = await updateOpportunity(client(), { slug: "no-such-slug", opportunity: { ...JOB, slug: "no-such-slug" }, editorName: "Jane", now: NOW });
+    const result = await updateOpportunity(client(), { slug: "no-such-slug", opportunity: FIELDS, editorName: "Jane", now: NOW });
     expect(result).toEqual({ ok: false, reason: "missing" });
   });
 
   it("has nothing to send when nothing changed", async () => {
-    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: JOB, editorName: "Jane", now: NOW });
+    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: FIELDS, editorName: "Jane", now: NOW });
     expect(result).toEqual({ ok: false, reason: "nothing" });
     expect(writes()).toEqual([]);
   });
 
-  it("keeps the slug in the file even if the caller passes a different one", async () => {
-    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: { ...JOB, slug: "different-slug", title: "New Title" }, editorName: "Jane", now: NOW });
+  it("keeps the slug and the published date from the file on main, not whatever the caller happened to have", async () => {
+    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: { ...FIELDS, title: "New Title" }, editorName: "Jane", now: NOW });
     expect(result).toMatchObject({ ok: true });
-    expect(JSON.parse(github.openedPRs[0].files[PATH]).slug).toBe(JOB.slug);
+    const written = JSON.parse(github.openedPRs[0].files[PATH]);
+    expect(written.slug).toBe(JOB.slug);
+    expect(written.publishedAt).toBe(JOB.publishedAt);
   });
 
   it("refuses cleanly, instead of throwing, when the file on main isn't valid JSON", async () => {
     github.fileOnMain(PATH, "not json");
-    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: JOB, editorName: "Jane", now: NOW });
+    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: FIELDS, editorName: "Jane", now: NOW });
     expect(result).toMatchObject({ ok: false, reason: "corrupt", path: PATH });
     expect(writes()).toEqual([]);
   });
 
   it("refuses cleanly, instead of throwing, when the file on main fails the schema", async () => {
     github.fileOnMain(PATH, JSON.stringify({ ...JOB, title: "" }));
-    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: JOB, editorName: "Jane", now: NOW });
+    const result = await updateOpportunity(client(), { slug: JOB.slug, opportunity: FIELDS, editorName: "Jane", now: NOW });
     expect(result).toMatchObject({ ok: false, reason: "corrupt", path: PATH });
     expect(writes()).toEqual([]);
   });

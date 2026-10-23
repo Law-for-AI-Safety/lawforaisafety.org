@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireOpportunities } from "@/lib/admin-guard";
 import { opportunitiesGitHub, publishResponse, PUBLISHING_NOT_SET_UP } from "@/lib/opportunities-github";
-import { getOpportunityBySlug } from "@/opportunities/data";
 import { opportunityFieldsFromBody } from "@/opportunities/form-fields";
 import { deleteOpportunity, updateOpportunity } from "@/opportunities/github-publish";
-import type { Opportunity } from "@/opportunities/types";
 
 type Params = { params: Promise<{ slug: string }> };
 
-/** Edits an existing opportunity. The form resends every field; the slug (and file path) never changes. */
+/**
+ * Edits an existing opportunity. The form resends every field; the slug (and file path) never
+ * changes. Whether the listing still exists is checked against GitHub `main` itself, inside
+ * `updateOpportunity` - never against this server's own possibly-stale local read of
+ * `content/opportunities/`, which can lag a few minutes behind a just-merged pull request.
+ */
 export async function PATCH(request: Request, { params }: Params) {
   const session = await requireOpportunities(request);
   if (session instanceof NextResponse) return session;
@@ -18,15 +21,10 @@ export async function PATCH(request: Request, { params }: Params) {
   const parsed = opportunityFieldsFromBody(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const current = getOpportunityBySlug(slug);
-  if (!current) return NextResponse.json({ error: "There is no such listing on the live site." }, { status: 404 });
-
   const github = opportunitiesGitHub();
   if (!github) return NextResponse.json({ error: PUBLISHING_NOT_SET_UP }, { status: 503 });
 
-  const opportunity: Opportunity = { slug, ...parsed.fields, publishedAt: current.publishedAt };
-
-  const result = await updateOpportunity(github, { slug, opportunity, editorName: session.name, now: new Date() });
+  const result = await updateOpportunity(github, { slug, opportunity: parsed.fields, editorName: session.name, now: new Date() });
   return publishResponse(result);
 }
 

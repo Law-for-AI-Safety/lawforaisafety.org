@@ -2,7 +2,8 @@ import { branchName as sharedBranchName, codeSpan, deleteOrKeep, githubFailure }
 import { GitHubError, type GitHubClient } from "../cms/github";
 import { MAIN_BRANCH } from "../cms/github-config";
 import { opportunityFilePath, printOpportunity } from "./files";
-import { opportunitySchema, stubSchema } from "./schema";
+import type { OpportunityFields } from "./form-fields";
+import { opportunityFieldsSchema, opportunitySchema, stubSchema } from "./schema";
 import type { Opportunity } from "./types";
 
 /**
@@ -243,14 +244,19 @@ export async function createOpportunity(github: GitHubClient, input: CreateInput
   return openPR(github, { branch: step.branch, title: createPullRequestTitle(parsed.data.title), body: createPullRequestBody(parsed.data, editorName) });
 }
 
-export type UpdateInput = { slug: string; opportunity: Opportunity; editorName: string; now: Date };
+export type UpdateInput = { slug: string; opportunity: OpportunityFields; editorName: string; now: Date };
 
-/** Opens a pull request editing an existing opportunity. The slug (and so the file path) never changes. */
+/**
+ * Opens a pull request editing an existing opportunity. The slug (and so the file path) never
+ * changes, and `publishedAt` is always carried over from the file already on `main` - never from
+ * the caller - since GitHub, not whatever local copy the caller read, is the only source of
+ * truth for "does this listing currently exist" (a 404 here on a just-merged listing means the
+ * caller's own cache is stale, not that the listing is missing).
+ */
 export async function updateOpportunity(github: GitHubClient, input: UpdateInput): Promise<PublishResult> {
   const { slug, editorName, now } = input;
-  const opportunity = { ...input.opportunity, slug };
-  const parsed = opportunitySchema.safeParse(opportunity);
-  if (!parsed.success) return { ok: false, reason: "invalid", problems: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
+  const parsedFields = opportunityFieldsSchema.safeParse(input.opportunity);
+  if (!parsedFields.success) return { ok: false, reason: "invalid", problems: parsedFields.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
   const path = opportunityFilePath(slug);
 
   const main = await readMainHead(github);
@@ -270,20 +276,21 @@ export async function updateOpportunity(github: GitHubClient, input: UpdateInput
     return { ok: false, reason: "corrupt", path, message: (e as Error).message };
   }
 
-  const changes = changedFields(before, parsed.data);
+  const after = opportunitySchema.parse({ ...parsedFields.data, slug, publishedAt: before.publishedAt });
+  const changes = changedFields(before, after);
   if (changes.length === 0) return { ok: false, reason: "nothing" };
 
-  const text = printOpportunity(parsed.data);
+  const text = printOpportunity(after);
   const step = await commitAndBranch(github, {
     slug,
     path,
     text,
-    message: `${updatePullRequestTitle(parsed.data.title)}\n\nSent from the admin opportunities page by ${editorName}.`,
+    message: `${updatePullRequestTitle(after.title)}\n\nSent from the admin opportunities page by ${editorName}.`,
     now,
     head: main.head,
   });
   if (!step.ok) return step;
-  return openPR(github, { branch: step.branch, title: updatePullRequestTitle(parsed.data.title), body: updatePullRequestBody(slug, changes, editorName) });
+  return openPR(github, { branch: step.branch, title: updatePullRequestTitle(after.title), body: updatePullRequestBody(slug, changes, editorName) });
 }
 
 export type DeleteInput = { slug: string; editorName: string; now: Date };

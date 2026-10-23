@@ -6,6 +6,7 @@ import { printOpportunity } from "../src/opportunities/files";
 import {
   findPendingSlug,
   finalizeOpportunity,
+  findOpenPRForSlug,
   isImportBranch,
   listCandidatePRs,
   parseExtractionOutput,
@@ -221,6 +222,24 @@ describe("processCandidate", () => {
     expect((run as Run & { calls: string[] }).calls.some((c) => c.startsWith("gh pr comment 42"))).toBe(true);
   });
 
+  it("drops the local branch when the push fails, so a retry starts clean instead of stalling forever", async () => {
+    fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ url: "https://example.com/careers/role" }));
+    const run = fakeRun({
+      claude: { stdout: JSON.stringify({ structured_output: [EXTRACTION] }) },
+      "git add": { stdout: "" },
+      "git commit": { stdout: "" },
+      "git push": "throw",
+      "git checkout": { stdout: "" },
+      "git branch -D": { stdout: "" },
+    });
+
+    await expect(processCandidate(candidate, { run, dir, existingSlugs: new Set(), now: NOW })).rejects.toThrow("command failed");
+
+    const calls = (run as Run & { calls: string[] }).calls;
+    expect(calls.some((c) => c === "git checkout main")).toBe(true);
+    expect(calls.some((c) => c === `git branch -D ${candidate.branch}`)).toBe(true);
+  });
+
   it("skips when the stub file was already filled in by a previous, interrupted run", async () => {
     fs.writeFileSync(path.join(dir, "pending-example-com-aaaa.json"), JSON.stringify({ ...EXTRACTION, slug: "x", publishedAt: "2026-10-22" }));
     const run = fakeRun({});
@@ -353,6 +372,26 @@ describe("processCandidate", () => {
     const commentCall = calls.find((c) => c.startsWith("gh pr comment 42"));
     expect(commentCall).toContain("Engineer B");
     expect(commentCall).toContain("retried on the next run");
+  });
+});
+
+describe("findOpenPRForSlug", () => {
+  it("does not match a different, longer slug that happens to share this one as a text prefix", async () => {
+    const run = fakeRun({
+      "gh pr list --state open --json number,url,headRefName": {
+        stdout: JSON.stringify([{ number: 7, url: "https://github.com/example/repo/pull/7", headRefName: "opportunities/acme-engineer-remote-2026-10-20" }]),
+      },
+    });
+    expect(await findOpenPRForSlug(run, "acme-engineer")).toBeNull();
+  });
+
+  it("matches the exact slug regardless of which attempt number or date it was opened under", async () => {
+    const run = fakeRun({
+      "gh pr list --state open --json number,url,headRefName": {
+        stdout: JSON.stringify([{ number: 7, url: "https://github.com/example/repo/pull/7", headRefName: "opportunities/acme-engineer-2026-10-20-2" }]),
+      },
+    });
+    expect(await findOpenPRForSlug(run, "acme-engineer")).toMatchObject({ number: 7, url: "https://github.com/example/repo/pull/7" });
   });
 });
 

@@ -215,11 +215,15 @@ export async function uniqueRemoteBranchName(run: Run, slug: string, now: Date):
  * since that name is pinned to the date it was first created and a retry run may be a different
  * calendar day.
  */
-async function findOpenPRForSlug(run: Run, slug: string): Promise<{ number: number; url: string } | null> {
+export async function findOpenPRForSlug(run: Run, slug: string): Promise<{ number: number; url: string } | null> {
   const { stdout } = await run("gh", ["pr", "list", "--state", "open", "--json", "number,url,headRefName", "--limit", "100"]);
   const prs = JSON.parse(stdout) as { number: number; url: string; headRefName: string }[];
-  const prefix = `opportunities/${slug}-`;
-  return prs.find((pr) => pr.headRefName.startsWith(prefix)) ?? null;
+  // Anchored on the date suffix `branchName` always appends, not just a string prefix - otherwise
+  // slug "acme-engineer" would also match a branch for the unrelated, longer slug
+  // "acme-engineer-remote" (which also starts with "opportunities/acme-engineer-").
+  const escaped = slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^opportunities/${escaped}-\\d{4}-\\d{2}-\\d{2}(-\\d+)?$`);
+  return prs.find((pr) => pattern.test(pr.headRefName)) ?? null;
 }
 
 /**
@@ -345,12 +349,22 @@ export async function processCandidate(candidate: Candidate, deps: ProcessDeps):
 
   const opportunity = finalizeOpportunity(extraction.data[0], stub.url, now, existingSlugs);
   const finalPath = path.join(dir, `${opportunity.slug}.json`);
-  fs.writeFileSync(finalPath, printOpportunity(opportunity));
-  if (finalPath !== stubPath) fs.rmSync(stubPath);
+  try {
+    fs.writeFileSync(finalPath, printOpportunity(opportunity));
+    if (finalPath !== stubPath) fs.rmSync(stubPath);
 
-  await run("git", ["add", "-A", "content/opportunities"]);
-  await run("git", ["commit", "-m", `Populate opportunity import: ${opportunity.title}`]);
-  await run("git", ["push", "origin", candidate.branch]);
+    await run("git", ["add", "-A", "content/opportunities"]);
+    await run("git", ["commit", "-m", `Populate opportunity import: ${opportunity.title}`]);
+    await run("git", ["push", "origin", candidate.branch]);
+  } catch (e) {
+    // Whatever happened - a failed push, a rejected commit - leaves the local branch diverged
+    // from origin (stub gone, real file committed or half-written) with no way to tell on the
+    // next run. Drop it; `main()`'s next fetch + checkout recreates it fresh from origin, which
+    // still has the stub if the push never landed, or the populated file if it did.
+    await run("git", ["checkout", "main"]).catch(() => {});
+    await run("git", ["branch", "-D", candidate.branch]).catch(() => {});
+    throw e;
+  }
   await run("gh", ["pr", "comment", String(candidate.number), "--body", renderSuccessComment(opportunity)]);
   return { ok: true, detail: `PR #${candidate.number}: populated as ${opportunity.slug}` };
 }
