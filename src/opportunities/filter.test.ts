@@ -4,6 +4,7 @@ import type { Opportunity } from "./types";
 
 function make(overrides: Partial<Opportunity>): Opportunity {
   return {
+    id: "00000000-0000-0000-0000-000000000000",
     slug: "test",
     type: "job",
     title: "Test role",

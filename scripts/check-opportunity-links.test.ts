@@ -4,6 +4,7 @@ import { checkAllLinks, checkLink, curlStatus } from "./check-opportunity-links"
 
 function make(applyUrl: string): Opportunity {
   return {
+    id: "00000000-0000-0000-0000-000000000000",
     slug: "test",
     type: "job",
     title: "Test",

@@ -1,19 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminSessions } from "@/drizzle/schema";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { adminSessions, opportunities, opportunitiesAuditLog } from "@/drizzle/schema";
 import { db } from "@/lib/db";
-import { opportunityFilePath, printOpportunity } from "@/opportunities/files";
-import type { Opportunity } from "@/opportunities/types";
 import { startAdminSession } from "@/lib/session";
-import { github, githubEnv } from "../../../../../../test/fakes/github";
-import { withOpportunities } from "../../../../../../test/fakes/opportunities-dir";
 import { DELETE, PATCH } from "./route";
 
 vi.mock("next/headers", () => import("../../../../../../test/next-headers"));
 
 const SLUG = "fixture-job";
-const EXISTING: Opportunity = {
+const EXISTING = {
   slug: SLUG,
-  type: "job",
+  type: "job" as const,
   title: "Fixture Job",
   org: "Fixture Org",
   summary: "A short summary.",
@@ -22,6 +18,7 @@ const EXISTING: Opportunity = {
   remote: true,
   applyUrl: "https://example.com/apply",
   publishedAt: "2026-01-01",
+  createdBy: "admin@example.com",
 };
 
 function request(method: "PATCH" | "DELETE", body?: unknown) {
@@ -34,15 +31,13 @@ function request(method: "PATCH" | "DELETE", body?: unknown) {
 
 const params = { params: Promise.resolve({ slug: SLUG }) };
 
-let restore: () => void;
 beforeEach(async () => {
   await db.delete(adminSessions);
+  await db.delete(opportunitiesAuditLog);
+  await db.delete(opportunities);
   vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
-  for (const [name, value] of Object.entries(githubEnv())) vi.stubEnv(name, value);
-  github.fileOnMain(opportunityFilePath(SLUG), printOpportunity(EXISTING));
-  restore = withOpportunities([EXISTING]).restore;
+  await db.insert(opportunities).values(EXISTING);
 });
-afterEach(() => restore());
 
 describe("PATCH /api/admin/opportunities/[slug]", () => {
   it("is unauthorized when signed out", async () => {
@@ -50,16 +45,14 @@ describe("PATCH /api/admin/opportunities/[slug]", () => {
     expect(response.status).toBe(401);
   });
 
-  it("opens a pull request with the edited fields, keeping the slug", async () => {
+  it("saves the edited fields, keeping the slug and published date", async () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await PATCH(request("PATCH", { ...EXISTING, title: "New Title" }), params);
     expect(response.status).toBe(200);
-
-    const [pr] = github.openedPRs;
-    const [[, text]] = Object.entries(pr.files);
-    const written = JSON.parse(text);
-    expect(written.slug).toBe(SLUG);
-    expect(written.title).toBe("New Title");
+    const data = await response.json();
+    expect(data.slug).toBe(SLUG);
+    expect(data.title).toBe("New Title");
+    expect(data.publishedAt).toBe(EXISTING.publishedAt);
   });
 
   it("404s a slug that isn't on the live site", async () => {
@@ -84,12 +77,18 @@ describe("DELETE /api/admin/opportunities/[slug]", () => {
     expect(response.status).toBe(401);
   });
 
-  it("opens a pull request removing the listing's file", async () => {
+  it("removes the listing", async () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await DELETE(request("DELETE"), params);
     expect(response.status).toBe(200);
 
-    const [pr] = github.openedPRs;
-    expect(pr.files).toEqual({ [opportunityFilePath(SLUG)]: "(deleted)" });
+    const remaining = await db.select().from(opportunities);
+    expect(remaining).toEqual([]);
+  });
+
+  it("404s a slug that isn't on the live site", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await DELETE(request("DELETE"), { params: Promise.resolve({ slug: "no-such-slug" }) });
+    expect(response.status).toBe(404);
   });
 });

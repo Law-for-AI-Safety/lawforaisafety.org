@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import ContentPage from "@/app/ContentPage";
 import WipeButton from "@/app/WipeButton";
 import Rule from "@/cms/blocks/Rule";
-import { getOpportunities, getOpportunityBySlug } from "@/opportunities/data";
+import { getOpportunityBySlug } from "@/opportunities/data";
 import { formatDate } from "@/opportunities/filter";
 import type { Opportunity } from "@/opportunities/types";
 
-export const dynamicParams = false;
+// DB-backed, not a git-committed file - render fresh on every request so a newly-saved
+// listing is live immediately, with no redeploy needed.
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -21,19 +24,15 @@ const DEFAULT_APPLY_LABEL: Record<Opportunity["type"], string> = { job: "Apply n
 
 const FILLED = "inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden";
 
-export function generateStaticParams() {
-  return getOpportunities().map((o) => ({ slug: o.slug }));
-}
-
-function load(slug: string): Opportunity {
-  const found = getOpportunityBySlug(slug);
+const load = cache(async (slug: string): Promise<Opportunity> => {
+  const found = await getOpportunityBySlug(slug);
   if (!found) notFound();
   return found;
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const opportunity = load(slug);
+  const opportunity = await load(slug);
   return {
     title: `${opportunity.title} at ${opportunity.org} | Opportunities | Law for AI Safety`,
     description: opportunity.summary,
@@ -54,7 +53,7 @@ function facts(opportunity: Opportunity): { label: string; value: string }[] {
 
 export default async function OpportunityPage({ params }: Props) {
   const { slug } = await params;
-  const opportunity = load(slug);
+  const opportunity = await load(slug);
 
   return (
     <ContentPage gap={6}>

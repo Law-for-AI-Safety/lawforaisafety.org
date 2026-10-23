@@ -38,6 +38,7 @@ export const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const opportunitySchema = z
   .object({
+    id: z.string(),
     slug: z.string().regex(SLUG, "Slug may use only lowercase letters, digits and single hyphens"),
     type: z.enum(["job", "course"]),
     title: text("Title", 200),
@@ -62,8 +63,8 @@ export const opportunitySchema = z
 
 export type OpportunityInput = z.input<typeof opportunitySchema>;
 
-/** An opportunity's editable fields, without `slug` (identity, never edited) or `publishedAt` (set once, on create). */
-export const opportunityFieldsSchema = opportunitySchema.omit({ slug: true, publishedAt: true });
+/** An opportunity's editable fields: everything but `id`/`slug` (identity) and `publishedAt` (set once, on create). */
+export const opportunityFieldsSchema = opportunitySchema.omit({ id: true, slug: true, publishedAt: true });
 // A compile-time check that the schema's output matches the hand-written `Opportunity` type.
 type _AssertShapeMatches = z.infer<typeof opportunitySchema> extends Opportunity
   ? Opportunity extends z.infer<typeof opportunitySchema>
@@ -72,29 +73,6 @@ type _AssertShapeMatches = z.infer<typeof opportunitySchema> extends Opportunity
   : never;
 const _shapeCheck: _AssertShapeMatches = true;
 void _shapeCheck;
-
-/** A file that is still just a URL, waiting for the import script to fill in the rest. */
-export const stubSchema = z.object({ url: url("URL") }).strict();
-export type Stub = z.infer<typeof stubSchema>;
-
-export function isStub(value: unknown): value is Stub {
-  return stubSchema.safeParse(value).success;
-}
-
-/**
- * What the import script asks `claude -p` to extract from a fetched page: everything except
- * `slug` and `publishedAt` (computed by the script, never by the model) and `sourceUrl` (the
- * script already knows it - it's the stub's own `url`).
- */
-export const extractionSchema = opportunitySchema.omit({ slug: true, publishedAt: true, sourceUrl: true });
-export type Extraction = z.infer<typeof extractionSchema>;
-
-/**
- * What the import script actually asks `claude -p` for: a fetched page may describe one
- * listing or, for an aggregator/careers-index page, several - one array item per listing found.
- */
-export const extractionListSchema = z.array(extractionSchema).min(1);
-export type ExtractionList = z.infer<typeof extractionListSchema>;
 
 /** Parses and validates an opportunity's full content. Throws a readable `ZodError` on failure. */
 export function parseOpportunity(value: unknown): Opportunity {

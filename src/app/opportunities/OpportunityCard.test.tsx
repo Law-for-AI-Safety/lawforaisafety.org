@@ -4,6 +4,7 @@ import type { Opportunity } from "@/opportunities/types";
 import OpportunityCard from "./OpportunityCard";
 
 const job: Opportunity = {
+  id: "00000000-0000-0000-0000-000000000001",
   slug: "a-job",
   type: "job",
   title: "Senior Thing",
@@ -20,6 +21,7 @@ const job: Opportunity = {
 };
 
 const course: Opportunity = {
+  id: "00000000-0000-0000-0000-000000000002",
   slug: "a-course",
   type: "course",
   title: "Intro to Things",

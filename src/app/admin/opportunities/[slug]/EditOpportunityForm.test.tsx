@@ -4,6 +4,7 @@ import type { Opportunity } from "@/opportunities/types";
 import EditOpportunityForm from "./EditOpportunityForm";
 
 const opportunity: Opportunity = {
+  id: "00000000-0000-0000-0000-000000000000",
   slug: "fixture-job",
   type: "job",
   title: "Fixture Job",

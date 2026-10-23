@@ -2,8 +2,8 @@ import Link from "next/link";
 import { getOpportunities } from "@/opportunities/data";
 import { sortOpportunities } from "@/opportunities/filter";
 
-export default function OpportunitiesListPage() {
-  const opportunities = sortOpportunities(getOpportunities());
+export default async function OpportunitiesListPage() {
+  const opportunities = sortOpportunities(await getOpportunities());
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8 sm:py-12">

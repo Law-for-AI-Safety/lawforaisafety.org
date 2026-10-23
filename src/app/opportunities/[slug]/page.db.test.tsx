@@ -1,13 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { withOpportunities } from "../../../../test/fakes/opportunities-dir";
-import { getOpportunities } from "@/opportunities/data";
-import type { Opportunity } from "@/opportunities/types";
-import OpportunityPage, { dynamicParams, generateMetadata, generateStaticParams } from "./page";
+import { beforeEach, describe, expect, it } from "vitest";
+import { opportunities } from "@/drizzle/schema";
+import { db } from "@/lib/db";
+import OpportunityPage, { generateMetadata } from "./page";
 
-const JOB: Opportunity = {
+const JOB = {
   slug: "fixture-job",
-  type: "job",
+  type: "job" as const,
   title: "Fixture Job",
   org: "Fixture Org",
   summary: "A short summary.",
@@ -16,31 +15,26 @@ const JOB: Opportunity = {
   remote: true,
   applyUrl: "https://example.com/apply",
   publishedAt: "2026-01-01",
+  createdBy: "admin@example.com",
 };
 
-const COURSE: Opportunity = {
+const COURSE = {
   ...JOB,
   slug: "fixture-course",
-  type: "course",
+  type: "course" as const,
   title: "Fixture Course",
   applyUrl: "https://example.com/enrol",
 };
 
-let restore: () => void;
-beforeEach(() => {
-  restore = withOpportunities([JOB, COURSE]).restore;
+beforeEach(async () => {
+  await db.delete(opportunities);
+  await db.insert(opportunities).values([JOB, COURSE]);
 });
-afterEach(() => restore());
 
 const params = (slug: string) => ({ params: Promise.resolve({ slug }) });
 
 describe("an opportunity's detail page", () => {
-  it("builds static params for every listing", () => {
-    expect(generateStaticParams()).toEqual(getOpportunities().map((o) => ({ slug: o.slug })));
-  });
-
   it("is a 404 for any other address", async () => {
-    expect(dynamicParams).toBe(false);
     await expect(OpportunityPage(params("no-such-opportunity"))).rejects.toThrow("NEXT_NOT_FOUND");
     await expect(generateMetadata(params("no-such-opportunity"))).rejects.toThrow("NEXT_NOT_FOUND");
   });
@@ -49,16 +43,13 @@ describe("an opportunity's detail page", () => {
     render(await OpportunityPage(params(JOB.slug)));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(JOB.title);
     expect(screen.getByText(JOB.org)).toBeInTheDocument();
-    const cta = screen.getByRole("link", { name: JOB.applyLabel ?? "Apply now" });
+    const cta = screen.getByRole("link", { name: "Apply now" });
     expect(cta).toHaveAttribute("href", JOB.applyUrl);
   });
 
   it("renders a course's View course CTA", async () => {
     render(await OpportunityPage(params(COURSE.slug)));
-    expect(screen.getByRole("link", { name: COURSE.applyLabel ?? "View course" })).toHaveAttribute(
-      "href",
-      COURSE.applyUrl,
-    );
+    expect(screen.getByRole("link", { name: "View course" })).toHaveAttribute("href", COURSE.applyUrl);
   });
 
   it("gives the page its own metadata", async () => {

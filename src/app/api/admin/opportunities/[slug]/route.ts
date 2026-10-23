@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireOpportunities } from "@/lib/admin-guard";
-import { opportunitiesGitHub, publishResponse, PUBLISHING_NOT_SET_UP } from "@/lib/opportunities-github";
+import { deleteOpportunity, NotFoundError, updateOpportunity, ValidationError } from "@/lib/opportunities-flow";
 import { opportunityFieldsFromBody } from "@/opportunities/form-fields";
-import { deleteOpportunity, updateOpportunity } from "@/opportunities/github-publish";
 
 type Params = { params: Promise<{ slug: string }> };
 
-/**
- * Edits an existing opportunity. The form resends every field; the slug (and file path) never
- * changes. Whether the listing still exists is checked against GitHub `main` itself, inside
- * `updateOpportunity` - never against this server's own possibly-stale local read of
- * `content/opportunities/`, which can lag a few minutes behind a just-merged pull request.
- */
+const NOT_FOUND = { error: "There is no such listing on the live site." };
+
+/** Edits an existing opportunity, live immediately. The form resends every field; the slug never changes. */
 export async function PATCH(request: Request, { params }: Params) {
   const session = await requireOpportunities(request);
   if (session instanceof NextResponse) return session;
@@ -21,22 +17,27 @@ export async function PATCH(request: Request, { params }: Params) {
   const parsed = opportunityFieldsFromBody(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const github = opportunitiesGitHub();
-  if (!github) return NextResponse.json({ error: PUBLISHING_NOT_SET_UP }, { status: 503 });
-
-  const result = await updateOpportunity(github, { slug, opportunity: parsed.fields, editorName: session.name, now: new Date() });
-  return publishResponse(result);
+  try {
+    const opportunity = await updateOpportunity(slug, parsed.fields, session.email);
+    return NextResponse.json(opportunity);
+  } catch (err) {
+    if (err instanceof NotFoundError) return NextResponse.json(NOT_FOUND, { status: 404 });
+    if (err instanceof ValidationError) return NextResponse.json({ error: err.message }, { status: 400 });
+    throw err;
+  }
 }
 
-/** Opens a pull request that removes the listing's file. */
+/** Removes the listing. */
 export async function DELETE(request: Request, { params }: Params) {
   const session = await requireOpportunities(request);
   if (session instanceof NextResponse) return session;
   const { slug } = await params;
 
-  const github = opportunitiesGitHub();
-  if (!github) return NextResponse.json({ error: PUBLISHING_NOT_SET_UP }, { status: 503 });
-
-  const result = await deleteOpportunity(github, { slug, editorName: session.name, now: new Date() });
-  return publishResponse(result);
+  try {
+    const opportunity = await deleteOpportunity(slug, session.email);
+    return NextResponse.json(opportunity);
+  } catch (err) {
+    if (err instanceof NotFoundError) return NextResponse.json(NOT_FOUND, { status: 404 });
+    throw err;
+  }
 }

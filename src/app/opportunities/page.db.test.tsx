@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { withOpportunities } from "../../../test/fakes/opportunities-dir";
-import type { Opportunity } from "@/opportunities/types";
+import { beforeEach, describe, expect, it } from "vitest";
+import { opportunities } from "@/drizzle/schema";
+import { db } from "@/lib/db";
 import OpportunitiesPage, { metadata } from "./page";
 
-const FIXTURE: Opportunity = {
+const FIXTURE = {
   slug: "fixture-job",
-  type: "job",
+  type: "job" as const,
   title: "Fixture Job",
   org: "Fixture Org",
   summary: "A short summary.",
@@ -15,17 +15,17 @@ const FIXTURE: Opportunity = {
   remote: true,
   applyUrl: "https://example.com/apply",
   publishedAt: "2026-01-01",
+  createdBy: "admin@example.com",
 };
 
-let restore: () => void;
-beforeEach(() => {
-  restore = withOpportunities([FIXTURE]).restore;
+beforeEach(async () => {
+  await db.delete(opportunities);
+  await db.insert(opportunities).values(FIXTURE);
 });
-afterEach(() => restore());
 
 describe("the opportunities index page", () => {
-  it("renders a heading and at least one listing", () => {
-    render(<OpportunitiesPage />);
+  it("renders a heading and at least one listing", async () => {
+    render(await OpportunitiesPage());
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Opportunities");
     expect(screen.getByText(FIXTURE.title)).toBeInTheDocument();
   });

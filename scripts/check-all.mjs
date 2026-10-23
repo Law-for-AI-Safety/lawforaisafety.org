@@ -4,7 +4,7 @@
  */
 import { spawnSync } from "node:child_process";
 
-const STEPS = ["content:check", "opportunities:check", "typecheck", "lint", "test:coverage"];
+const STEPS = ["content:check", "typecheck", "lint", "test:coverage"];
 
 function formatDuration(ms) {
   const seconds = ms / 1000;

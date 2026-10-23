@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isStub, opportunitySchema, parseOpportunity, stubSchema } from "./schema";
+import { opportunitySchema, parseOpportunity } from "./schema";
 
 function valid() {
   return {
+    id: "00000000-0000-0000-0000-000000000000",
     slug: "test-job",
     type: "job" as const,
     title: "Test Job",
@@ -67,21 +68,5 @@ describe("opportunitySchema", () => {
 
   it("rejects an unknown type", () => {
     expect(opportunitySchema.safeParse({ ...valid(), type: "internship" }).success).toBe(false);
-  });
-});
-
-describe("stubSchema / isStub", () => {
-  it("accepts a file with only a url", () => {
-    expect(stubSchema.safeParse({ url: "https://example.com/posting" }).success).toBe(true);
-    expect(isStub({ url: "https://example.com/posting" })).toBe(true);
-  });
-
-  it("rejects a file with extra keys or a bad url", () => {
-    expect(isStub({ url: "https://example.com", extra: 1 })).toBe(false);
-    expect(isStub({ url: "not a url" })).toBe(false);
-  });
-
-  it("does not mistake a full opportunity for a stub", () => {
-    expect(isStub(valid())).toBe(false);
   });
 });

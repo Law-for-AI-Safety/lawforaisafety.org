@@ -1,13 +1,25 @@
-import type { PublishedResult } from "./api";
+import Link from "next/link";
+import type { Opportunity } from "@/opportunities/types";
 
-export default function PublishedNotice({ result, verb }: { result: PublishedResult; verb: string }) {
+const COPY: Record<"created" | "updated" | "removed", string> = {
+  created: "Created and live now:",
+  updated: "Saved:",
+  removed: "Removed:",
+};
+
+export default function PublishedNotice({ opportunity, action }: { opportunity: Opportunity; action: "created" | "updated" | "removed" }) {
   return (
     <p className="border border-brand-black/20 bg-brand-navy/5 px-4 py-3 text-brand-black">
-      Opened pull request #{result.number} to {verb}.{" "}
-      <a href={result.url} target="_blank" rel="noreferrer" className="underline">
-        Review it on GitHub
-      </a>
-      . Merging it makes the change live.
+      {COPY[action]} <strong>{opportunity.title}</strong> at {opportunity.org}.{" "}
+      {action === "removed" ? (
+        <Link href="/admin/opportunities" className="underline">
+          Back to all opportunities
+        </Link>
+      ) : (
+        <Link href={`/opportunities/${opportunity.slug}`} className="underline">
+          View it live
+        </Link>
+      )}
     </p>
   );
 }

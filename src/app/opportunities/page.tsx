@@ -11,8 +11,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "/opportunities" },
 };
 
-export default function OpportunitiesPage() {
-  const opportunities = sortOpportunities(getOpportunities());
+// DB-backed, not a git-committed file - render fresh on every request so a newly-saved
+// listing is live immediately, with no redeploy needed.
+export const dynamic = "force-dynamic";
+
+export default async function OpportunitiesPage() {
+  const opportunities = sortOpportunities(await getOpportunities());
 
   return (
     <ContentPage gap={6}>

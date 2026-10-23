@@ -1,9 +1,8 @@
 import { GitHubError, type GitHubClient } from "./github";
 
 /**
- * Small, schema-agnostic pieces shared by every "publish via pull request" flow in this repo -
- * today `src/cms/publish.ts` (content pages) and `src/opportunities/github-publish.ts`
- * (opportunities). None of this knows what's being published; each caller supplies its own
+ * Small, schema-agnostic pieces for publishing via a pull request - used by `src/cms/publish.ts`
+ * (content pages). None of this knows what's being published; each caller supplies its own
  * branch prefix and file path.
  */
 

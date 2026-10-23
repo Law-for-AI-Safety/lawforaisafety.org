@@ -5,9 +5,9 @@
 // Usage: node --import tsx scripts/check-opportunity-links.ts
 
 import { execFile } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { getOpportunities } from "../src/opportunities/data";
 import type { Opportunity } from "../src/opportunities/types";
 
 const execFileAsync = promisify(execFile);
@@ -73,8 +73,19 @@ export function checkAllLinks(
   return Promise.all(opportunities.map((o) => checkLink(o, fetchImpl, curlCheck)));
 }
 
+/**
+ * Opportunities are DB-backed now, so `getOpportunities` needs `DATABASE_URL` set before
+ * `src/lib/db.ts` is first imported - which a static import of it would do before this script's
+ * own code ever runs. A dynamic import, after loading `.env.local` here, defers that.
+ */
 async function main() {
-  const results = await checkAllLinks(getOpportunities());
+  const ENV_FILE = ".env.local";
+  if (!process.env.DATABASE_URL && existsSync(ENV_FILE)) {
+    const match = readFileSync(ENV_FILE, "utf8").match(/^DATABASE_URL=(.*)$/m);
+    if (match) process.env.DATABASE_URL = match[1].replace(/^"(.*)"$/, "$1");
+  }
+  const { getOpportunities } = await import("../src/opportunities/data");
+  const results = await checkAllLinks(await getOpportunities());
   for (const r of results) {
     const via = r.via ? ` (via ${r.via})` : "";
     console.log(`${r.ok ? "OK  " : "DEAD"} ${r.status ?? r.error}${via} ${r.slug} -> ${r.url}`);

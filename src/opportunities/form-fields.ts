@@ -9,7 +9,7 @@ import type { Opportunity } from "./types";
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 const strOrUndefined = (v: unknown): string | undefined => str(v) || undefined;
 
-export type OpportunityFields = Omit<Opportunity, "slug" | "publishedAt">;
+export type OpportunityFields = Omit<Opportunity, "id" | "slug" | "publishedAt">;
 
 export type ParsedOpportunityBody = { ok: true; fields: OpportunityFields } | { ok: false; error: string };
 

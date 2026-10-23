@@ -1,10 +1,10 @@
+import type { Opportunity } from "@/opportunities/types";
+
 /**
  * fetch + JSON for the opportunities admin forms, same shape as the task tracker's
  * `src/app/admin/task-tracker/api.ts`, extended with DELETE for removing a listing.
  */
-export type PublishedResult = { number: number; url: string; branch: string };
-
-export async function sendJson(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<PublishedResult> {
+export async function sendJson(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<Opportunity> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -23,5 +23,5 @@ export async function sendJson(url: string, method: "POST" | "PATCH" | "DELETE",
     }
     throw new Error(data?.error ?? "Something went wrong saving this. Please try again.");
   }
-  return data as PublishedResult;
+  return data as Opportunity;
 }

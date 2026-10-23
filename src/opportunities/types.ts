@@ -1,6 +1,7 @@
 export type OpportunityType = "job" | "course";
 
 export type Opportunity = {
+  id: string;
   slug: string;
   type: OpportunityType;
   title: string;
@@ -18,7 +19,7 @@ export type Opportunity = {
   tags?: string[];
   applyUrl: string;
   applyLabel?: string;
-  /** The page a listing was imported from, when it differs from `applyUrl` (e.g. a job ad whose own "Apply" button goes elsewhere). */
+  /** Where this listing was found, for reference, when it differs from `applyUrl`. */
   sourceUrl?: string;
   publishedAt: string;
 };
