@@ -79,7 +79,7 @@ export default function Nav() {
   const onHomepage = pathname === "/";
   // Section anchors (#mission etc) only exist on the homepage. Elsewhere,
   // route through it first so the link actually lands somewhere.
-  const homeHref = (href: string) => (onHomepage ? href : `/${href}`);
+  const homeHref = (href: string) => (href.startsWith("#") ? (onHomepage ? href : `/${href}`) : href);
 
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("");

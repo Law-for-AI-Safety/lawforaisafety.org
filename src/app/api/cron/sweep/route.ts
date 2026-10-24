@@ -1,9 +1,9 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sweepOldDrafts } from "@/lib/applicant-flow";
 import { sweepOldRedLinesDrafts } from "@/lib/red-lines-flow";
 import { sweepUnconfirmedSignups } from "@/lib/newsletter-signup";
 import { sweepRateLimitHits } from "@/lib/rate-limit";
+import { hasBearerSecret } from "@/lib/timing-safe-equal";
 
 /**
  * Deletes everything that has outlived the retention periods the privacy
@@ -18,19 +18,8 @@ import { sweepRateLimitHits } from "@/lib/rate-limit";
  * one. It accepts no input and only ever deletes what is already expired, so
  * the worst a leaked secret allows is running the clean-up early.
  */
-function isAuthorised(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-
-  const provided = request.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export async function POST(request: Request) {
-  if (!isAuthorised(request)) {
+  if (!hasBearerSecret(request, process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

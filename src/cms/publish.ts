@@ -1,3 +1,4 @@
+import { branchName as sharedBranchName, codeSpan, deleteOrKeep, githubFailure, isoDay } from "./branch-publish";
 import { checkContentText, printContent } from "./content-files";
 import { changedFields, type FieldChange } from "./field-diff";
 import { GitHubError, REQUEST_TIMEOUT_MS, SENDS_PER_CALL, type GitHubClient, type PullRequest, type PullRequestComment } from "./github";
@@ -57,22 +58,10 @@ export function contentFilePath(slug: string): string {
   return `${CONTENT_DIR}/${slug}.json`;
 }
 
-/** A date as YYYY-MM-DD, in UTC. */
-export function isoDay(at: Date): string {
-  return at.toISOString().slice(0, 10);
-}
+export { isoDay };
 
 export function branchName(slug: string, at: Date, attempt = 1): string {
-  return `cms/${slug}-${isoDay(at)}${attempt > 1 ? `-${attempt}` : ""}`;
-}
-
-/** Text in a markdown code span that nothing inside can close, on one line. */
-function code(text: string): string {
-  const flat = text.replace(/\s+/g, " ").trim();
-  const longest = Math.max(0, ...(flat.match(/`+/g) ?? []).map((run) => run.length));
-  const fence = "`".repeat(longest + 1);
-  const pad = flat.startsWith("`") || flat.endsWith("`") ? " " : "";
-  return `${fence}${pad}${flat}${pad}${fence}`;
+  return sharedBranchName("cms", slug, at, attempt);
 }
 
 /** Text in a fenced block that nothing inside can close, so editor text is never read as markdown. */
@@ -114,9 +103,9 @@ export function pullRequestBody({ slug, editorName, changes, number }: PullReque
   const path = pagePath(slug);
   const preview = number === null ? "The preview link is added here once this pull request has a number." : previewUrl(number, path);
   const lines = [
-    `An editor sent changes to the page at ${code(path)} from the website editor. This pull request changes only ${code(contentFilePath(slug))}.`,
+    `An editor sent changes to the page at ${codeSpan(path)} from the website editor. This pull request changes only ${codeSpan(contentFilePath(slug))}.`,
     "",
-    `- **Sent by:** ${code(editorName)}`,
+    `- **Sent by:** ${codeSpan(editorName)}`,
     `- **Deploy preview:** ${preview}`,
     `- **Publish checks:** ${PASSED_CHECKS}`,
     "",
@@ -181,8 +170,7 @@ function parseJson(text: string): unknown {
 }
 
 function failure(step: PublishStep, e: unknown, leftBranch: string | null = null): PublishResult {
-  if (!(e instanceof GitHubError)) throw e;
-  return { ok: false, reason: "github", step, message: e.message, leftBranch };
+  return githubFailure(step, e, leftBranch);
 }
 
 export async function publishToGitHub(github: GitHubClient, input: PublishInput): Promise<PublishResult> {
@@ -261,16 +249,6 @@ export async function publishToGitHub(github: GitHubClient, input: PublishInput)
     bodyUpdated = false;
   }
   return { ok: true, number: opened.number, url: opened.url, branch, previewUrl: previewUrl(opened.number, pagePath(slug)), changes, bodyUpdated };
-}
-
-/** Deletes a branch; returns its name if that failed, else null. */
-async function deleteOrKeep(github: GitHubClient, branch: string): Promise<string | null> {
-  try {
-    await github.deleteBranch(branch);
-    return null;
-  } catch {
-    return branch;
-  }
 }
 
 export type WithdrawResult =

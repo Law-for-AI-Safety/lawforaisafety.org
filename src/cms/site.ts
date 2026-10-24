@@ -94,6 +94,7 @@ const DEFAULT_HINT: Hint = { changeFrequency: "monthly", priority: 0.6 };
 const HINTS: Record<string, Hint> = {
   "/": { changeFrequency: "monthly", priority: 1 },
   "/red-lines-dialogue": { changeFrequency: "weekly", priority: 0.7 },
+  "/opportunities": { changeFrequency: "weekly", priority: 0.7 },
 };
 
 /**

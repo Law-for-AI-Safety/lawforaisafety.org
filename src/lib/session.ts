@@ -147,23 +147,32 @@ export function isTechAdminConfigured(): boolean {
 }
 
 /**
- * Access to the task tracker. Unlike TECH_ADMIN_EMAILS,
- * this defaults to *everyone* in ADMIN_EMAILS when TASK_TRACKER_TEAM_EMAILS is
- * unset — today's reviewers and the lawyers who need the tracker are
- * largely the same people, and requiring the env var to be set first would
- * lock everyone out until someone remembers to configure it. Setting
- * TASK_TRACKER_TEAM_EMAILS narrows access to that list, same "narrows, never
- * grants" rule as isTechAdminEmail.
+ * Access to a team-gated set of admin pages (today: the task tracker, the opportunities
+ * board). Unlike TECH_ADMIN_EMAILS, this defaults to *everyone* in ADMIN_EMAILS when `envVar`
+ * is unset — the people who need these features day to day are largely the same people, and
+ * requiring the env var to be set first would lock everyone out until someone remembers to
+ * configure it. Setting `envVar` narrows access to that list, same "narrows, never grants"
+ * rule as isTechAdminEmail.
  */
-export function isTaskTrackerTeamEmail(email: string): boolean {
+function isTeamEmail(email: string, envVar: string): boolean {
   if (!isAdminEmailAllowed(email)) return false;
-  const configured = (process.env.TASK_TRACKER_TEAM_EMAILS ?? "").trim() !== "";
-  if (!configured) return true;
-  const allowed = (process.env.TASK_TRACKER_TEAM_EMAILS ?? "")
+  const raw = process.env[envVar] ?? "";
+  if (raw.trim() === "") return true;
+  const allowed = raw
     .split(",")
     .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
   return allowed.includes(email.toLowerCase());
+}
+
+/** Access to the task tracker: see `isTeamEmail`. Narrowed by TASK_TRACKER_TEAM_EMAILS. */
+export function isTaskTrackerTeamEmail(email: string): boolean {
+  return isTeamEmail(email, "TASK_TRACKER_TEAM_EMAILS");
+}
+
+/** Access to the opportunities board's admin pages: see `isTeamEmail`. Narrowed by OPPORTUNITIES_TEAM_EMAILS. */
+export function isOpportunitiesTeamEmail(email: string): boolean {
+  return isTeamEmail(email, "OPPORTUNITIES_TEAM_EMAILS");
 }
 
 export function pinnedAdminSubs(): string[] {
