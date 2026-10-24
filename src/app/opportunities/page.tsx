@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import ContentPage from "@/app/ContentPage";
 import Rule from "@/cms/blocks/Rule";
-import { getOpportunities } from "@/opportunities/data";
+import { getCachedOpportunities } from "@/opportunities/data";
 import { openOpportunities, sortOpportunities } from "@/opportunities/filter";
 import OpportunitiesBoard from "./OpportunitiesBoard";
 
@@ -11,13 +12,13 @@ export const metadata: Metadata = {
   alternates: { canonical: "/opportunities" },
 };
 
-// DB-backed, not a git-committed file - render fresh on every request so a newly-saved
-// listing is live immediately, with no redeploy needed.
-export const dynamic = "force-dynamic";
-
 export default async function OpportunitiesPage() {
+  // Rendered per request, never prerendered: Netlify builds have no database, and which
+  // listings have closed depends on today's date. Not `force-dynamic`, which would also
+  // switch off the data cache the listings are read through.
+  await connection();
   // Closed listings keep their own page, but drop off the board.
-  const opportunities = sortOpportunities(openOpportunities(await getOpportunities(), new Date()));
+  const opportunities = sortOpportunities(openOpportunities(await getCachedOpportunities(), new Date()));
 
   return (
     <ContentPage gap={6}>

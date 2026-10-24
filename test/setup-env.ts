@@ -3,6 +3,7 @@ import { fakeFetch, routeOrigin } from "./fakes/network";
 import { github, GITHUB_API } from "./fakes/github";
 import { emails } from "./fakes/email";
 import { turnstile } from "./fakes/turnstile";
+import { dataCache } from "./next-cache";
 
 /**
  * Runs first in every test file. Settings get dummy values, none of them a real credential
@@ -30,11 +31,19 @@ for (const name of ["GITHUB_APP_ID", "GITHUB_APP_INSTALLATION_ID", "GITHUB_APP_P
 process.env.DATABASE_URL = "postgres://no-database-in-unit-tests.invalid:5432/none";
 delete process.env.NETLIFY_DB_URL;
 
+vi.mock("next/cache", () => import("./next-cache"));
+// `connection()` needs Next's request scope; a test always runs at "request time".
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  connection: async () => {},
+}));
+
 // The outside world is faked at `fetch`; see test/fakes/network.ts.
 globalThis.fetch = fakeFetch as typeof fetch;
 routeOrigin(GITHUB_API, (request) => github.handle(request));
 
 beforeEach(() => {
+  dataCache.reset();
   emails.reset();
   turnstile.reset();
   github.reset();

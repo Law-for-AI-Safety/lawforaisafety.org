@@ -1,7 +1,8 @@
 import { eq, like } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
-import { toOpportunity, type OpportunityRow } from "@/opportunities/data";
+import { revalidateTag } from "next/cache";
+import { OPPORTUNITIES_CACHE_TAG, toOpportunity, type OpportunityRow } from "@/opportunities/data";
 import type { OpportunityFields } from "@/opportunities/form-fields";
 import { opportunityFieldsSchema } from "@/opportunities/schema";
 import { slugify, uniqueSlug } from "@/opportunities/slug";
@@ -21,6 +22,11 @@ const MAX_SLUG_ATTEMPTS = 5;
 
 function isUniqueSlugViolation(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code?: unknown }).code === "23505";
+}
+
+/** Drops the public pages' cached reads, so the next visit sees the write rather than a stale copy. */
+function clearPublicCache() {
+  revalidateTag(OPPORTUNITIES_CACHE_TAG, { expire: 0 });
 }
 
 function todayISO(): string {
@@ -68,6 +74,7 @@ export async function createOpportunity(fields: OpportunityFields, createdBy: st
     entityId: row.id,
     detail: { slug: row.slug, title: row.title, org: row.org },
   });
+  clearPublicCache();
   return toOpportunity(row);
 }
 
@@ -99,6 +106,7 @@ export async function updateOpportunity(slug: string, fields: OpportunityFields,
   );
   const detail = Object.fromEntries(changedKeys.map((key) => [key, { before: existing[key], after: row[key] }]));
   await recordOpportunityAction({ actorEmail, action: "update", entityId: row.id, detail });
+  clearPublicCache();
 
   return toOpportunity(row);
 }
@@ -108,5 +116,6 @@ export async function deleteOpportunity(slug: string, actorEmail: string): Promi
   const [row] = await db.delete(opportunities).where(eq(opportunities.slug, slug)).returning();
   if (!row) throw new NotFoundError();
   await recordOpportunityAction({ actorEmail, action: "delete", entityId: row.id, detail: row });
+  clearPublicCache();
   return toOpportunity(row);
 }

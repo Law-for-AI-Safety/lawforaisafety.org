@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
+import { deleteOpportunity, updateOpportunity } from "@/lib/opportunities-flow";
 import OpportunityPage, { generateMetadata } from "./page";
 
 const JOB = {
@@ -70,6 +71,26 @@ describe("an opportunity's detail page", () => {
     render(await OpportunityPage(params("closing-job")));
     expect(screen.getByRole("link", { name: "Apply now" })).toHaveAttribute("href", JOB.applyUrl);
     expect(screen.queryByText("Closed")).not.toBeInTheDocument();
+  });
+
+  it("shows an edit made through the flow at once", async () => {
+    render(await OpportunityPage(params(JOB.slug)));
+    const { type, org, summary, description, locationCountry, remote, applyUrl } = JOB;
+    await updateOpportunity(
+      JOB.slug,
+      { type, title: "Renamed Job", org, summary, description, locationCountry, remote, applyUrl },
+      "admin@example.com",
+    );
+
+    cleanup();
+    render(await OpportunityPage(params(JOB.slug)));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Renamed Job");
+  });
+
+  it("is a 404 at once when the listing is deleted through the flow", async () => {
+    render(await OpportunityPage(params(JOB.slug)));
+    await deleteOpportunity(JOB.slug, "admin@example.com");
+    await expect(OpportunityPage(params(JOB.slug))).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
   it("gives the page its own metadata", async () => {

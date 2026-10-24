@@ -2,16 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import ContentPage from "@/app/ContentPage";
 import WipeButton from "@/app/WipeButton";
 import Rule from "@/cms/blocks/Rule";
-import { getOpportunityBySlug } from "@/opportunities/data";
+import { getCachedOpportunityBySlug } from "@/opportunities/data";
 import { formatCommitment, formatCompensation, formatDate, formatLocation, isClosed } from "@/opportunities/filter";
 import type { Opportunity } from "@/opportunities/types";
-
-// DB-backed, not a git-committed file - render fresh on every request so a newly-saved
-// listing is live immediately, with no redeploy needed.
-export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -25,7 +22,11 @@ const DEFAULT_APPLY_LABEL: Record<Opportunity["type"], string> = { job: "Apply n
 const FILLED = "inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden";
 
 const load = cache(async (slug: string): Promise<Opportunity> => {
-  const found = await getOpportunityBySlug(slug);
+  // Rendered per request, never prerendered: Netlify builds have no database, and whether
+  // the listing has closed depends on today's date. Not `force-dynamic`, which would also
+  // switch off the data cache the listing is read through.
+  await connection();
+  const found = await getCachedOpportunityBySlug(slug);
   if (!found) notFound();
   return found;
 });

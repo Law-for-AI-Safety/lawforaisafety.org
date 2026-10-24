@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
 import type { Opportunity } from "./types";
@@ -56,6 +57,17 @@ export async function getOpportunityBySlug(slug: string): Promise<Opportunity | 
   const [row] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   return row ? toOpportunity(row) : null;
 }
+
+/** Tags the public pages' cached reads; `src/lib/opportunities-flow.ts` clears it on every write. */
+export const OPPORTUNITIES_CACHE_TAG = "opportunities";
+const PUBLIC_CACHE = { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 };
+
+// The public board and listing pages read through Next's data cache, so a visit needn't wake
+// the database. Writes through the flow clear it at once; the hour only bounds how long a
+// change made around the flow (a seed, a manual SQL fix) takes to show. Admin pages and the
+// API read the uncached functions above.
+export const getCachedOpportunities = unstable_cache(getOpportunities, ["opportunities"], PUBLIC_CACHE);
+export const getCachedOpportunityBySlug = unstable_cache(getOpportunityBySlug, ["opportunity-by-slug"], PUBLIC_CACHE);
 
 /** Every distinct tag already in use, for the admin form's typeahead - keeps tagging consistent across listings. */
 export async function getOpportunityTags(): Promise<string[]> {
