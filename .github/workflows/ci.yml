@@ -55,7 +55,9 @@ jobs:
   # The editor in a real browser against the built app, Postgres and a fake GitHub served
   # locally (e2e/cms.e2e.ts). Nothing here reaches GitHub or Netlify.
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned below ubuntu-latest: Playwright 1.59.1 doesn't yet support the ubuntu26.04
+    # runner image, so `playwright install --with-deps` fails on it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
