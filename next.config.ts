@@ -55,7 +55,12 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   // The dev accounts each sign in on their own localhost subdomain (src/lib/dev-accounts.ts).
-  allowedDevOrigins: ["*.localhost"],
+  // DEV_ALLOWED_ORIGINS (comma-separated hosts) adds others, e.g. a tailnet preview
+  // host, so hot reload works there too.
+  allowedDevOrigins: [
+    "*.localhost",
+    ...(process.env.DEV_ALLOWED_ORIGINS?.split(",").filter(Boolean) ?? []),
+  ],
   // Netlify's CONTEXT only exists at build time; this inlines it so runtime
   // code can still tell production from a preview (src/lib/deploy-context.ts).
   env: {
