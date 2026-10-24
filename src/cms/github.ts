@@ -43,8 +43,11 @@ export interface GitHubClient {
   readFile(path: string, ref: string): Promise<RepoFile | null>;
   /** A blob's text by its id; null when the repo has no such blob. */
   readBlob(sha: string): Promise<string | null>;
-  /** Makes a commit that changes one file on top of `parent`, without moving any branch. Returns its id. */
-  createCommit(input: { parent: string; baseTree: string; path: string; text: string; message: string }): Promise<string>;
+  /**
+   * Makes a commit that changes one file on top of `parent`, without moving any branch.
+   * `text: null` removes the file instead of writing it. Returns the commit's id.
+   */
+  createCommit(input: { parent: string; baseTree: string; path: string; text: string | null; message: string }): Promise<string>;
   /** Creates a branch at `commit`. False when a branch of that name already exists. */
   createBranch(name: string, commit: string): Promise<boolean>;
   /** Deletes a branch; a branch that is already gone counts as deleted. */
@@ -258,10 +261,11 @@ export class GitHubAppClient implements GitHubClient {
     return body ? fromBase64(String(body.content)) : null;
   }
 
-  async createCommit({ parent, baseTree, path, text, message }: { parent: string; baseTree: string; path: string; text: string; message: string }) {
+  async createCommit({ parent, baseTree, path, text, message }: { parent: string; baseTree: string; path: string; text: string | null; message: string }) {
+    const entry = text === null ? { path, mode: "100644", type: "blob", sha: null } : { path, mode: "100644", type: "blob", content: text };
     const tree = await this.repo("/git/trees", {
       method: "POST",
-      body: { base_tree: baseTree, tree: [{ path, mode: "100644", type: "blob", content: text }] },
+      body: { base_tree: baseTree, tree: [entry] },
     });
     const commit = await this.repo("/git/commits", {
       method: "POST",

@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { timingSafeEqualStrings } from "@/lib/timing-safe-equal";
 
 /**
  * Binds an OAuth `state` to the browser that started the flow.
@@ -50,7 +50,5 @@ export async function oauthStateCookieMatches(
   const expected = cookieStore.get(COOKIE_NAMES[flow])?.value;
   if (!expected) return false;
 
-  const a = Buffer.from(expected);
-  const b = Buffer.from(state);
-  return a.length === b.length && timingSafeEqual(a, b);
+  return timingSafeEqualStrings(expected, state);
 }

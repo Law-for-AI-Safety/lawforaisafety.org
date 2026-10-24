@@ -483,3 +483,60 @@ export const cmsSubmissions = pgTable(
   },
   (table) => [index("cms_submissions_page_idx").on(table.page)],
 );
+
+// Opportunities board: plain DB-backed CRUD, same trust level as task-tracker (no draft/review
+// state - an admin saving a listing is already the review step). `publishedAt` is set once at
+// creation and never changes on edit; history instead lives in opportunitiesAuditLog.
+export const opportunityType = pgEnum("opportunity_type", ["job", "course"]);
+export const opportunityCommitment = pgEnum("opportunity_commitment", [
+  "full_time",
+  "part_time",
+  "contract",
+  "internship",
+  "fellowship",
+]);
+export const opportunityCompCurrency = pgEnum("opportunity_comp_currency", ["GBP", "USD", "EUR"]);
+export const opportunityCompPeriod = pgEnum("opportunity_comp_period", ["year", "month", "week", "day", "hour"]);
+
+export const opportunities = pgTable("opportunities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  type: opportunityType("type").notNull(),
+  title: text("title").notNull(),
+  org: text("org").notNull(),
+  orgUrl: text("org_url"),
+  summary: text("summary").notNull(),
+  description: text("description").notNull(),
+  locationCountry: text("location_country").notNull(),
+  locationCity: text("location_city"),
+  locationNote: text("location_note"),
+  remote: boolean("remote").notNull(),
+  commitment: opportunityCommitment("commitment"),
+  compMin: integer("comp_min"),
+  compMax: integer("comp_max"),
+  compCurrency: opportunityCompCurrency("comp_currency"),
+  compPeriod: opportunityCompPeriod("comp_period"),
+  compNote: text("comp_note"),
+  deadline: date("deadline"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  applyUrl: text("apply_url").notNull(),
+  applyLabel: text("apply_label"),
+  sourceUrl: text("source_url"),
+  publishedAt: date("published_at").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdBy: text("created_by").notNull(),
+});
+
+// Same shape as taskTrackerAuditLog - a delete's `detail` holds a full snapshot of the row,
+// since hard-deleting otherwise loses the record entirely (git previously kept this for free).
+export const opportunitiesAuditLog = pgTable("opportunities_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  actorEmail: text("actor_email").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: uuid("entity_id").notNull(),
+  detail: jsonb("detail"),
+});

@@ -3,8 +3,10 @@ import {
   getAdminSession,
   isTechAdminEmail,
   isTaskTrackerTeamEmail,
+  isOpportunitiesTeamEmail,
   type AdminSessionPayload,
 } from "@/lib/session";
+import { hasBearerSecret } from "@/lib/timing-safe-equal";
 
 /**
  * A browser attaches `Origin` to every cross-origin POST, and to same-origin
@@ -61,17 +63,43 @@ export async function requireTechAdmin(
   return session;
 }
 
+/** As requireAdmin, but only when `allowed` passes; `deniedMessage` is sent back with it otherwise. */
+async function requireTeam(
+  request: Request,
+  allowed: (email: string) => boolean,
+  deniedMessage: string,
+): Promise<AdminSessionPayload | NextResponse> {
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
+  if (!allowed(session.email)) {
+    return NextResponse.json({ error: deniedMessage }, { status: 403 });
+  }
+  return session;
+}
+
 /** As requireAdmin, but for the task tracker team. */
 export async function requireTaskTracker(
   request: Request,
 ): Promise<AdminSessionPayload | NextResponse> {
-  const session = await requireAdmin(request);
-  if (session instanceof NextResponse) return session;
-  if (!isTaskTrackerTeamEmail(session.email)) {
-    return NextResponse.json(
-      { error: "This action is restricted to the task tracker team" },
-      { status: 403 },
-    );
-  }
-  return session;
+  return requireTeam(request, isTaskTrackerTeamEmail, "This action is restricted to the task tracker team");
+}
+
+/** As requireAdmin, but for the opportunities board team. */
+export async function requireOpportunities(
+  request: Request,
+): Promise<AdminSessionPayload | NextResponse> {
+  return requireTeam(request, isOpportunitiesTeamEmail, "This action is restricted to the opportunities board team");
+}
+
+const OPPORTUNITIES_API_ACTOR: AdminSessionPayload = { email: "ingestion@api", name: "Automated ingestion" };
+
+/**
+ * As requireOpportunities, but also accepts a bearer OPPORTUNITIES_API_KEY (same shared-secret
+ * shape as `/api/cron/sweep`), so a non-browser client with no session cookie can authenticate.
+ */
+export async function requireOpportunitiesOrApiKey(
+  request: Request,
+): Promise<AdminSessionPayload | NextResponse> {
+  if (hasBearerSecret(request, process.env.OPPORTUNITIES_API_KEY)) return OPPORTUNITIES_API_ACTOR;
+  return requireOpportunities(request);
 }

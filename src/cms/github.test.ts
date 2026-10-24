@@ -161,6 +161,17 @@ describe("the repo", () => {
     expect(github.branches).toEqual(["main"]);
   });
 
+  it("commits a file deletion when text is null", async () => {
+    github.fileOnMain("content/a.json", "old\n");
+    const c = client();
+    const head = (await c.branchHead("main"))!;
+    const commit = await c.createCommit({ parent: head.commit, baseTree: head.tree, path: "content/a.json", text: null, message: "Delete a" });
+
+    await c.createBranch("cms/delete-a", commit);
+    expect(github.fileOn("cms/delete-a", "content/a.json")).toBeUndefined();
+    expect(github.fileOn("main", "content/a.json")).toBe("old\n");
+  });
+
   it("passes on other refusals to create or delete a branch", async () => {
     const c = client();
     await expect(c.createBranch("cms/x", "f".repeat(40))).rejects.toMatchObject({ status: 422, message: expect.stringContaining("Invalid reference") });

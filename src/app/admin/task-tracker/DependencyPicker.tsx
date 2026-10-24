@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { useComboboxNav } from "../useComboboxNav";
 import StatusBadge from "./StatusBadge";
 import type { TaskTrackerStatus } from "./status";
 import { formatDate } from "./dates";
@@ -64,8 +65,7 @@ export default function DependencyPicker({
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const { open, setOpen, activeIndex, setActiveIndex, handleKeyDown, reset } = useComboboxNav();
 
   if (siblingTasks.length === 0) {
     return (
@@ -94,7 +94,7 @@ export default function DependencyPicker({
   function add(id: string) {
     onChange(new Set([...selected, id]));
     setQuery("");
-    setActiveIndex(0);
+    reset();
     inputRef.current?.focus();
   }
 
@@ -102,24 +102,6 @@ export default function DependencyPicker({
     const next = new Set(selected);
     next.delete(id);
     onChange(next);
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      setOpen(true);
-      if (pickable.length === 0) return;
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      const current = Math.min(activeIndex, pickable.length - 1);
-      setActiveIndex((current + step + pickable.length) % pickable.length);
-    } else if (event.key === "Enter") {
-      // Never submit the surrounding form from inside the search box.
-      event.preventDefault();
-      if (open && active) add(active.id);
-    } else if (event.key === "Escape" && open) {
-      event.preventDefault();
-      setOpen(false);
-    }
   }
 
   const everythingChosen = siblingTasks.every((task) => selected.has(task.id));
@@ -188,7 +170,7 @@ export default function DependencyPicker({
             onFocus={() => setOpen(true)}
             onClick={() => setOpen(true)}
             onBlur={() => setOpen(false)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(event) => handleKeyDown(event, pickable.length, (index) => add(pickable[index].id))}
             className="border border-brand-black/30 bg-brand-white px-3 py-2"
           />
           {open && (
