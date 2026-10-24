@@ -62,7 +62,7 @@ const OPPORTUNITIES = [
     tags: ["Compliance", "Legal operations", "Nonprofit management"],
     applyUrl: "https://docs.google.com/forms/d/e/1FAIpQLSeQzwNbPha28IgDs2c2M9pAfeubSQbQRYZM_Yj_SI2QtfM0iw/viewform",
     applyLabel: "Apply now",
-    sourceUrl: null,
+    sourceUrl: "https://princint.ai/now-hiring-senior-compliance-operations-manager-at-principles-of-intelligence/",
     publishedAt: "2026-10-21",
   },
   {
@@ -91,7 +91,7 @@ const OPPORTUNITIES = [
     tags: ["Fellowship", "AI governance", "Legal research"],
     applyUrl: "https://law-ai.org/srf-lf/",
     applyLabel: "Apply now",
-    sourceUrl: null,
+    sourceUrl: "https://law-ai.org/srf-lf/",
     publishedAt: "2026-10-21",
   },
   {
@@ -120,7 +120,7 @@ const OPPORTUNITIES = [
     tags: ["National security", "AI governance", "Course"],
     applyUrl: "https://vistainstituteai.org/programs/national-security-law-ai",
     applyLabel: "View course",
-    sourceUrl: null,
+    sourceUrl: "https://vistainstituteai.org/",
     publishedAt: "2026-10-21",
   },
   {
@@ -149,7 +149,7 @@ const OPPORTUNITIES = [
     tags: ["AI agents", "Torts", "Course"],
     applyUrl: "https://vistainstituteai.org/programs/agents",
     applyLabel: "View course",
-    sourceUrl: null,
+    sourceUrl: "https://vistainstituteai.org/",
     publishedAt: "2026-10-21",
   },
   {
@@ -178,7 +178,7 @@ const OPPORTUNITIES = [
     tags: ["AI agents", "Liability", "Course"],
     applyUrl: "https://vistainstituteai.org/programs/agents",
     applyLabel: "View course",
-    sourceUrl: null,
+    sourceUrl: "https://vistainstituteai.org/",
     publishedAt: "2026-10-21",
   },
 ];
