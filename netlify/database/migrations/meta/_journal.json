@@ -148,6 +148,34 @@
       "when": 1792751208729,
       "tag": "0020_certain_cyclops",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792847626303,
+      "tag": "0021_dizzy_arachne",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792847631576,
+      "tag": "0022_simple_tigra",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792848507364,
+      "tag": "0023_wild_shatterstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792848513915,
+      "tag": "0024_normal_monster_badoon",
+      "breakpoints": true
     }
   ]
 }

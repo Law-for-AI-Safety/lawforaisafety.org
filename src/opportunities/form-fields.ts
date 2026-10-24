@@ -1,3 +1,4 @@
+import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS } from "./schema";
 import type { Opportunity } from "./types";
 
 /**
@@ -8,6 +9,20 @@ import type { Opportunity } from "./types";
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 const strOrUndefined = (v: unknown): string | undefined => str(v) || undefined;
+/** Number inputs arrive as strings (or blank) from a form body; blank/non-numeric becomes undefined, left for the schema to require alongside currency/period. */
+const numOrUndefined = (v: unknown): number | undefined => {
+  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+  const trimmed = str(v);
+  if (!trimmed) return undefined;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : undefined;
+};
+const oneOf =
+  <T extends string>(values: readonly T[]) =>
+  (v: unknown): T | undefined => {
+    const s = strOrUndefined(v);
+    return s && (values as readonly string[]).includes(s) ? (s as T) : undefined;
+  };
 
 export type OpportunityFields = Omit<Opportunity, "id" | "slug" | "publishedAt">;
 
@@ -29,10 +44,16 @@ export function opportunityFieldsFromBody(body: Record<string, unknown>): Parsed
       orgUrl: strOrUndefined(body.orgUrl),
       summary: str(body.summary),
       description: str(body.description),
-      location: str(body.location),
+      locationCountry: str(body.locationCountry),
+      locationCity: strOrUndefined(body.locationCity),
+      locationNote: strOrUndefined(body.locationNote),
       remote: Boolean(body.remote),
-      commitment: strOrUndefined(body.commitment),
-      compensation: strOrUndefined(body.compensation),
+      commitment: oneOf(COMMITMENT_TYPES)(body.commitment),
+      compMin: numOrUndefined(body.compMin),
+      compMax: numOrUndefined(body.compMax),
+      compCurrency: oneOf(COMP_CURRENCIES)(body.compCurrency),
+      compPeriod: oneOf(COMP_PERIODS)(body.compPeriod),
+      compNote: strOrUndefined(body.compNote),
       deadline: strOrUndefined(body.deadline),
       startDate: strOrUndefined(body.startDate),
       endDate: strOrUndefined(body.endDate),

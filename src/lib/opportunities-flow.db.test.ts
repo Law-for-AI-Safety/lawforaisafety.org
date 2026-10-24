@@ -9,7 +9,7 @@ const FIELDS = {
   org: "Acme",
   summary: "A short summary.",
   description: "A longer description.",
-  location: "Remote",
+  locationCountry: "GLOBAL",
   remote: true,
   applyUrl: "https://example.com/apply",
 };
@@ -44,7 +44,11 @@ describe("createOpportunity", () => {
 describe("updateOpportunity", () => {
   it("saves the edited fields, keeping the slug and published date, and logs what changed", async () => {
     const created = await createOpportunity(FIELDS, "admin@example.com");
-    const updated = await updateOpportunity(created.slug, { ...FIELDS, title: "Staff Engineer", compensation: "$200k" }, "jane@example.com");
+    const updated = await updateOpportunity(
+      created.slug,
+      { ...FIELDS, title: "Staff Engineer", compMin: 200_000, compCurrency: "USD", compPeriod: "year" },
+      "jane@example.com",
+    );
 
     expect(updated.slug).toBe(created.slug);
     expect(updated.publishedAt).toBe(created.publishedAt);

@@ -488,6 +488,15 @@ export const cmsSubmissions = pgTable(
 // state - an admin saving a listing is already the review step). `publishedAt` is set once at
 // creation and never changes on edit; history instead lives in opportunitiesAuditLog.
 export const opportunityType = pgEnum("opportunity_type", ["job", "course"]);
+export const opportunityCommitment = pgEnum("opportunity_commitment", [
+  "full_time",
+  "part_time",
+  "contract",
+  "internship",
+  "fellowship",
+]);
+export const opportunityCompCurrency = pgEnum("opportunity_comp_currency", ["GBP", "USD", "EUR"]);
+export const opportunityCompPeriod = pgEnum("opportunity_comp_period", ["year", "month", "week", "day", "hour"]);
 
 export const opportunities = pgTable("opportunities", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -498,10 +507,16 @@ export const opportunities = pgTable("opportunities", {
   orgUrl: text("org_url"),
   summary: text("summary").notNull(),
   description: text("description").notNull(),
-  location: text("location").notNull(),
+  locationCountry: text("location_country").notNull(),
+  locationCity: text("location_city"),
+  locationNote: text("location_note"),
   remote: boolean("remote").notNull(),
-  commitment: text("commitment"),
-  compensation: text("compensation"),
+  commitment: opportunityCommitment("commitment"),
+  compMin: integer("comp_min"),
+  compMax: integer("comp_max"),
+  compCurrency: opportunityCompCurrency("comp_currency"),
+  compPeriod: opportunityCompPeriod("comp_period"),
+  compNote: text("comp_note"),
   deadline: date("deadline"),
   startDate: date("start_date"),
   endDate: date("end_date"),

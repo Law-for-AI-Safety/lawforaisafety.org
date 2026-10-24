@@ -21,10 +21,16 @@ export function toOpportunity(row: OpportunityRow): Opportunity {
     orgUrl: row.orgUrl ?? undefined,
     summary: row.summary,
     description: row.description,
-    location: row.location,
+    locationCountry: row.locationCountry,
+    locationCity: row.locationCity ?? undefined,
+    locationNote: row.locationNote ?? undefined,
     remote: row.remote,
     commitment: row.commitment ?? undefined,
-    compensation: row.compensation ?? undefined,
+    compMin: row.compMin ?? undefined,
+    compMax: row.compMax ?? undefined,
+    compCurrency: row.compCurrency ?? undefined,
+    compPeriod: row.compPeriod ?? undefined,
+    compNote: row.compNote ?? undefined,
     deadline: row.deadline ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
@@ -41,7 +47,20 @@ export async function getOpportunities(): Promise<Opportunity[]> {
   return rows.map(toOpportunity);
 }
 
+/** Just slug and publishedAt, for the sitemap - no need to pull every listing's full text to build its URL list. */
+export async function getOpportunitySitemapEntries(): Promise<Pick<Opportunity, "slug" | "publishedAt">[]> {
+  return db.select({ slug: opportunities.slug, publishedAt: opportunities.publishedAt }).from(opportunities);
+}
+
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
   const [row] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   return row ? toOpportunity(row) : null;
+}
+
+/** Every distinct tag already in use, for the admin form's typeahead - keeps tagging consistent across listings. */
+export async function getOpportunityTags(): Promise<string[]> {
+  const rows = await db.select({ tags: opportunities.tags }).from(opportunities);
+  const tags = new Set<string>();
+  for (const row of rows) for (const tag of row.tags ?? []) tags.add(tag);
+  return [...tags].sort((a, b) => a.localeCompare(b));
 }

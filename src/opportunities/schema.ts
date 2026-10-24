@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COUNTRIES } from "./countries";
 import type { Opportunity } from "./types";
 
 /**
@@ -36,7 +37,43 @@ const text = (label: string, max = 20_000) =>
 
 export const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export const opportunitySchema = z
+export const COMMITMENT_TYPES = ["full_time", "part_time", "contract", "internship", "fellowship"] as const;
+export const COMP_CURRENCIES = ["GBP", "USD", "EUR"] as const;
+export const COMP_PERIODS = ["year", "month", "week", "day", "hour"] as const;
+/** Sentinel `locationCountry` for roles with no single base country (fully remote, worldwide). */
+export const GLOBAL = "GLOBAL";
+const COUNTRY_CODES = new Set(COUNTRIES.map((c) => c.code));
+const countryCode = () =>
+  z.string().refine((v) => v === GLOBAL || COUNTRY_CODES.has(v), "Country must be a valid ISO country code, or GLOBAL");
+
+/** Cross-field checks that a single field's own validator can't express. */
+function checkConsistency(
+  val: {
+    compMin?: number;
+    compMax?: number;
+    compCurrency?: unknown;
+    compPeriod?: unknown;
+    locationCountry?: string;
+    locationCity?: unknown;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const hasAmount = val.compMin !== undefined || val.compMax !== undefined;
+  if (hasAmount && val.compCurrency === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Compensation currency is required when an amount is set", path: ["compCurrency"] });
+  }
+  if (hasAmount && val.compPeriod === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Compensation period is required when an amount is set", path: ["compPeriod"] });
+  }
+  if (val.compMin !== undefined && val.compMax !== undefined && val.compMax < val.compMin) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Compensation max must be at least the min", path: ["compMax"] });
+  }
+  if (val.locationCountry === GLOBAL && val.locationCity !== undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A Global listing can't also have a city", path: ["locationCity"] });
+  }
+}
+
+const opportunityObjectSchema = z
   .object({
     id: z.string(),
     slug: z.string().regex(SLUG, "Slug may use only lowercase letters, digits and single hyphens"),
@@ -46,10 +83,16 @@ export const opportunitySchema = z
     orgUrl: url("Organisation URL").optional(),
     summary: text("Summary", 500),
     description: text("Description"),
-    location: text("Location", 200),
+    locationCountry: countryCode(),
+    locationCity: text("City", 100).optional(),
+    locationNote: text("Location note", 200).optional(),
     remote: z.boolean(),
-    commitment: text("Commitment", 100).optional(),
-    compensation: text("Compensation", 200).optional(),
+    commitment: z.enum(COMMITMENT_TYPES).optional(),
+    compMin: z.number().min(0, "Compensation min can't be negative").optional(),
+    compMax: z.number().min(0, "Compensation max can't be negative").optional(),
+    compCurrency: z.enum(COMP_CURRENCIES).optional(),
+    compPeriod: z.enum(COMP_PERIODS).optional(),
+    compNote: text("Compensation note", 200).optional(),
     deadline: isoDate("Deadline").optional(),
     startDate: isoDate("Start date").optional(),
     endDate: isoDate("End date").optional(),
@@ -61,10 +104,14 @@ export const opportunitySchema = z
   })
   .strict();
 
-export type OpportunityInput = z.input<typeof opportunitySchema>;
+export const opportunitySchema = opportunityObjectSchema.superRefine(checkConsistency);
+
+export type OpportunityInput = z.input<typeof opportunityObjectSchema>;
 
 /** An opportunity's editable fields: everything but `id`/`slug` (identity) and `publishedAt` (set once, on create). */
-export const opportunityFieldsSchema = opportunitySchema.omit({ id: true, slug: true, publishedAt: true });
+export const opportunityFieldsSchema = opportunityObjectSchema
+  .omit({ id: true, slug: true, publishedAt: true })
+  .superRefine(checkConsistency);
 // A compile-time check that the schema's output matches the hand-written `Opportunity` type.
 type _AssertShapeMatches = z.infer<typeof opportunitySchema> extends Opportunity
   ? Opportunity extends z.infer<typeof opportunitySchema>

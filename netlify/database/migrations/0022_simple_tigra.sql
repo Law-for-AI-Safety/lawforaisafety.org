@@ -1,0 +1,2 @@
+ALTER TABLE "opportunities" ALTER COLUMN "commitment" SET DATA TYPE "public"."opportunity_commitment" USING "commitment"::"public"."opportunity_commitment";--> statement-breakpoint
+ALTER TABLE "opportunities" DROP COLUMN "compensation";

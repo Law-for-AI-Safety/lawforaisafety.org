@@ -6,7 +6,13 @@ import OpportunityFields, { opportunityFormFromExisting, toOpportunityBody, type
 import PublishedNotice from "../PublishedNotice";
 import type { Opportunity } from "@/opportunities/types";
 
-export default function EditOpportunityForm({ opportunity }: { opportunity: Opportunity }) {
+export default function EditOpportunityForm({
+  opportunity,
+  tagSuggestions = [],
+}: {
+  opportunity: Opportunity;
+  tagSuggestions?: string[];
+}) {
   const [state, setState] = useState<OpportunityFormState>(opportunityFormFromExisting(opportunity));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +60,7 @@ export default function EditOpportunityForm({ opportunity }: { opportunity: Oppo
         <PublishedNotice opportunity={saved} action="updated" />
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <OpportunityFields state={state} setState={setState} />
+          <OpportunityFields state={state} setState={setState} tagSuggestions={tagSuggestions} />
           {error && <p className="text-brand-red">{error}</p>}
           <button
             type="submit"

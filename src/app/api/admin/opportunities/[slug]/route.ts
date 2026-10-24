@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
-import { requireOpportunities } from "@/lib/admin-guard";
+import { requireOpportunitiesOrApiKey } from "@/lib/admin-guard";
 import { deleteOpportunity, NotFoundError, updateOpportunity, ValidationError } from "@/lib/opportunities-flow";
 import { opportunityFieldsFromBody } from "@/opportunities/form-fields";
+import { getOpportunityBySlug } from "@/opportunities/data";
 
 type Params = { params: Promise<{ slug: string }> };
 
 const NOT_FOUND = { error: "There is no such listing on the live site." };
 
+/** A single listing, by slug — lets an ingestion script check for an existing match before upserting. */
+export async function GET(request: Request, { params }: Params) {
+  const session = await requireOpportunitiesOrApiKey(request);
+  if (session instanceof NextResponse) return session;
+  const { slug } = await params;
+
+  const opportunity = await getOpportunityBySlug(slug);
+  if (!opportunity) return NextResponse.json(NOT_FOUND, { status: 404 });
+  return NextResponse.json(opportunity);
+}
+
 /** Edits an existing opportunity, live immediately. The form resends every field; the slug never changes. */
 export async function PATCH(request: Request, { params }: Params) {
-  const session = await requireOpportunities(request);
+  const session = await requireOpportunitiesOrApiKey(request);
   if (session instanceof NextResponse) return session;
   const { slug } = await params;
 
@@ -29,7 +41,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
 /** Removes the listing. */
 export async function DELETE(request: Request, { params }: Params) {
-  const session = await requireOpportunities(request);
+  const session = await requireOpportunitiesOrApiKey(request);
   if (session instanceof NextResponse) return session;
   const { slug } = await params;
 

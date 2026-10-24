@@ -13,7 +13,7 @@ function make(overrides: Partial<Opportunity>): Opportunity {
     org: "Test org",
     summary: "Summary.",
     description: "Body.",
-    location: "Remote",
+    locationCountry: "GLOBAL",
     remote: true,
     applyUrl: "https://example.com",
     publishedAt: "2026-01-01",

@@ -1,6 +1,63 @@
+import { COUNTRIES } from "./countries";
 import type { Opportunity, OpportunityType } from "./types";
 
 export type OpportunityTypeFilter = "all" | OpportunityType;
+
+const COUNTRY_NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
+
+const COMMITMENT_LABEL: Record<NonNullable<Opportunity["commitment"]>, string> = {
+  full_time: "Full-time",
+  part_time: "Part-time",
+  contract: "Contract",
+  internship: "Internship",
+  fellowship: "Fellowship",
+};
+
+const COMP_CURRENCY_SYMBOL: Record<NonNullable<Opportunity["compCurrency"]>, string> = {
+  GBP: "£",
+  USD: "$",
+  EUR: "€",
+};
+
+const COMP_PERIOD_LABEL: Record<NonNullable<Opportunity["compPeriod"]>, string> = {
+  year: "year",
+  month: "month",
+  week: "week",
+  day: "day",
+  hour: "hour",
+};
+
+export function formatCommitment(opportunity: Pick<Opportunity, "commitment">): string | undefined {
+  return opportunity.commitment ? COMMITMENT_LABEL[opportunity.commitment] : undefined;
+}
+
+/** Joins the structured amount/currency/period into one range, with any free-text caveat appended. */
+export function formatCompensation(
+  opportunity: Pick<Opportunity, "compMin" | "compMax" | "compCurrency" | "compPeriod" | "compNote">,
+): string | undefined {
+  const { compMin, compMax, compCurrency, compPeriod, compNote } = opportunity;
+  const parts: string[] = [];
+
+  if (compMin !== undefined || compMax !== undefined) {
+    const symbol = compCurrency ? COMP_CURRENCY_SYMBOL[compCurrency] : "";
+    const amount =
+      compMin !== undefined && compMax !== undefined && compMin !== compMax
+        ? `${symbol}${compMin.toLocaleString()}–${symbol}${compMax.toLocaleString()}`
+        : `${symbol}${(compMin ?? compMax)!.toLocaleString()}`;
+    const period = compPeriod ? `/${COMP_PERIOD_LABEL[compPeriod]}` : "";
+    parts.push(`${amount}${period}`);
+  }
+  if (compNote) parts.push(compNote);
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+/** City + country name, or "Global" for a role with no single base country; any note is appended. */
+export function formatLocation(opportunity: Pick<Opportunity, "locationCountry" | "locationCity" | "locationNote">): string {
+  const { locationCountry, locationCity, locationNote } = opportunity;
+  const place = locationCountry === "GLOBAL" ? "Global" : [locationCity, COUNTRY_NAME[locationCountry] ?? locationCountry].filter(Boolean).join(", ");
+  return locationNote ? `${place} · ${locationNote}` : place;
+}
 
 export function filterOpportunities(items: Opportunity[], filter: OpportunityTypeFilter): Opportunity[] {
   return filter === "all" ? items : items.filter((item) => item.type === filter);

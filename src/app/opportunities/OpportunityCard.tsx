@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatDate, isClosingSoon } from "@/opportunities/filter";
+import { formatCommitment, formatCompensation, formatDate, formatLocation, isClosingSoon } from "@/opportunities/filter";
 import type { Opportunity } from "@/opportunities/types";
 
 const TYPE_LABEL: Record<Opportunity["type"], string> = { job: "Job", course: "Course" };
@@ -9,9 +9,11 @@ const TYPE_BADGE: Record<Opportunity["type"], string> = {
 };
 
 export default function OpportunityCard({ opportunity, now = new Date() }: { opportunity: Opportunity; now?: Date }) {
-  const meta = [opportunity.remote ? "Remote" : opportunity.location, opportunity.commitment, opportunity.compensation].filter(
-    Boolean,
-  );
+  const meta = [
+    opportunity.remote ? "Remote" : formatLocation(opportunity),
+    formatCommitment(opportunity),
+    formatCompensation(opportunity),
+  ].filter(Boolean);
 
   return (
     <Link

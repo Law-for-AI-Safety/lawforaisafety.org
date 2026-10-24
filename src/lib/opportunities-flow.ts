@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
 import { toOpportunity, type OpportunityRow } from "@/opportunities/data";
@@ -27,8 +27,12 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function existingSlugs(): Promise<Set<string>> {
-  const rows = await db.select({ slug: opportunities.slug }).from(opportunities);
+/** Slugs that could collide with `base` (itself, or a `-2`/`-3`/... suffix of it) - narrower than every slug in the table. */
+async function existingSlugs(base: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ slug: opportunities.slug })
+    .from(opportunities)
+    .where(like(opportunities.slug, `${base}%`));
   return new Set(rows.map((row) => row.slug));
 }
 
@@ -45,7 +49,7 @@ export async function createOpportunity(fields: OpportunityFields, createdBy: st
 
   let row: OpportunityRow | undefined;
   for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
-    const slug = uniqueSlug(baseSlug, await existingSlugs());
+    const slug = uniqueSlug(baseSlug, await existingSlugs(baseSlug));
     try {
       [row] = await db
         .insert(opportunities)
@@ -67,6 +71,15 @@ export async function createOpportunity(fields: OpportunityFields, createdBy: st
   return toOpportunity(row);
 }
 
+/**
+ * The admin form always resends every field, so a missing optional one means "clear it" - but
+ * `parsed` carries that as `undefined`, and drizzle's `.set()` silently drops undefined-valued
+ * keys from the UPDATE rather than nulling the column. Turn them into explicit `null`s first.
+ */
+function withNullsForClearedFields(fields: OpportunityFields): typeof fields {
+  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value ?? null])) as typeof fields;
+}
+
 /** Edits an existing listing. The slug and `publishedAt` are never in `fields`, so they never change. */
 export async function updateOpportunity(slug: string, fields: OpportunityFields, actorEmail: string): Promise<Opportunity> {
   const parsed = parseFields(fields);
@@ -74,7 +87,11 @@ export async function updateOpportunity(slug: string, fields: OpportunityFields,
   const [existing] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   if (!existing) throw new NotFoundError();
 
-  const [row] = await db.update(opportunities).set(parsed).where(eq(opportunities.slug, slug)).returning();
+  const [row] = await db
+    .update(opportunities)
+    .set(withNullsForClearedFields(parsed))
+    .where(eq(opportunities.slug, slug))
+    .returning();
   if (!row) throw new NotFoundError();
 
   const changedKeys = (Object.keys(parsed) as (keyof OpportunityFields)[]).filter(

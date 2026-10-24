@@ -10,7 +10,7 @@ const FIXTURE = {
   org: "Fixture Org",
   summary: "A short summary.",
   description: "A longer description.",
-  location: "Remote",
+  locationCountry: "GLOBAL",
   remote: true,
   applyUrl: "https://example.com/apply",
   publishedAt: "2026-01-01",

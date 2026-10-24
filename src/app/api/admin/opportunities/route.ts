@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
-import { requireOpportunities } from "@/lib/admin-guard";
+import { requireOpportunitiesOrApiKey } from "@/lib/admin-guard";
 import { createOpportunity, ValidationError } from "@/lib/opportunities-flow";
 import { opportunityFieldsFromBody } from "@/opportunities/form-fields";
+import { getOpportunities } from "@/opportunities/data";
+
+/** Every listing, for the admin UI and for an ingestion script to check what's already there before creating more. */
+export async function GET(request: Request) {
+  const session = await requireOpportunitiesOrApiKey(request);
+  if (session instanceof NextResponse) return session;
+
+  return NextResponse.json(await getOpportunities());
+}
 
 /** Creates a brand-new opportunity, live immediately, with its slug computed server-side from org and title. */
 export async function POST(request: Request) {
-  const session = await requireOpportunities(request);
+  const session = await requireOpportunitiesOrApiKey(request);
   if (session instanceof NextResponse) return session;
 
   const body = await request.json().catch(() => ({}));

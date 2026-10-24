@@ -10,7 +10,7 @@ function valid() {
     org: "Test org",
     summary: "A short summary.",
     description: "A longer description.",
-    location: "Remote",
+    locationCountry: "GLOBAL",
     remote: true,
     applyUrl: "https://example.com/apply",
     publishedAt: "2026-01-01",
@@ -25,9 +25,16 @@ describe("opportunitySchema", () => {
   it("accepts every optional field filled in", () => {
     const full = {
       ...valid(),
+      locationCountry: "GB",
+      locationCity: "London",
+      locationNote: "Min. 2hr overlap with US-West",
       orgUrl: "https://example.com",
-      commitment: "Full-time",
-      compensation: "$100k",
+      commitment: "full_time" as const,
+      compMin: 90_000,
+      compMax: 110_000,
+      compCurrency: "USD" as const,
+      compPeriod: "year" as const,
+      compNote: "Negotiable for exceptional candidates",
       deadline: "2026-02-01",
       startDate: "2026-03-01",
       endDate: "2026-06-01",
@@ -68,5 +75,33 @@ describe("opportunitySchema", () => {
 
   it("rejects an unknown type", () => {
     expect(opportunitySchema.safeParse({ ...valid(), type: "internship" }).success).toBe(false);
+  });
+
+  it("rejects a compensation amount with no currency or period", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), compMin: 50_000 }).success).toBe(false);
+  });
+
+  it("rejects a compensation max below the min", () => {
+    expect(
+      opportunitySchema.safeParse({ ...valid(), compMin: 100_000, compMax: 50_000, compCurrency: "GBP", compPeriod: "year" }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a compensation amount with currency and period", () => {
+    expect(
+      opportunitySchema.safeParse({ ...valid(), compMin: 50_000, compCurrency: "GBP", compPeriod: "year" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an unknown country code", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), locationCountry: "ZZ" }).success).toBe(false);
+  });
+
+  it("accepts a real country code", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), locationCountry: "GB" }).success).toBe(true);
+  });
+
+  it("rejects a city on a Global listing", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), locationCountry: "GLOBAL", locationCity: "London" }).success).toBe(false);
   });
 });

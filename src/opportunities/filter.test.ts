@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { daysUntil, filterOpportunities, formatDate, isClosingSoon, sortOpportunities } from "./filter";
+import {
+  daysUntil,
+  filterOpportunities,
+  formatCommitment,
+  formatCompensation,
+  formatDate,
+  formatLocation,
+  isClosingSoon,
+  sortOpportunities,
+} from "./filter";
 import type { Opportunity } from "./types";
 
 function make(overrides: Partial<Opportunity>): Opportunity {
@@ -11,7 +20,7 @@ function make(overrides: Partial<Opportunity>): Opportunity {
     org: "Test org",
     summary: "A test opportunity.",
     description: "Body.",
-    location: "Remote",
+    locationCountry: "GLOBAL",
     remote: true,
     applyUrl: "https://example.com/apply",
     publishedAt: "2026-01-01",
@@ -100,5 +109,58 @@ describe("daysUntil / isClosingSoon", () => {
 describe("formatDate", () => {
   it("renders an ISO date as day month year", () => {
     expect(formatDate("2026-10-30")).toBe("30 Oct 2026");
+  });
+});
+
+describe("formatLocation", () => {
+  it("shows Global for a worldwide listing", () => {
+    expect(formatLocation({ locationCountry: "GLOBAL" })).toBe("Global");
+  });
+
+  it("shows the country name with no city", () => {
+    expect(formatLocation({ locationCountry: "GB" })).toBe("United Kingdom");
+  });
+
+  it("shows city and country together", () => {
+    expect(formatLocation({ locationCountry: "GB", locationCity: "London" })).toBe("London, United Kingdom");
+  });
+
+  it("appends a note when there is one", () => {
+    expect(formatLocation({ locationCountry: "GLOBAL", locationNote: "Min. 2hr overlap with US-West" })).toBe(
+      "Global · Min. 2hr overlap with US-West",
+    );
+  });
+});
+
+describe("formatCommitment", () => {
+  it("maps the stored value to a display label", () => {
+    expect(formatCommitment({ commitment: "full_time" })).toBe("Full-time");
+  });
+
+  it("is undefined with no commitment", () => {
+    expect(formatCommitment({})).toBeUndefined();
+  });
+});
+
+describe("formatCompensation", () => {
+  it("is undefined with no amount or note", () => {
+    expect(formatCompensation({})).toBeUndefined();
+  });
+
+  it("formats a single amount with currency and period", () => {
+    expect(formatCompensation({ compMin: 90_000, compCurrency: "GBP", compPeriod: "year" })).toBe("£90,000/year");
+  });
+
+  it("formats a range", () => {
+    expect(formatCompensation({ compMin: 100_000, compMax: 125_000, compCurrency: "GBP", compPeriod: "year" })).toBe(
+      "£100,000–£125,000/year",
+    );
+  });
+
+  it("appends a note", () => {
+    expect(formatCompensation({ compNote: "Negotiable" })).toBe("Negotiable");
+    expect(formatCompensation({ compMin: 1_800, compCurrency: "USD", compPeriod: "week", compNote: "Higher for exceptional candidates" })).toBe(
+      "$1,800/week · Higher for exceptional candidates",
+    );
   });
 });

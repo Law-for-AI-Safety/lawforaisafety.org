@@ -6,6 +6,7 @@ import {
   isOpportunitiesTeamEmail,
   type AdminSessionPayload,
 } from "@/lib/session";
+import { hasBearerSecret } from "@/lib/timing-safe-equal";
 
 /**
  * A browser attaches `Origin` to every cross-origin POST, and to same-origin
@@ -88,4 +89,17 @@ export async function requireOpportunities(
   request: Request,
 ): Promise<AdminSessionPayload | NextResponse> {
   return requireTeam(request, isOpportunitiesTeamEmail, "This action is restricted to the opportunities board team");
+}
+
+const OPPORTUNITIES_API_ACTOR: AdminSessionPayload = { email: "ingestion@api", name: "Automated ingestion" };
+
+/**
+ * As requireOpportunities, but also accepts a bearer OPPORTUNITIES_API_KEY (same shared-secret
+ * shape as `/api/cron/sweep`), so a non-browser client with no session cookie can authenticate.
+ */
+export async function requireOpportunitiesOrApiKey(
+  request: Request,
+): Promise<AdminSessionPayload | NextResponse> {
+  if (hasBearerSecret(request, process.env.OPPORTUNITIES_API_KEY)) return OPPORTUNITIES_API_ACTOR;
+  return requireOpportunities(request);
 }

@@ -11,7 +11,7 @@ function make(applyUrl: string): Opportunity {
     org: "Test org",
     summary: "Summary.",
     description: "Body.",
-    location: "Remote",
+    locationCountry: "GLOBAL",
     remote: true,
     applyUrl,
     publishedAt: "2026-01-01",

@@ -6,7 +6,7 @@ import ContentPage from "@/app/ContentPage";
 import WipeButton from "@/app/WipeButton";
 import Rule from "@/cms/blocks/Rule";
 import { getOpportunityBySlug } from "@/opportunities/data";
-import { formatDate } from "@/opportunities/filter";
+import { formatCommitment, formatCompensation, formatDate, formatLocation } from "@/opportunities/filter";
 import type { Opportunity } from "@/opportunities/types";
 
 // DB-backed, not a git-committed file - render fresh on every request so a newly-saved
@@ -42,9 +42,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 function facts(opportunity: Opportunity): { label: string; value: string }[] {
   return [
-    { label: "Location", value: opportunity.location },
-    { label: "Commitment", value: opportunity.commitment },
-    { label: "Compensation", value: opportunity.compensation },
+    { label: "Location", value: formatLocation(opportunity) },
+    { label: "Commitment", value: formatCommitment(opportunity) },
+    { label: "Compensation", value: formatCompensation(opportunity) },
     { label: "Apply by", value: opportunity.deadline ? formatDate(opportunity.deadline) : undefined },
     { label: "Start date", value: opportunity.startDate ? formatDate(opportunity.startDate) : undefined },
     { label: "End date", value: opportunity.endDate ? formatDate(opportunity.endDate) : undefined },

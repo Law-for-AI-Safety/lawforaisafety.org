@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getOpportunityBySlug } from "@/opportunities/data";
+import { getOpportunityBySlug, getOpportunityTags } from "@/opportunities/data";
 import EditOpportunityForm from "./EditOpportunityForm";
 
 type Props = { params: Promise<{ slug: string }> };
 
 export default async function EditOpportunityPage({ params }: Props) {
   const { slug } = await params;
-  const opportunity = await getOpportunityBySlug(slug);
+  const [opportunity, tagSuggestions] = await Promise.all([getOpportunityBySlug(slug), getOpportunityTags()]);
   if (!opportunity) notFound();
 
   return (
@@ -16,7 +16,7 @@ export default async function EditOpportunityPage({ params }: Props) {
         ← All opportunities
       </Link>
       <h1 className="font-sans text-3xl text-brand-black">{opportunity.title}</h1>
-      <EditOpportunityForm opportunity={opportunity} />
+      <EditOpportunityForm opportunity={opportunity} tagSuggestions={tagSuggestions} />
     </main>
   );
 }
