@@ -86,6 +86,15 @@ export function isClosingSoon(deadline: string | undefined, now: Date, withinDay
   return days >= 0 && days <= withinDays;
 }
 
+/** Closed once the deadline day has passed (UTC); a listing with no deadline never closes. */
+export function isClosed(deadline: string | undefined, now: Date): boolean {
+  return deadline !== undefined && daysUntil(deadline, now) < 0;
+}
+
+export function openOpportunities(items: Opportunity[], now: Date): Opportunity[] {
+  return items.filter((item) => !isClosed(item.deadline, now));
+}
+
 /** Renders an ISO date (YYYY-MM-DD) as e.g. "30 Oct 2026", independent of the viewer's time zone. */
 export function formatDate(iso: string): string {
   const [year, month, day] = iso.split("-").map(Number);

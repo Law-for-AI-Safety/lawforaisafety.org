@@ -6,7 +6,7 @@ import ContentPage from "@/app/ContentPage";
 import WipeButton from "@/app/WipeButton";
 import Rule from "@/cms/blocks/Rule";
 import { getOpportunityBySlug } from "@/opportunities/data";
-import { formatCommitment, formatCompensation, formatDate, formatLocation } from "@/opportunities/filter";
+import { formatCommitment, formatCompensation, formatDate, formatLocation, isClosed } from "@/opportunities/filter";
 import type { Opportunity } from "@/opportunities/types";
 
 // DB-backed, not a git-committed file - render fresh on every request so a newly-saved
@@ -54,6 +54,7 @@ function facts(opportunity: Opportunity): { label: string; value: string }[] {
 export default async function OpportunityPage({ params }: Props) {
   const { slug } = await params;
   const opportunity = await load(slug);
+  const closedOn = isClosed(opportunity.deadline, new Date()) ? opportunity.deadline : undefined;
 
   return (
     <ContentPage gap={6}>
@@ -63,6 +64,7 @@ export default async function OpportunityPage({ params }: Props) {
 
       <div className="flex flex-wrap items-center gap-3 text-sm font-light text-brand-navy/70">
         <span className={`px-2 py-0.5 ${TYPE_BADGE[opportunity.type]}`}>{TYPE_LABEL[opportunity.type]}</span>
+        {closedOn && <span className="px-2 py-0.5 bg-brand-black/10 text-brand-black">Closed</span>}
         {opportunity.orgUrl ? (
           <a href={opportunity.orgUrl} className="underline">
             {opportunity.org}
@@ -102,9 +104,13 @@ export default async function OpportunityPage({ params }: Props) {
         ))}
       </div>
 
-      <WipeButton href={opportunity.applyUrl} className={FILLED} hoverBg="rgba(255,255,255,0.15)">
-        {opportunity.applyLabel ?? DEFAULT_APPLY_LABEL[opportunity.type]}
-      </WipeButton>
+      {closedOn ? (
+        <p className="text-lg font-light text-brand-navy/70">Applications closed on {formatDate(closedOn)}.</p>
+      ) : (
+        <WipeButton href={opportunity.applyUrl} className={FILLED} hoverBg="rgba(255,255,255,0.15)">
+          {opportunity.applyLabel ?? DEFAULT_APPLY_LABEL[opportunity.type]}
+        </WipeButton>
+      )}
     </ContentPage>
   );
 }

@@ -6,7 +6,9 @@ import {
   formatCompensation,
   formatDate,
   formatLocation,
+  isClosed,
   isClosingSoon,
+  openOpportunities,
   sortOpportunities,
 } from "./filter";
 import type { Opportunity } from "./types";
@@ -103,6 +105,35 @@ describe("daysUntil / isClosingSoon", () => {
 
   it("is never closing soon with no deadline", () => {
     expect(isClosingSoon(undefined, new Date())).toBe(false);
+  });
+});
+
+describe("isClosed / openOpportunities", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("is still open on the deadline day itself", () => {
+    expect(isClosed("2026-10-01", new Date())).toBe(false);
+  });
+
+  it("is closed the day after the deadline", () => {
+    expect(isClosed("2026-09-30", new Date())).toBe(true);
+  });
+
+  it("never closes with no deadline", () => {
+    expect(isClosed(undefined, new Date())).toBe(false);
+  });
+
+  it("keeps open and undated listings, dropping closed ones", () => {
+    const items = [
+      make({ slug: "closed", deadline: "2026-09-30" }),
+      make({ slug: "open", deadline: "2026-10-01" }),
+      make({ slug: "undated" }),
+    ];
+    expect(openOpportunities(items, new Date()).map((i) => i.slug)).toEqual(["open", "undated"]);
   });
 });
 

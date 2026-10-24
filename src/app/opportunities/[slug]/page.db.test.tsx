@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import OpportunityPage, { generateMetadata } from "./page";
@@ -50,6 +50,26 @@ describe("an opportunity's detail page", () => {
   it("renders a course's View course CTA", async () => {
     render(await OpportunityPage(params(COURSE.slug)));
     expect(screen.getByRole("link", { name: "View course" })).toHaveAttribute("href", COURSE.applyUrl);
+  });
+
+  it("keeps a closed listing's page up, marked closed and with no CTA", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "closed-job", deadline: "2026-10-30" });
+    render(await OpportunityPage(params("closed-job")));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(JOB.title);
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText("Applications closed on 30 Oct 2026.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Apply now" })).not.toBeInTheDocument();
+  });
+
+  it("still shows the CTA on the deadline day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "closing-job", deadline: "2026-10-30" });
+    render(await OpportunityPage(params("closing-job")));
+    expect(screen.getByRole("link", { name: "Apply now" })).toHaveAttribute("href", JOB.applyUrl);
+    expect(screen.queryByText("Closed")).not.toBeInTheDocument();
   });
 
   it("gives the page its own metadata", async () => {

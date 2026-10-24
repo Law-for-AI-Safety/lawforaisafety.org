@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import ContentPage from "@/app/ContentPage";
 import Rule from "@/cms/blocks/Rule";
 import { getOpportunities } from "@/opportunities/data";
-import { sortOpportunities } from "@/opportunities/filter";
+import { openOpportunities, sortOpportunities } from "@/opportunities/filter";
 import OpportunitiesBoard from "./OpportunitiesBoard";
 
 export const metadata: Metadata = {
@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function OpportunitiesPage() {
-  const opportunities = sortOpportunities(await getOpportunities());
+  // Closed listings keep their own page, but drop off the board.
+  const opportunities = sortOpportunities(openOpportunities(await getOpportunities(), new Date()));
 
   return (
     <ContentPage gap={6}>

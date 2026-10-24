@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import OpportunitiesPage, { metadata } from "./page";
@@ -28,6 +28,18 @@ describe("the opportunities index page", () => {
     render(await OpportunitiesPage());
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Opportunities");
     expect(screen.getByText(FIXTURE.title)).toBeInTheDocument();
+  });
+
+  it("leaves out a listing whose deadline has passed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values([
+      { ...FIXTURE, slug: "closed-job", title: "Closed Job", deadline: "2026-10-30" },
+      { ...FIXTURE, slug: "open-job", title: "Open Job", deadline: "2026-10-31" },
+    ]);
+    render(await OpportunitiesPage());
+    expect(screen.queryByText("Closed Job")).not.toBeInTheDocument();
+    expect(screen.getByText("Open Job")).toBeInTheDocument();
   });
 
   it("has metadata for the canonical URL", () => {
