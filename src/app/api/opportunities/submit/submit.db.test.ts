@@ -269,6 +269,19 @@ describe.each([
     const code = oauthProviders.signIn(provider, SUBMITTER);
     expect(location(await callback(finish, provider, { code, state }))).toBe("/opportunities/submit?error=expired");
   });
+
+  it("gives a retry late in the hour a full hour of its own to sign in", async () => {
+    const state = await startDraft();
+    await callback(finish, provider, { error: "user_cancelled_login", state });
+    await db.update(opportunitySubmissions).set({ createdAt: new Date(Date.now() - 50 * 60 * 1000) });
+
+    const newState = await handoffState(await post(retry.POST, "/api/opportunities/submit/retry", { token: state, provider }));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 15 * 60 * 1000);
+
+    const code = oauthProviders.signIn(provider, SUBMITTER);
+    expect(location(await callback(finish, provider, { code, state: newState }))).toBe("/opportunities/submit?submitted=1");
+  });
 });
 
 describe("retrying", () => {

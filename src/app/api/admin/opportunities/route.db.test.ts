@@ -106,6 +106,14 @@ describe("POST /api/admin/opportunities", () => {
     expect(row.createdBy).toBe("admin@example.com");
   });
 
+  it("is a 400 with no type, rather than guessing one, and saves nothing", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await POST(request({ ...VALID_BODY, type: undefined }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Type must be one of: job, fellowship, project, course, event" });
+    expect(await db.select().from(opportunities)).toEqual([]);
+  });
+
   it("is a 400 for an unknown type, and saves nothing", async () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await POST(request({ ...VALID_BODY, type: "workshop" }));

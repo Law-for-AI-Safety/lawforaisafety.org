@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { authProviderLabel } from "@/lib/applicant-types";
 import { describeSubmission, getSubmission } from "@/lib/opportunity-submission-flow";
 import { getOpportunitySlugById } from "@/opportunities/data";
 import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 import RejectSubmissionForm from "./RejectSubmissionForm";
 
 type Props = { params: Promise<{ id: string }> };
-
-const CONFIRMED_VIA = { linkedin: "LinkedIn", google: "Google", email: "an emailed link" } as const;
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -64,7 +63,7 @@ export default async function SubmissionPage({ params }: Props) {
         {submission.note && <Fact label="Note to the team">{submission.note}</Fact>}
         <Fact label="Submitted by">
           {submission.name ?? "Unknown"} ({submission.email ?? "no email"}), email confirmed via{" "}
-          {CONFIRMED_VIA[submission.authProvider]}, on {submission.createdAt.toISOString().slice(0, 10)}
+          {authProviderLabel(submission.authProvider)}, on {submission.createdAt.toISOString().slice(0, 10)}
         </Fact>
       </dl>
 

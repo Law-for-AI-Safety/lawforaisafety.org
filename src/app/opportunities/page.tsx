@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 
 export default async function OpportunitiesPage() {
   // Rendered per request, never prerendered: Netlify builds have no database, and which
-  // listings have closed depends on today's date. `connection()` rather than `force-dynamic`,
-  // so the data cache the listings are read through stays on.
+  // listings have closed depends on today's date. `connection()` makes the page dynamic while
+  // leaving on the data cache the listings are read through.
   await connection();
   // Closed listings keep their own page, but drop off the board.
   const opportunities = sortOpportunities(openOpportunities(await getCachedOpportunities(), new Date()));

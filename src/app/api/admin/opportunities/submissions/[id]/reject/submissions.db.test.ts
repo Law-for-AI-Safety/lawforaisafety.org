@@ -90,6 +90,41 @@ describe("publishing a listing from a submission", () => {
     expect(await db.select().from(opportunities)).toEqual([]);
   });
 
+  it("publishes only once when two admins create from it at the same time", async () => {
+    const id = await pendingSubmission();
+
+    const responses = await Promise.all([
+      create(json("/api/admin/opportunities", { ...LISTING_BODY, submissionId: id })),
+      create(json("/api/admin/opportunities", { ...LISTING_BODY, submissionId: id })),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect(await db.select().from(opportunities)).toHaveLength(1);
+    expect(emails.to(SUBMITTER)).toHaveLength(1);
+  });
+
+  it("can't be rejected once an admin has started publishing it", async () => {
+    const id = await pendingSubmission();
+
+    const [created, rejected] = await Promise.all([
+      create(json("/api/admin/opportunities", { ...LISTING_BODY, submissionId: id })),
+      rejectRequest(id, { notify: true }),
+    ]);
+    // Whichever gets there first wins, and the other is refused.
+    expect([created.status, rejected.status].sort()).toEqual([200, 409]);
+    const { status } = await submission(id);
+    expect(status).toBe(created.status === 200 ? "published" : "rejected");
+    expect(await db.select().from(opportunities)).toHaveLength(created.status === 200 ? 1 : 0);
+  });
+
+  it("goes back in the queue when the listing fails to save", async () => {
+    const id = await pendingSubmission();
+
+    const response = await create(json("/api/admin/opportunities", { ...LISTING_BODY, compMin: 50000, submissionId: id }));
+    expect(response.status).toBe(400);
+    expect(await submission(id)).toMatchObject({ status: "pending", reviewedAt: null, reviewedBy: null, opportunityId: null });
+    expect(emails.sent).toEqual([]);
+  });
+
   it("keeps the listing live when the submitter's email fails", async () => {
     const id = await pendingSubmission();
     emails.failNext();

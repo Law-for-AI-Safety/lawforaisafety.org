@@ -3,8 +3,10 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   createSubmissionDraft,
   handleSubmissionOAuthCallback,
+  SUBMIT_PATH,
   SubmissionValidationError,
 } from "@/lib/opportunity-submission-flow";
+import { authProviderLabel } from "@/lib/applicant-types";
 import type { OAuthProviderName } from "@/lib/oauth";
 import { oauthHandoffResponse } from "@/lib/oauth-handoff";
 import {
@@ -20,9 +22,7 @@ import { seeOther } from "@/lib/redirect";
  * route file is one line over these.
  */
 
-const PROVIDER_LABEL = { linkedin: "LinkedIn", google: "Google" } as const;
-
-export const SUBMIT_PATH = "/opportunities/submit";
+export { SUBMIT_PATH };
 
 /** Checks shared by every route that starts a submission: rate limit, Turnstile, and the bot traps. */
 export async function screenSubmission(
@@ -39,12 +39,6 @@ export async function screenSubmission(
   return { formData };
 }
 
-function callbackUrl(provider: OAuthProviderName): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!siteUrl) throw new Error("Missing required env var: NEXT_PUBLIC_SITE_URL");
-  return `${siteUrl}/api/opportunities/submit/${provider}/callback`;
-}
-
 export function startSubmission(provider: OAuthProviderName) {
   return async function POST(request: Request): Promise<Response> {
     const screened = await screenSubmission(request);
@@ -53,9 +47,9 @@ export function startSubmission(provider: OAuthProviderName) {
     if (looksLikeBot(screened.formData)) return seeOther(`${SUBMIT_PATH}?submitted=1`);
 
     try {
-      const { authorizeUrl, state } = await createSubmissionDraft(provider, screened.formData, callbackUrl(provider));
+      const { authorizeUrl, state } = await createSubmissionDraft(provider, screened.formData);
       await setOAuthStateCookie("opportunitySubmitter", state);
-      return oauthHandoffResponse(authorizeUrl, PROVIDER_LABEL[provider]);
+      return oauthHandoffResponse(authorizeUrl, authProviderLabel(provider));
     } catch (err) {
       if (err instanceof SubmissionValidationError) return seeOther(`${SUBMIT_PATH}?error=${err.code}`);
       throw err;
@@ -76,7 +70,6 @@ export function submissionCallback(provider: OAuthProviderName) {
         state,
         stateMatchesCookie: await oauthStateCookieMatches("opportunitySubmitter", state),
       },
-      callbackUrl(provider),
     );
 
     // The retry page needs the cookie to prove it's the same browser.

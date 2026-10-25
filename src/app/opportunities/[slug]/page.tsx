@@ -21,8 +21,8 @@ const FILLED = "inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand
  */
 const load = cache(async (slug: string): Promise<{ opportunity: Opportunity; closed: boolean }> => {
   // Rendered per request, never prerendered: Netlify builds have no database, and whether
-  // the listing has closed depends on today's date. `connection()` rather than `force-dynamic`,
-  // so the data cache the listing is read through stays on.
+  // the listing has closed depends on today's date. `connection()` makes the page dynamic while
+  // leaving on the data cache the listing is read through.
   await connection();
   const found = await getCachedOpportunityBySlug(slug);
   if (!found) notFound();

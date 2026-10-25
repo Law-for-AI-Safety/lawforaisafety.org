@@ -32,9 +32,9 @@ From `src/opportunities/schema.ts`:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `type` | `"job" \| "fellowship" \| "project" \| "course" \| "event"` | |
-| `title` | string, ≤200 | |
-| `org` | string, ≤200 | |
+| `type` | `"job" \| "fellowship" \| "project" \| "course" \| "event"` | required, exactly one of these in lower case; anything else, or no `type`, is a `400`. See [Choosing a type](#choosing-a-type) |
+| `title` | string, ≤200 | required |
+| `org` | string, ≤200 | required |
 | `orgUrl` | URL | optional |
 | `summary` | string, ≤500 | |
 | `description` | string | |
@@ -47,13 +47,29 @@ From `src/opportunities/schema.ts`:
 | `compCurrency` | `"GBP" \| "USD" \| "EUR"` | required if `compMin`/`compMax` is set |
 | `compPeriod` | `"year" \| "month" \| "week" \| "day" \| "hour"` | required if `compMin`/`compMax` is set |
 | `compNote` | string, ≤200 | optional |
-| `deadline`, `startDate`, `endDate` | `YYYY-MM-DD` | optional; for an `event`, `startDate` is its date and `endDate` its last day if it runs over several. An event with no `deadline` closes once that day has passed |
+| `deadline`, `startDate`, `endDate` | `YYYY-MM-DD` | optional, except that an `event` needs `startDate`, its date; `endDate` is its last day if it runs over several. `endDate` can't be before `startDate`. An event with no `deadline` closes once its last day has passed |
 | `tags` | string[], each ≤50 | optional |
 | `applyUrl` | URL | required |
 | `applyLabel` | string, ≤50 | optional |
 | `sourceUrl` | URL | optional; where the listing was found, use it to dedupe on re-ingestion |
 | `submissionId` | uuid | `POST` only, optional; publishes an outside submission (`/admin/opportunities/submissions`) as this listing and emails its submitter. 409 if it isn't pending |
 
+### Choosing a type
+
+There is no default: a listing without a valid `type` is refused rather than filed under the wrong tab. Each type sets the listing's tab, badge, button and date labels (`src/opportunities/kinds.ts`).
+
+| `type` | For | Button | Dates |
+| --- | --- | --- | --- |
+| `job` | a paid role, permanent or fixed-term | Apply now | `deadline` to apply; `startDate`/`endDate` of the role |
+| `fellowship` | a fellowship, residency or paid research programme with a cohort | Apply now | `deadline` to apply; `startDate`/`endDate` of the programme |
+| `project` | volunteering or a collaboration to join, unpaid or ad hoc | Get involved | `deadline` to apply; `startDate`/`endDate` of the project |
+| `course` | a course or training programme | View course | `deadline` to enrol; `startDate`/`endDate` of the course |
+| `event` | a conference, workshop, talk or other dated event | Register | `startDate` (required) is its date; `deadline` to register, if any |
+
 ## Prompting an ingestion agent
 
-Point it at this file, or give it the equivalent directly: base URL, the bearer header, the field table above, and an explicit instruction to `GET /api/admin/opportunities` first and match on `sourceUrl` before creating, `PATCH`-ing an existing match instead of creating a duplicate.
+Point it at this file, or give it the equivalent directly: base URL, the bearer header, the field table above, and explicit instructions to:
+
+- `GET /api/admin/opportunities` first and match on `sourceUrl` before creating, `PATCH`-ing an existing match instead of creating a duplicate.
+- Always send `type`, chosen with the table in [Choosing a type](#choosing-a-type), and skip a listing it can't place rather than guessing.
+- On a `400`, read `error` and fix the field it names before retrying.

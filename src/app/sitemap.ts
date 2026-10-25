@@ -9,8 +9,8 @@ import { openOpportunities } from "@/opportunities/filter";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Rendered per request rather than at build time, since opportunities live in the database.
-  // `connection()` rather than `force-dynamic`, so the listings come from the same data cache
-  // as the public pages and a crawler's visit needn't wake the database.
+  // `connection()` makes it dynamic while the listings still come from the same data cache as
+  // the public pages, so a crawler's visit needn't wake the database.
   await connection();
 
   // Content pages are dated by their files' updatedAt; see sitemapEntries.

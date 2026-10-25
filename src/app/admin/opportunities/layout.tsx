@@ -8,14 +8,14 @@ export default async function OpportunitiesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getAdminSession();
+  // The count is only shown once the session checks pass; fetching both at once saves a round trip.
+  const [session, pending] = await Promise.all([getAdminSession(), countPendingSubmissions()]);
   if (!session) {
     redirect("/admin/login");
   }
   if (!isOpportunitiesTeamEmail(session.email)) {
     redirect("/admin");
   }
-  const pending = await countPendingSubmissions();
 
   return (
     <div className="flex h-dvh flex-col">

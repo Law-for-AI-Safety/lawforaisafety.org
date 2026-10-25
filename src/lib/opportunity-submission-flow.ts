@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opportunitySubmissions } from "@/drizzle/schema";
 import {
@@ -8,7 +8,7 @@ import {
   UnverifiedEmailError,
   type OAuthProviderName,
 } from "@/lib/oauth";
-import type { ApplicantAuthProvider } from "@/lib/applicant-types";
+import { authProviderLabel, type ApplicantAuthProvider } from "@/lib/applicant-types";
 import {
   sendAdminNewOpportunitySubmissionEmail,
   sendOpportunitySubmissionConfirmationEmail,
@@ -62,7 +62,7 @@ const MAX_LENGTHS = {
   rejectionReason: 2000,
 } as const;
 
-const SUBMIT_PATH = "/opportunities/submit";
+export const SUBMIT_PATH = "/opportunities/submit";
 const EMAIL_CONFIRM_TTL_MS = 24 * 60 * 60 * 1000;
 // Confirmation emails go to whatever address was typed, so cap how many one address can be
 // sent in a day regardless of who is asking.
@@ -169,16 +169,15 @@ function requireSiteUrl(): string {
   return url;
 }
 
+/** Registered with LinkedIn and Google (see oauth-production-setup.md), so it must match exactly. */
+function callbackUrl(provider: OAuthProviderName): string {
+  return `${requireSiteUrl()}/api/opportunities/submit/${provider}/callback`;
+}
+
 /** How a submission is named in emails, Slack and the admin list. */
 export function describeSubmission(row: Pick<SubmissionRow, "title" | "org" | "sourceUrl">): string {
   if (row.title && row.org) return `${row.title} at ${row.org}`;
   return row.title ?? row.sourceUrl ?? "a listing";
-}
-
-function authProviderLabel(provider: ApplicantAuthProvider): string {
-  if (provider === "linkedin") return "LinkedIn";
-  if (provider === "google") return "Google";
-  return "email link";
 }
 
 /**
@@ -197,7 +196,6 @@ export async function sweepOldSubmissionDrafts(): Promise<number> {
 export async function createSubmissionDraft(
   provider: OAuthProviderName,
   formData: FormData,
-  redirectUri: string,
 ): Promise<{ authorizeUrl: string; state: string }> {
   await sweepOldSubmissionDrafts();
 
@@ -212,12 +210,16 @@ export async function createSubmissionDraft(
   });
 
   return {
-    authorizeUrl: buildAuthorizeUrl(provider, { redirectUri, state: stateToken }),
+    authorizeUrl: buildAuthorizeUrl(provider, { redirectUri: callbackUrl(provider), state: stateToken }),
     state: stateToken,
   };
 }
 
-/** Mint a fresh state token for a draft stuck in an auth error, without making the submitter retype the form. */
+/**
+ * Mint a fresh state token for a draft stuck in an auth error, without making the submitter
+ * retype the form. The callback's one-hour limit counts from here, so a retry late in the hour
+ * still gets the full hour to sign in.
+ */
 export async function retrySubmissionDraft(
   token: string,
   provider: OAuthProviderName,
@@ -238,12 +240,11 @@ export async function retrySubmissionDraft(
   const stateToken = randomUUID();
   await db
     .update(opportunitySubmissions)
-    .set({ stateToken, authProvider: provider, authError: null })
+    .set({ stateToken, authProvider: provider, authError: null, createdAt: new Date() })
     .where(eq(opportunitySubmissions.id, draft.id));
 
-  const redirectUri = `${requireSiteUrl()}/api/opportunities/submit/${provider}/callback`;
   return {
-    authorizeUrl: buildAuthorizeUrl(provider, { redirectUri, state: stateToken }),
+    authorizeUrl: buildAuthorizeUrl(provider, { redirectUri: callbackUrl(provider), state: stateToken }),
     state: stateToken,
   };
 }
@@ -313,7 +314,6 @@ export async function handleSubmissionOAuthCallback(
     state: string | null;
     stateMatchesCookie: boolean;
   },
-  redirectUri: string,
 ): Promise<string> {
   const { code, error, state, stateMatchesCookie } = params;
 
@@ -342,7 +342,7 @@ export async function handleSubmissionOAuthCallback(
 
   let userInfo;
   try {
-    userInfo = await exchangeCodeForUserInfo(provider, { code, redirectUri });
+    userInfo = await exchangeCodeForUserInfo(provider, { code, redirectUri: callbackUrl(provider) });
   } catch (err) {
     if (err instanceof UnverifiedEmailError) return sendToRetry("email_unverified");
     throw err;
@@ -473,25 +473,52 @@ export async function getSubmission(id: string): Promise<SubmissionRow | null> {
   return row ?? null;
 }
 
-/** A pending submission, or a NotFound for anything already decided, so it can't be published twice. */
-export async function requirePendingSubmission(id: string): Promise<SubmissionRow> {
-  const row = await getSubmission(id);
-  if (!row || row.status !== "pending") throw new SubmissionNotFoundError();
+/**
+ * Marks a pending submission published before its listing is created, so two admins acting on
+ * it at once can't both publish it, or publish one the other is rejecting: only one of them
+ * gets the row, and the other a NotFound. If the listing then fails to save, call
+ * `releaseSubmission` to put it back in the queue.
+ */
+export async function claimSubmissionForPublishing(id: string, actorEmail: string): Promise<SubmissionRow> {
+  if (!isUuid(id)) throw new SubmissionNotFoundError();
+  const [row] = await db
+    .update(opportunitySubmissions)
+    .set({ status: "published", reviewedAt: new Date(), reviewedBy: actorEmail })
+    .where(and(eq(opportunitySubmissions.id, id), eq(opportunitySubmissions.status, "pending")))
+    .returning();
+  if (!row) throw new SubmissionNotFoundError();
   return row;
 }
 
-/**
- * Records that `opportunity` was published from this submission, and tells the submitter. The
- * email is best effort: the listing is already live, and a failed send shouldn't report the
- * publish as failed.
- */
-export async function markSubmissionPublished(id: string, opportunity: Opportunity, actorEmail: string): Promise<void> {
-  const [row] = await db
+/** Undoes `claimSubmissionForPublishing` when no listing came of it. */
+export async function releaseSubmission(id: string): Promise<void> {
+  await db
     .update(opportunitySubmissions)
-    .set({ status: "published", opportunityId: opportunity.id, reviewedAt: new Date(), reviewedBy: actorEmail })
-    .where(and(eq(opportunitySubmissions.id, id), eq(opportunitySubmissions.status, "pending")))
-    .returning();
-  if (!row?.email) return;
+    .set({ status: "pending", reviewedAt: null, reviewedBy: null })
+    .where(
+      and(
+        eq(opportunitySubmissions.id, id),
+        eq(opportunitySubmissions.status, "published"),
+        isNull(opportunitySubmissions.opportunityId),
+      ),
+    );
+}
+
+/**
+ * Links a claimed submission to the listing made from it, and tells the submitter. Both are
+ * best effort: the listing is already live, so a failure here shouldn't report the publish as
+ * failed and invite the admin to create it again.
+ */
+export async function linkSubmissionToListing(row: SubmissionRow, opportunity: Opportunity): Promise<void> {
+  try {
+    await db
+      .update(opportunitySubmissions)
+      .set({ opportunityId: opportunity.id })
+      .where(eq(opportunitySubmissions.id, row.id));
+  } catch (err) {
+    console.error(`Could not link opportunity submission ${row.id} to listing ${opportunity.id}:`, err);
+  }
+  if (!row.email) return;
 
   try {
     await sendOpportunitySubmissionPublishedEmail(

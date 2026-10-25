@@ -1,3 +1,4 @@
+import { authProviderLabel } from "@/lib/applicant-types";
 import { retrySubmissionDraft } from "@/lib/opportunity-submission-flow";
 import { oauthHandoffResponse } from "@/lib/oauth-handoff";
 import { oauthStateCookieMatches, setOAuthStateCookie } from "@/lib/oauth-state-cookie";
@@ -29,5 +30,5 @@ export async function POST(request: Request) {
   if (!retry) return seeOther(`${SUBMIT_PATH}?error=expired`);
 
   await setOAuthStateCookie("opportunitySubmitter", retry.state);
-  return oauthHandoffResponse(retry.authorizeUrl, provider === "google" ? "Google" : "LinkedIn");
+  return oauthHandoffResponse(retry.authorizeUrl, authProviderLabel(provider));
 }
