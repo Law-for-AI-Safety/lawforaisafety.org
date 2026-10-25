@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COUNTRIES } from "./countries";
+import { OPPORTUNITY_TYPES } from "./kinds";
 import type { Opportunity } from "./types";
 
 /**
@@ -77,7 +78,7 @@ const opportunityObjectSchema = z
   .object({
     id: z.string(),
     slug: z.string().regex(SLUG, "Slug may use only lowercase letters, digits and single hyphens"),
-    type: z.enum(["job", "course"]),
+    type: z.enum(OPPORTUNITY_TYPES),
     title: text("Title", 200),
     org: text("Organisation", 200),
     orgUrl: url("Organisation URL").optional(),

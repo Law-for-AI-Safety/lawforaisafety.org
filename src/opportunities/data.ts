@@ -49,11 +49,25 @@ export async function getOpportunities(): Promise<Opportunity[]> {
 }
 
 /** Just what the sitemap needs - no need to pull every listing's full text to build its URL list. */
-export async function getOpportunitySitemapEntries(): Promise<Pick<Opportunity, "slug" | "publishedAt" | "deadline">[]> {
+export async function getOpportunitySitemapEntries(): Promise<
+  Pick<Opportunity, "slug" | "publishedAt" | "type" | "deadline" | "startDate" | "endDate">[]
+> {
   const rows = await db
-    .select({ slug: opportunities.slug, publishedAt: opportunities.publishedAt, deadline: opportunities.deadline })
+    .select({
+      slug: opportunities.slug,
+      publishedAt: opportunities.publishedAt,
+      type: opportunities.type,
+      deadline: opportunities.deadline,
+      startDate: opportunities.startDate,
+      endDate: opportunities.endDate,
+    })
     .from(opportunities);
-  return rows.map((row) => ({ ...row, deadline: row.deadline ?? undefined }));
+  return rows.map((row) => ({
+    ...row,
+    deadline: row.deadline ?? undefined,
+    startDate: row.startDate ?? undefined,
+    endDate: row.endDate ?? undefined,
+  }));
 }
 
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {

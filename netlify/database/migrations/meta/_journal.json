@@ -176,6 +176,13 @@
       "when": 1792848513915,
       "tag": "0024_normal_monster_badoon",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792929671511,
+      "tag": "0025_lucky_mastermind",
+      "breakpoints": true
     }
   ]
 }

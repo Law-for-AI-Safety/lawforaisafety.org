@@ -3,7 +3,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, GLOBAL } from "@/opportunities/schema";
 import { COUNTRIES } from "@/opportunities/countries";
-import type { CommitmentType, CompCurrency, CompPeriod, Opportunity } from "@/opportunities/types";
+import { OPPORTUNITY_KINDS, OPPORTUNITY_TYPES } from "@/opportunities/kinds";
+import type { CommitmentType, CompCurrency, CompPeriod, Opportunity, OpportunityType } from "@/opportunities/types";
 import CityPicker from "./CityPicker";
 import TagPicker from "./TagPicker";
 
@@ -18,7 +19,7 @@ const COMP_PERIOD_LABEL: Record<CompPeriod, string> = { year: "year", month: "mo
 
 /** The admin form's working state: every field a plain string (or boolean), tags as one comma-separated input, comp amounts as text (parsed on submit). */
 export type OpportunityFormState = {
-  type: "job" | "course";
+  type: OpportunityType;
   title: string;
   org: string;
   orgUrl: string;
@@ -124,14 +125,18 @@ export default function OpportunityFields({
 }) {
   const set = <K extends keyof OpportunityFormState>(key: K) => (value: OpportunityFormState[K]) =>
     setState((s) => ({ ...s, [key]: value }));
+  const kind = OPPORTUNITY_KINDS[state.type];
 
   return (
     <div className="flex flex-col gap-4">
       <label className={label}>
         <span className={labelText}>Type</span>
-        <select value={state.type} onChange={(e) => set("type")(e.target.value as "job" | "course")} className={input}>
-          <option value="job">Job</option>
-          <option value="course">Course</option>
+        <select value={state.type} onChange={(e) => set("type")(e.target.value as OpportunityType)} className={input}>
+          {OPPORTUNITY_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {OPPORTUNITY_KINDS[type].label}
+            </option>
+          ))}
         </select>
       </label>
 
@@ -262,15 +267,15 @@ export default function OpportunityFields({
 
       <div className="grid gap-4 sm:grid-cols-3">
         <label className={label}>
-          <span className={labelText}>Apply by</span>
+          <span className={labelText}>{kind.deadlineLabel}</span>
           <input type="date" value={state.deadline} onChange={(e) => set("deadline")(e.target.value)} className={input} />
         </label>
         <label className={label}>
-          <span className={labelText}>Start date</span>
+          <span className={labelText}>{kind.startLabel}</span>
           <input type="date" value={state.startDate} onChange={(e) => set("startDate")(e.target.value)} className={input} />
         </label>
         <label className={label}>
-          <span className={labelText}>End date</span>
+          <span className={labelText}>{kind.endLabel}</span>
           <input type="date" value={state.endDate} onChange={(e) => set("endDate")(e.target.value)} className={input} />
         </label>
       </div>
@@ -284,7 +289,7 @@ export default function OpportunityFields({
         </label>
         <label className={label}>
           <span className={labelText}>Apply label</span>
-          <input value={state.applyLabel} onChange={(e) => set("applyLabel")(e.target.value)} className={input} placeholder="Apply now" />
+          <input value={state.applyLabel} onChange={(e) => set("applyLabel")(e.target.value)} className={input} placeholder={kind.applyLabel} />
         </label>
       </div>
 

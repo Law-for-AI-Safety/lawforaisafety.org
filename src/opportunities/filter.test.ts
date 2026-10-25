@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  closingDate,
   daysUntil,
   filterOpportunities,
   formatCommitment,
   formatCompensation,
   formatDate,
+  formatEventDates,
   formatLocation,
   isClosed,
   isClosingSoon,
@@ -53,6 +55,14 @@ describe("sortOpportunities", () => {
       make({ slug: "soon", deadline: "2026-11-01" }),
     ];
     expect(sortOpportunities(items).map((i) => i.slug)).toEqual(["soon", "later"]);
+  });
+
+  it("orders an event with no deadline by its date", () => {
+    const items = [
+      make({ slug: "later", deadline: "2026-12-01" }),
+      make({ slug: "event", type: "event", startDate: "2026-11-01" }),
+    ];
+    expect(sortOpportunities(items).map((i) => i.slug)).toEqual(["event", "later"]);
   });
 
   it("puts undated items after dated ones", () => {
@@ -116,20 +126,37 @@ describe("isClosed / openOpportunities", () => {
   afterEach(() => vi.useRealTimers());
 
   it("is still open on the deadline day itself", () => {
-    expect(isClosed("2026-10-01", new Date())).toBe(false);
+    expect(isClosed(make({ deadline: "2026-10-01" }), new Date())).toBe(false);
   });
 
   it("stays open until the deadline day has ended Anywhere on Earth (UTC−12)", () => {
-    expect(isClosed("2026-09-30", new Date("2026-10-01T11:59:59Z"))).toBe(false);
-    expect(isClosed("2026-09-30", new Date("2026-10-01T12:00:00Z"))).toBe(true);
+    expect(isClosed(make({ deadline: "2026-09-30" }), new Date("2026-10-01T11:59:59Z"))).toBe(false);
+    expect(isClosed(make({ deadline: "2026-09-30" }), new Date("2026-10-01T12:00:00Z"))).toBe(true);
   });
 
   it("is closed the day after the deadline", () => {
-    expect(isClosed("2026-09-30", new Date())).toBe(true);
+    expect(isClosed(make({ deadline: "2026-09-30" }), new Date())).toBe(true);
   });
 
   it("never closes with no deadline", () => {
-    expect(isClosed(undefined, new Date())).toBe(false);
+    expect(isClosed(make({}), new Date())).toBe(false);
+  });
+
+  it("ignores a job's start and end dates", () => {
+    expect(isClosed(make({ startDate: "2026-09-01", endDate: "2026-09-30" }), new Date())).toBe(false);
+  });
+
+  it("closes an event with no deadline once its last day has passed", () => {
+    expect(isClosed(make({ type: "event", startDate: "2026-09-30" }), new Date())).toBe(true);
+    expect(isClosed(make({ type: "event", startDate: "2026-09-29", endDate: "2026-10-01" }), new Date())).toBe(false);
+  });
+
+  it("closes an event at its registration deadline, even before the event", () => {
+    expect(isClosed(make({ type: "event", deadline: "2026-09-30", startDate: "2026-10-10" }), new Date())).toBe(true);
+  });
+
+  it("never closes an event with no dates at all", () => {
+    expect(isClosed(make({ type: "event" }), new Date())).toBe(false);
   });
 
   it("keeps open and undated listings, dropping closed ones", () => {
@@ -139,6 +166,36 @@ describe("isClosed / openOpportunities", () => {
       make({ slug: "undated" }),
     ];
     expect(openOpportunities(items, new Date()).map((i) => i.slug)).toEqual(["open", "undated"]);
+  });
+});
+
+describe("closingDate", () => {
+  it("is the deadline when there is one", () => {
+    expect(closingDate(make({ type: "event", deadline: "2026-10-01", startDate: "2026-10-10" }))).toBe("2026-10-01");
+  });
+
+  it("is an event's last day when it has no deadline", () => {
+    expect(closingDate(make({ type: "event", startDate: "2026-10-10", endDate: "2026-10-12" }))).toBe("2026-10-12");
+    expect(closingDate(make({ type: "event", startDate: "2026-10-10" }))).toBe("2026-10-10");
+  });
+
+  it("is undefined for anything else with no deadline", () => {
+    expect(closingDate(make({ type: "course", startDate: "2026-10-10" }))).toBeUndefined();
+  });
+});
+
+describe("formatEventDates", () => {
+  it("shows a one-day event's date", () => {
+    expect(formatEventDates({ startDate: "2026-10-30" })).toBe("30 Oct 2026");
+    expect(formatEventDates({ startDate: "2026-10-30", endDate: "2026-10-30" })).toBe("30 Oct 2026");
+  });
+
+  it("shows a multi-day event's first and last days", () => {
+    expect(formatEventDates({ startDate: "2026-10-30", endDate: "2026-11-01" })).toBe("30 Oct 2026 – 1 Nov 2026");
+  });
+
+  it("is undefined with no date", () => {
+    expect(formatEventDates({})).toBeUndefined();
   });
 });
 

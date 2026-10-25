@@ -65,6 +65,26 @@ describe("an opportunity's detail page", () => {
     expect(screen.queryByRole("link", { name: "Apply now" })).not.toBeInTheDocument();
   });
 
+  it("labels an event's dates and button as an event's", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "an-event", type: "event", startDate: "2026-11-20", deadline: "2026-11-10" });
+    render(await OpportunityPage(params("an-event")));
+    expect(screen.getByText("Event")).toBeInTheDocument();
+    expect(screen.getByText("Date")).toBeInTheDocument();
+    expect(screen.getByText("Register by")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Register" })).toHaveAttribute("href", JOB.applyUrl);
+  });
+
+  it("closes an event with no deadline once it has taken place", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "past-event", type: "event", startDate: "2026-10-30" });
+    render(await OpportunityPage(params("past-event")));
+    expect(screen.getByText("Registration closed on 30 Oct 2026.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Register" })).not.toBeInTheDocument();
+  });
+
   it("still shows the CTA on the deadline day", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-30T12:00:00Z"));

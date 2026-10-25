@@ -44,6 +44,25 @@ describe("OpportunitiesBoard", () => {
     expect(screen.getByText("A Course")).toBeInTheDocument();
   });
 
+  it("has a tab for every kind of listing", () => {
+    render(<OpportunitiesBoard opportunities={items} />);
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "All",
+      "Jobs",
+      "Fellowships",
+      "Projects",
+      "Courses",
+      "Events",
+    ]);
+  });
+
+  it("narrows to events only when the Events tab is selected", async () => {
+    render(<OpportunitiesBoard opportunities={[...items, make({ title: "An Event", type: "event" })]} />);
+    await userEvent.click(screen.getByRole("tab", { name: "Events" }));
+    expect(screen.getByText("An Event")).toBeInTheDocument();
+    expect(screen.queryByText("A Job")).not.toBeInTheDocument();
+  });
+
   it("shows an empty-state message when a category has nothing in it", async () => {
     render(<OpportunitiesBoard opportunities={[make({ title: "Only Job", type: "job" })]} />);
     await userEvent.click(screen.getByRole("tab", { name: "Courses" }));

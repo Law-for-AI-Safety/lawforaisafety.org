@@ -12,10 +12,12 @@ describe("opportunityFieldsFromBody", () => {
     expect(result).toMatchObject({ ok: true, fields: { title: "A Job", org: "Acme", applyUrl: "https://example.com/apply", orgUrl: undefined } });
   });
 
-  it("defaults type to job unless it's exactly 'course'", () => {
+  it("keeps any known type, and defaults to job otherwise", () => {
     const base = { title: "A", org: "B", applyUrl: "https://example.com" };
     expect(opportunityFieldsFromBody(base)).toMatchObject({ fields: { type: "job" } });
-    expect(opportunityFieldsFromBody({ ...base, type: "course" })).toMatchObject({ fields: { type: "course" } });
+    for (const type of ["fellowship", "project", "course", "event"]) {
+      expect(opportunityFieldsFromBody({ ...base, type })).toMatchObject({ fields: { type } });
+    }
     expect(opportunityFieldsFromBody({ ...base, type: "nonsense" })).toMatchObject({ fields: { type: "job" } });
   });
 

@@ -57,4 +57,12 @@ describe("sitemap.xml", () => {
     expect(urls).not.toContain("https://lawforaisafety.org/opportunities/closed-job");
     expect(urls).toContain(`https://lawforaisafety.org/opportunities/${FIXTURE.slug}`);
   });
+
+  it("leaves out an event that has taken place", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...FIXTURE, slug: "past-event", type: "event", startDate: "2026-10-30" });
+    const urls = (await sitemap()).map((e) => e.url);
+    expect(urls).not.toContain("https://lawforaisafety.org/opportunities/past-event");
+  });
 });

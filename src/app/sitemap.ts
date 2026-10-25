@@ -19,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // listing's page stays up but is noindex, so it is left out here too.
   const now = new Date();
   for (const opportunity of await getOpportunitySitemapEntries()) {
-    if (isClosed(opportunity.deadline, now)) continue;
+    if (isClosed(opportunity, now)) continue;
     entries.push({
       url: `${SITE_URL}/opportunities/${opportunity.slug}`,
       lastModified: new Date(opportunity.publishedAt),

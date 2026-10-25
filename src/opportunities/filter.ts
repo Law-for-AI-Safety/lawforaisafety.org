@@ -63,11 +63,24 @@ export function filterOpportunities(items: Opportunity[], filter: OpportunityTyp
   return filter === "all" ? items : items.filter((item) => item.type === filter);
 }
 
+export type ClosingFields = Pick<Opportunity, "type" | "deadline" | "startDate" | "endDate">;
+
+/**
+ * The last day a listing can be acted on: its deadline, or for an event with no separate
+ * registration deadline, the event's own last day. Undefined means it never closes.
+ */
+export function closingDate(opportunity: ClosingFields): string | undefined {
+  if (opportunity.deadline) return opportunity.deadline;
+  return opportunity.type === "event" ? (opportunity.endDate ?? opportunity.startDate) : undefined;
+}
+
 export function sortOpportunities(items: Opportunity[]): Opportunity[] {
   return [...items].sort((a, b) => {
-    if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
-    if (a.deadline) return -1;
-    if (b.deadline) return 1;
+    const aCloses = closingDate(a);
+    const bCloses = closingDate(b);
+    if (aCloses && bCloses) return aCloses.localeCompare(bCloses);
+    if (aCloses) return -1;
+    if (bCloses) return 1;
     return b.publishedAt.localeCompare(a.publishedAt);
   });
 }
@@ -90,16 +103,23 @@ export function isClosingSoon(deadline: string | undefined, now: Date, withinDay
 const ANYWHERE_ON_EARTH_OFFSET_MS = 12 * 60 * 60 * 1000;
 
 /**
- * Closed once the deadline day has ended everywhere (Anywhere on Earth), so no applicant loses
- * the apply button while it is still the deadline day where they are. A listing with no
- * deadline never closes.
+ * Closed once its closing day has ended everywhere (Anywhere on Earth), so no applicant loses
+ * the apply button while it is still that day where they are.
  */
-export function isClosed(deadline: string | undefined, now: Date): boolean {
-  return deadline !== undefined && daysUntil(deadline, new Date(now.getTime() - ANYWHERE_ON_EARTH_OFFSET_MS)) < 0;
+export function isClosed(opportunity: ClosingFields, now: Date): boolean {
+  const closes = closingDate(opportunity);
+  return closes !== undefined && daysUntil(closes, new Date(now.getTime() - ANYWHERE_ON_EARTH_OFFSET_MS)) < 0;
 }
 
 export function openOpportunities(items: Opportunity[], now: Date): Opportunity[] {
-  return items.filter((item) => !isClosed(item.deadline, now));
+  return items.filter((item) => !isClosed(item, now));
+}
+
+/** An event's date, or its first and last days for a multi-day event, e.g. "30 Oct 2026 – 1 Nov 2026". */
+export function formatEventDates(opportunity: Pick<Opportunity, "startDate" | "endDate">): string | undefined {
+  const { startDate, endDate } = opportunity;
+  if (!startDate) return undefined;
+  return endDate && endDate !== startDate ? `${formatDate(startDate)} – ${formatDate(endDate)}` : formatDate(startDate);
 }
 
 /** Renders an ISO date (YYYY-MM-DD) as e.g. "30 Oct 2026", independent of the viewer's time zone. */

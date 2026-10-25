@@ -1,3 +1,4 @@
+import { OPPORTUNITY_TYPES } from "./kinds";
 import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS } from "./schema";
 import type { Opportunity } from "./types";
 
@@ -38,7 +39,7 @@ export function opportunityFieldsFromBody(body: Record<string, unknown>): Parsed
   return {
     ok: true,
     fields: {
-      type: body.type === "course" ? "course" : "job",
+      type: oneOf(OPPORTUNITY_TYPES)(body.type) ?? "job",
       title,
       org,
       orgUrl: strOrUndefined(body.orgUrl),

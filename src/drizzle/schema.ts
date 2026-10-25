@@ -487,7 +487,8 @@ export const cmsSubmissions = pgTable(
 // Opportunities board: plain DB-backed CRUD, same trust level as task-tracker (no draft/review
 // state - an admin saving a listing is already the review step). `publishedAt` is set once at
 // creation and never changes on edit; history instead lives in opportunitiesAuditLog.
-export const opportunityType = pgEnum("opportunity_type", ["job", "course"]);
+// The same kinds as OPPORTUNITY_TYPES in src/opportunities/kinds.ts, which holds each one's wording.
+export const opportunityType = pgEnum("opportunity_type", ["job", "fellowship", "project", "course", "event"]);
 export const opportunityCommitment = pgEnum("opportunity_commitment", [
   "full_time",
   "part_time",

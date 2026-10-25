@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getOpportunities } from "@/opportunities/data";
 import { sortOpportunities } from "@/opportunities/filter";
+import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 
 export default async function OpportunitiesListPage() {
   const opportunities = sortOpportunities(await getOpportunities());
@@ -24,8 +25,8 @@ export default async function OpportunitiesListPage() {
                 {opportunity.title}
               </Link>
               <span className="text-sm text-brand-black/70">
-                {opportunity.type === "job" ? "Job" : "Course"} · {opportunity.org}
-                {opportunity.deadline ? ` · Apply by ${opportunity.deadline}` : ""}
+                {OPPORTUNITY_KINDS[opportunity.type].label} · {opportunity.org}
+                {opportunity.deadline ? ` · ${OPPORTUNITY_KINDS[opportunity.type].deadlineLabel} ${opportunity.deadline}` : ""}
               </span>
             </li>
           ))}
