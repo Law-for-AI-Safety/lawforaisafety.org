@@ -68,7 +68,7 @@ const OPPORTUNITIES = [
   {
     id: "20000000-0000-4000-8000-000000000002",
     slug: "lawai-summer-research-fellowship",
-    type: "job",
+    type: "fellowship",
     title: "Summer Research Fellowship (Legal Frontiers)",
     org: "Institute for Law & AI (LawAI)",
     orgUrl: "https://law-ai.org",

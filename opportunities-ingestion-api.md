@@ -1,6 +1,6 @@
 # Opportunities ingestion API
 
-`/api/admin/opportunities` manages job and course listings. It's used by the admin UI (`/admin/opportunities`, session cookie), and also accepts a bearer-token key so an automated agent or script can create and update listings without a browser session. Code: `src/app/api/admin/opportunities/route.ts`, `src/app/api/admin/opportunities/[slug]/route.ts`, `src/lib/admin-guard.ts` (`requireOpportunitiesOrApiKey`).
+`/api/admin/opportunities` manages the board's listings: jobs, fellowships, projects, courses and events. It's used by the admin UI (`/admin/opportunities`, session cookie), and also accepts a bearer-token key so an automated agent or script can create and update listings without a browser session. Code: `src/app/api/admin/opportunities/route.ts`, `src/app/api/admin/opportunities/[slug]/route.ts`, `src/lib/admin-guard.ts` (`requireOpportunitiesOrApiKey`).
 
 ## Authentication
 
@@ -32,7 +32,7 @@ From `src/opportunities/schema.ts`:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `type` | `"job" \| "course"` | |
+| `type` | `"job" \| "fellowship" \| "project" \| "course" \| "event"` | |
 | `title` | string, ≤200 | |
 | `org` | string, ≤200 | |
 | `orgUrl` | URL | optional |
@@ -47,7 +47,7 @@ From `src/opportunities/schema.ts`:
 | `compCurrency` | `"GBP" \| "USD" \| "EUR"` | required if `compMin`/`compMax` is set |
 | `compPeriod` | `"year" \| "month" \| "week" \| "day" \| "hour"` | required if `compMin`/`compMax` is set |
 | `compNote` | string, ≤200 | optional |
-| `deadline`, `startDate`, `endDate` | `YYYY-MM-DD` | optional |
+| `deadline`, `startDate`, `endDate` | `YYYY-MM-DD` | optional; for an `event`, `startDate` is its date and `endDate` its last day if it runs over several. An event with no `deadline` closes once that day has passed |
 | `tags` | string[], each ≤50 | optional |
 | `applyUrl` | URL | required |
 | `applyLabel` | string, ≤50 | optional |
