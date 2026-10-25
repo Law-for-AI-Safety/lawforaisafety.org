@@ -8,14 +8,14 @@ import OpportunitiesBoard from "./OpportunitiesBoard";
 
 export const metadata: Metadata = {
   title: "Opportunities | Law for AI Safety",
-  description: "Jobs, fellowships and courses from organisations working on AI safety and governance law.",
+  description: "Jobs, fellowships, projects, courses and events from organisations working on AI safety and governance law.",
   alternates: { canonical: "/opportunities" },
 };
 
 export default async function OpportunitiesPage() {
   // Rendered per request, never prerendered: Netlify builds have no database, and which
-  // listings have closed depends on today's date. Not `force-dynamic`, which would also
-  // switch off the data cache the listings are read through.
+  // listings have closed depends on today's date. `connection()` rather than `force-dynamic`,
+  // so the data cache the listings are read through stays on.
   await connection();
   // Closed listings keep their own page, but drop off the board.
   const opportunities = sortOpportunities(openOpportunities(await getCachedOpportunities(), new Date()));
@@ -27,7 +27,7 @@ export default async function OpportunitiesPage() {
       </h1>
       <Rule />
       <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-        Jobs, fellowships and courses from organisations working on AI safety and governance law.
+        Jobs, fellowships, projects, courses and events from organisations working on AI safety and governance law.
       </p>
       <OpportunitiesBoard opportunities={opportunities} />
     </ContentPage>

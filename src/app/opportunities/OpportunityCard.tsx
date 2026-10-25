@@ -12,6 +12,7 @@ import type { Opportunity } from "@/opportunities/types";
 
 export default function OpportunityCard({ opportunity, now = new Date() }: { opportunity: Opportunity; now?: Date }) {
   const kind = OPPORTUNITY_KINDS[opportunity.type];
+  const soon = isClosingSoon(opportunity, now);
   const meta = [
     opportunity.type === "event" ? formatEventDates(opportunity) : undefined,
     opportunity.remote ? "Remote" : formatLocation(opportunity),
@@ -33,11 +34,14 @@ export default function OpportunityCard({ opportunity, now = new Date() }: { opp
 
       <p className="text-base font-light text-brand-navy/70">{meta.join(" · ")}</p>
 
-      {opportunity.deadline && (
+      {opportunity.deadline ? (
         <p className="text-sm font-light text-brand-red">
-          {isClosingSoon(opportunity.deadline, now) ? "Closing soon — " : ""}
+          {soon ? "Closing soon — " : ""}
           {kind.deadlineLabel} {formatDate(opportunity.deadline)}
         </p>
+      ) : (
+        // With no deadline, only an event closes (after its date), so this is an event coming up.
+        soon && <p className="text-sm font-light text-brand-red">Coming up</p>
       )}
 
       <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">{opportunity.summary}</p>

@@ -34,7 +34,7 @@ if (!process.env.DATABASE_URL) {
 
 const SEEDER = "seed@local.dev";
 
-// Fixed UUIDs so re-running is idempotent (delete-then-insert, same ids).
+// Fixed UUIDs, so each listing keeps its id across re-runs.
 const OPPORTUNITIES = [
   {
     id: "20000000-0000-4000-8000-000000000001",
@@ -99,8 +99,8 @@ const OPPORTUNITIES = [
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 await client.connect();
 
-const ids = OPPORTUNITIES.map((o) => o.id);
-await client.query("DELETE FROM opportunities WHERE id = ANY($1)", [ids]);
+// Everything an earlier run seeded, so a listing since dropped from this file goes too.
+await client.query("DELETE FROM opportunities WHERE created_by = $1", [SEEDER]);
 
 for (const o of OPPORTUNITIES) {
   await client.query(
@@ -145,4 +145,5 @@ for (const o of OPPORTUNITIES) {
 
 await client.end();
 
-console.log(`Seeded ${OPPORTUNITIES.length} opportunities.`);
+// The seed writes around src/lib/opportunities-flow.ts, so it can't clear the public pages' cache.
+console.log(`Seeded ${OPPORTUNITIES.length} opportunities. The public pages may show the old ones for up to an hour, or until any listing is saved in the admin.`);

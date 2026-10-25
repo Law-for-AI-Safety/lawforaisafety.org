@@ -106,6 +106,14 @@ describe("POST /api/admin/opportunities", () => {
     expect(row.createdBy).toBe("admin@example.com");
   });
 
+  it("is a 400 for an unknown type, and saves nothing", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await POST(request({ ...VALID_BODY, type: "workshop" }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Type must be one of: job, fellowship, project, course, event" });
+    expect(await db.select().from(opportunities)).toEqual([]);
+  });
+
   it("keeps the source URL when the admin fills one in", async () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await POST(request({ ...VALID_BODY, sourceUrl: "https://example.com/original-posting" }));

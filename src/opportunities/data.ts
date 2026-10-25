@@ -48,28 +48,6 @@ export async function getOpportunities(): Promise<Opportunity[]> {
   return rows.map(toOpportunity);
 }
 
-/** Just what the sitemap needs - no need to pull every listing's full text to build its URL list. */
-export async function getOpportunitySitemapEntries(): Promise<
-  Pick<Opportunity, "slug" | "publishedAt" | "type" | "deadline" | "startDate" | "endDate">[]
-> {
-  const rows = await db
-    .select({
-      slug: opportunities.slug,
-      publishedAt: opportunities.publishedAt,
-      type: opportunities.type,
-      deadline: opportunities.deadline,
-      startDate: opportunities.startDate,
-      endDate: opportunities.endDate,
-    })
-    .from(opportunities);
-  return rows.map((row) => ({
-    ...row,
-    deadline: row.deadline ?? undefined,
-    startDate: row.startDate ?? undefined,
-    endDate: row.endDate ?? undefined,
-  }));
-}
-
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
   const [row] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   return row ? toOpportunity(row) : null;
@@ -83,7 +61,8 @@ const PUBLIC_CACHE = { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 };
 // the database. Writes through the flow clear it at once. A change made around the flow (a
 // seed, a manual SQL fix) waits for the hour to pass, and then one more visit: the first
 // request after that is still served the cached list while it refreshes in the background.
-// Admin pages and the API read the uncached functions above.
+// Admin pages and the API read the uncached functions above; the sitemap shares the cached list.
+// On Netlify the data cache is kept per deploy, so each deploy starts with it empty.
 export const getCachedOpportunities = unstable_cache(getOpportunities, ["opportunities"], PUBLIC_CACHE);
 
 /**

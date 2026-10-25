@@ -36,10 +36,15 @@ export function opportunityFieldsFromBody(body: Record<string, unknown>): Parsed
   if (!title || !org || !applyUrl) {
     return { ok: false, error: "Title, organisation and apply URL are required" };
   }
+  // No fallback: a misspelt type would otherwise go live as the wrong kind of listing.
+  const type = oneOf(OPPORTUNITY_TYPES)(body.type);
+  if (!type) {
+    return { ok: false, error: `Type must be one of: ${OPPORTUNITY_TYPES.join(", ")}` };
+  }
   return {
     ok: true,
     fields: {
-      type: oneOf(OPPORTUNITY_TYPES)(body.type) ?? "job",
+      type,
       title,
       org,
       orgUrl: strOrUndefined(body.orgUrl),

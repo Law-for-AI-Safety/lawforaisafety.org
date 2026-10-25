@@ -56,6 +56,9 @@ function checkConsistency(
     compPeriod?: unknown;
     locationCountry?: string;
     locationCity?: unknown;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
   },
   ctx: z.RefinementCtx,
 ) {
@@ -71,6 +74,13 @@ function checkConsistency(
   }
   if (val.locationCountry === GLOBAL && val.locationCity !== undefined) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A Global listing can't also have a city", path: ["locationCity"] });
+  }
+  // An event closes after its date, so without one it would stay on the board for good.
+  if (val.type === "event" && val.startDate === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An event needs its date (start date)", path: ["startDate"] });
+  }
+  if (val.startDate !== undefined && val.endDate !== undefined && val.endDate < val.startDate) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date can't be before the start date", path: ["endDate"] });
   }
 }
 

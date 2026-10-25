@@ -102,19 +102,29 @@ describe("daysUntil / isClosingSoon", () => {
   });
 
   it("is closing soon exactly at the boundary (30 days)", () => {
-    expect(isClosingSoon("2026-10-31", new Date())).toBe(true);
+    expect(isClosingSoon(make({ deadline: "2026-10-31" }), new Date())).toBe(true);
   });
 
   it("is not closing soon just past the boundary (31 days)", () => {
-    expect(isClosingSoon("2026-11-01", new Date())).toBe(false);
+    expect(isClosingSoon(make({ deadline: "2026-11-01" }), new Date())).toBe(false);
   });
 
   it("is not closing soon once the deadline has passed", () => {
-    expect(isClosingSoon("2026-09-20", new Date())).toBe(false);
+    expect(isClosingSoon(make({ deadline: "2026-09-20" }), new Date())).toBe(false);
   });
 
   it("is never closing soon with no deadline", () => {
-    expect(isClosingSoon(undefined, new Date())).toBe(false);
+    expect(isClosingSoon(make({}), new Date())).toBe(false);
+  });
+
+  it("stays closing soon for as long as the listing is open on its deadline day", () => {
+    // 1 Oct ends Anywhere on Earth at 2 Oct 12:00 UTC.
+    expect(isClosingSoon(make({ deadline: "2026-10-01" }), new Date("2026-10-02T11:59:59Z"))).toBe(true);
+    expect(isClosingSoon(make({ deadline: "2026-10-01" }), new Date("2026-10-02T12:00:00Z"))).toBe(false);
+  });
+
+  it("is closing soon for an event with no deadline whose date is near", () => {
+    expect(isClosingSoon(make({ type: "event", startDate: "2026-10-10" }), new Date())).toBe(true);
   });
 });
 

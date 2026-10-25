@@ -93,22 +93,28 @@ export function daysUntil(deadline: string, now: Date): number {
   return Math.round((target - today) / msPerDay);
 }
 
-export function isClosingSoon(deadline: string | undefined, now: Date, withinDays = 30): boolean {
-  if (!deadline) return false;
-  const days = daysUntil(deadline, now);
-  return days >= 0 && days <= withinDays;
-}
-
 /** Anywhere on Earth (UTC−12), the last time zone where a given day ends. */
 const ANYWHERE_ON_EARTH_OFFSET_MS = 12 * 60 * 60 * 1000;
+
+/** Whole days left until the listing's closing day ends Anywhere on Earth; negative once it has closed. */
+function daysLeft(opportunity: ClosingFields, now: Date): number | undefined {
+  const closes = closingDate(opportunity);
+  return closes === undefined ? undefined : daysUntil(closes, new Date(now.getTime() - ANYWHERE_ON_EARTH_OFFSET_MS));
+}
+
+/** Still open, and closing within `withinDays`, on the same clock as `isClosed`. */
+export function isClosingSoon(opportunity: ClosingFields, now: Date, withinDays = 30): boolean {
+  const days = daysLeft(opportunity, now);
+  return days !== undefined && days >= 0 && days <= withinDays;
+}
 
 /**
  * Closed once its closing day has ended everywhere (Anywhere on Earth), so no applicant loses
  * the apply button while it is still that day where they are.
  */
 export function isClosed(opportunity: ClosingFields, now: Date): boolean {
-  const closes = closingDate(opportunity);
-  return closes !== undefined && daysUntil(closes, new Date(now.getTime() - ANYWHERE_ON_EARTH_OFFSET_MS)) < 0;
+  const days = daysLeft(opportunity, now);
+  return days !== undefined && days < 0;
 }
 
 export function openOpportunities(items: Opportunity[], now: Date): Opportunity[] {

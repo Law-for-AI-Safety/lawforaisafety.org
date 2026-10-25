@@ -15,25 +15,29 @@ type Props = { params: Promise<{ slug: string }> };
 
 const FILLED = "inline-flex items-center gap-3 px-8 py-4 bg-brand-red text-brand-white text-lg font-light rounded-sm overflow-hidden";
 
-const load = cache(async (slug: string): Promise<Opportunity> => {
+/**
+ * The listing, and whether it has closed. Decided once per request, so the metadata's `noindex`
+ * and the page body can't fall either side of the closing moment.
+ */
+const load = cache(async (slug: string): Promise<{ opportunity: Opportunity; closed: boolean }> => {
   // Rendered per request, never prerendered: Netlify builds have no database, and whether
-  // the listing has closed depends on today's date. Not `force-dynamic`, which would also
-  // switch off the data cache the listing is read through.
+  // the listing has closed depends on today's date. `connection()` rather than `force-dynamic`,
+  // so the data cache the listing is read through stays on.
   await connection();
   const found = await getCachedOpportunityBySlug(slug);
   if (!found) notFound();
-  return found;
+  return { opportunity: found, closed: isClosed(found, new Date()) };
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const opportunity = await load(slug);
+  const { opportunity, closed } = await load(slug);
   return {
     title: `${opportunity.title} at ${opportunity.org} | Opportunities | Law for AI Safety`,
     description: opportunity.summary,
     alternates: { canonical: `/opportunities/${opportunity.slug}` },
     // Kept up for anyone with the link, but out of search results once it can't be applied to.
-    ...(isClosed(opportunity, new Date()) && { robots: { index: false } }),
+    ...(closed && { robots: { index: false } }),
   };
 }
 
@@ -51,9 +55,9 @@ function facts(opportunity: Opportunity): { label: string; value: string }[] {
 
 export default async function OpportunityPage({ params }: Props) {
   const { slug } = await params;
-  const opportunity = await load(slug);
+  const { opportunity, closed } = await load(slug);
   const kind = OPPORTUNITY_KINDS[opportunity.type];
-  const closedOn = isClosed(opportunity, new Date()) ? closingDate(opportunity) : undefined;
+  const closedOn = closed ? closingDate(opportunity) : undefined;
 
   return (
     <ContentPage gap={6}>
