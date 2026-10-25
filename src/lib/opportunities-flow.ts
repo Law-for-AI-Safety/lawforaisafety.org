@@ -24,7 +24,11 @@ function isUniqueSlugViolation(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code?: unknown }).code === "23505";
 }
 
-/** Drops the public pages' cached reads, so the next visit sees the write rather than a stale copy. */
+/**
+ * Drops the public pages' cached reads, so the next visit sees the write rather than a stale
+ * copy. Called as soon as the row is written, so nothing after it can leave a saved change
+ * hidden behind the cache.
+ */
 function clearPublicCache() {
   revalidateTag(OPPORTUNITIES_CACHE_TAG, { expire: 0 });
 }
@@ -67,6 +71,7 @@ export async function createOpportunity(fields: OpportunityFields, createdBy: st
     }
   }
   if (!row) throw new Error("Could not find a free slug");
+  clearPublicCache();
 
   await recordOpportunityAction({
     actorEmail: createdBy,
@@ -74,7 +79,6 @@ export async function createOpportunity(fields: OpportunityFields, createdBy: st
     entityId: row.id,
     detail: { slug: row.slug, title: row.title, org: row.org },
   });
-  clearPublicCache();
   return toOpportunity(row);
 }
 
@@ -100,13 +104,13 @@ export async function updateOpportunity(slug: string, fields: OpportunityFields,
     .where(eq(opportunities.slug, slug))
     .returning();
   if (!row) throw new NotFoundError();
+  clearPublicCache();
 
   const changedKeys = (Object.keys(parsed) as (keyof OpportunityFields)[]).filter(
     (key) => JSON.stringify(existing[key]) !== JSON.stringify(row[key]),
   );
   const detail = Object.fromEntries(changedKeys.map((key) => [key, { before: existing[key], after: row[key] }]));
   await recordOpportunityAction({ actorEmail, action: "update", entityId: row.id, detail });
-  clearPublicCache();
 
   return toOpportunity(row);
 }
@@ -115,7 +119,7 @@ export async function updateOpportunity(slug: string, fields: OpportunityFields,
 export async function deleteOpportunity(slug: string, actorEmail: string): Promise<Opportunity> {
   const [row] = await db.delete(opportunities).where(eq(opportunities.slug, slug)).returning();
   if (!row) throw new NotFoundError();
-  await recordOpportunityAction({ actorEmail, action: "delete", entityId: row.id, detail: row });
   clearPublicCache();
+  await recordOpportunityAction({ actorEmail, action: "delete", entityId: row.id, detail: row });
   return toOpportunity(row);
 }

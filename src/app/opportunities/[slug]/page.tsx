@@ -38,6 +38,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${opportunity.title} at ${opportunity.org} | Opportunities | Law for AI Safety`,
     description: opportunity.summary,
     alternates: { canonical: `/opportunities/${opportunity.slug}` },
+    // Kept up for anyone with the link, but out of search results once it can't be applied to.
+    ...(isClosed(opportunity.deadline, new Date()) && { robots: { index: false } }),
   };
 }
 

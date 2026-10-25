@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
+import { dataCache } from "../../../../test/next-cache";
 import { deleteOpportunity, updateOpportunity } from "@/lib/opportunities-flow";
 import OpportunityPage, { generateMetadata } from "./page";
 
@@ -91,6 +92,21 @@ describe("an opportunity's detail page", () => {
     render(await OpportunityPage(params(JOB.slug)));
     await deleteOpportunity(JOB.slug, "admin@example.com");
     await expect(OpportunityPage(params(JOB.slug))).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("keeps a closed listing out of search results", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "closed-job", deadline: "2026-10-30" });
+    expect(await generateMetadata(params("closed-job"))).toMatchObject({ robots: { index: false } });
+    expect(await generateMetadata(params(JOB.slug))).not.toHaveProperty("robots");
+  });
+
+  it("caches nothing extra for a made-up address", async () => {
+    render(await OpportunityPage(params(JOB.slug)));
+    const cached = dataCache.size;
+    await expect(OpportunityPage(params("no-such-opportunity"))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(dataCache.size).toBe(cached);
   });
 
   it("gives the page its own metadata", async () => {

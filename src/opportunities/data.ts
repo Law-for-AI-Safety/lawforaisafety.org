@@ -48,9 +48,12 @@ export async function getOpportunities(): Promise<Opportunity[]> {
   return rows.map(toOpportunity);
 }
 
-/** Just slug and publishedAt, for the sitemap - no need to pull every listing's full text to build its URL list. */
-export async function getOpportunitySitemapEntries(): Promise<Pick<Opportunity, "slug" | "publishedAt">[]> {
-  return db.select({ slug: opportunities.slug, publishedAt: opportunities.publishedAt }).from(opportunities);
+/** Just what the sitemap needs - no need to pull every listing's full text to build its URL list. */
+export async function getOpportunitySitemapEntries(): Promise<Pick<Opportunity, "slug" | "publishedAt" | "deadline">[]> {
+  const rows = await db
+    .select({ slug: opportunities.slug, publishedAt: opportunities.publishedAt, deadline: opportunities.deadline })
+    .from(opportunities);
+  return rows.map((row) => ({ ...row, deadline: row.deadline ?? undefined }));
 }
 
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
@@ -63,11 +66,19 @@ export const OPPORTUNITIES_CACHE_TAG = "opportunities";
 const PUBLIC_CACHE = { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 };
 
 // The public board and listing pages read through Next's data cache, so a visit needn't wake
-// the database. Writes through the flow clear it at once; the hour only bounds how long a
-// change made around the flow (a seed, a manual SQL fix) takes to show. Admin pages and the
-// API read the uncached functions above.
+// the database. Writes through the flow clear it at once. A change made around the flow (a
+// seed, a manual SQL fix) waits for the hour to pass, and then one more visit: the first
+// request after that is still served the cached list while it refreshes in the background.
+// Admin pages and the API read the uncached functions above.
 export const getCachedOpportunities = unstable_cache(getOpportunities, ["opportunities"], PUBLIC_CACHE);
-export const getCachedOpportunityBySlug = unstable_cache(getOpportunityBySlug, ["opportunity-by-slug"], PUBLIC_CACHE);
+
+/**
+ * Picked out of the cached list rather than cached per slug, so one entry serves every listing
+ * page and a request for a made-up slug adds nothing to the cache.
+ */
+export async function getCachedOpportunityBySlug(slug: string): Promise<Opportunity | null> {
+  return (await getCachedOpportunities()).find((opportunity) => opportunity.slug === slug) ?? null;
+}
 
 /** Every distinct tag already in use, for the admin form's typeahead - keeps tagging consistent across listings. */
 export async function getOpportunityTags(): Promise<string[]> {

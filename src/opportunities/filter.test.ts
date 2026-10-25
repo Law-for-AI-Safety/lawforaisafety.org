@@ -119,6 +119,11 @@ describe("isClosed / openOpportunities", () => {
     expect(isClosed("2026-10-01", new Date())).toBe(false);
   });
 
+  it("stays open until the deadline day has ended Anywhere on Earth (UTC−12)", () => {
+    expect(isClosed("2026-09-30", new Date("2026-10-01T11:59:59Z"))).toBe(false);
+    expect(isClosed("2026-09-30", new Date("2026-10-01T12:00:00Z"))).toBe(true);
+  });
+
   it("is closed the day after the deadline", () => {
     expect(isClosed("2026-09-30", new Date())).toBe(true);
   });

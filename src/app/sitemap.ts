@@ -4,6 +4,7 @@ import { LOCALES, localeHref } from "./privacy-policy/locales";
 import { isPolicyServed } from "./privacy-policy/visibility";
 import { SITE_URL, siteDirs, sitemapEntries } from "@/cms/site";
 import { getOpportunitySitemapEntries } from "@/opportunities/data";
+import { isClosed } from "@/opportunities/filter";
 
 // Opportunities are DB-backed, so a newly-saved listing's sitemap entry needs this rendered
 // per-request rather than once at build time.
@@ -14,8 +15,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = sitemapEntries(siteDirs());
 
   // Opportunity detail pages have a dynamic segment, so sitemapEntries() (which
-  // excludes any route with a `[` segment) never sees them; add them by hand.
+  // excludes any route with a `[` segment) never sees them; add them by hand. A closed
+  // listing's page stays up but is noindex, so it is left out here too.
+  const now = new Date();
   for (const opportunity of await getOpportunitySitemapEntries()) {
+    if (isClosed(opportunity.deadline, now)) continue;
     entries.push({
       url: `${SITE_URL}/opportunities/${opportunity.slug}`,
       lastModified: new Date(opportunity.publishedAt),

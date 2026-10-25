@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
+import { dataCache } from "../../../test/next-cache";
 import { createOpportunity } from "@/lib/opportunities-flow";
 import OpportunitiesPage, { metadata } from "./page";
 
@@ -53,11 +54,18 @@ describe("the opportunities index page", () => {
     render(await OpportunitiesPage());
     expect(screen.queryByText("Inserted Job")).not.toBeInTheDocument();
 
+    // Past the hour, one more visit gets the old list while it refreshes in the background.
     vi.setSystemTime(new Date("2026-10-01T13:00:01Z"));
+    cleanup();
+    render(await OpportunitiesPage());
+    expect(screen.queryByText("Inserted Job")).not.toBeInTheDocument();
+
+    await dataCache.settle();
     cleanup();
     render(await OpportunitiesPage());
     expect(screen.getByText("Inserted Job")).toBeInTheDocument();
   });
+
 
   it("shows a listing created through the flow at once", async () => {
     render(await OpportunitiesPage());

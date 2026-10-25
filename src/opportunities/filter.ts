@@ -86,9 +86,16 @@ export function isClosingSoon(deadline: string | undefined, now: Date, withinDay
   return days >= 0 && days <= withinDays;
 }
 
-/** Closed once the deadline day has passed (UTC); a listing with no deadline never closes. */
+/** Anywhere on Earth (UTC−12), the last time zone where a given day ends. */
+const ANYWHERE_ON_EARTH_OFFSET_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Closed once the deadline day has ended everywhere (Anywhere on Earth), so no applicant loses
+ * the apply button while it is still the deadline day where they are. A listing with no
+ * deadline never closes.
+ */
 export function isClosed(deadline: string | undefined, now: Date): boolean {
-  return deadline !== undefined && daysUntil(deadline, now) < 0;
+  return deadline !== undefined && daysUntil(deadline, new Date(now.getTime() - ANYWHERE_ON_EARTH_OFFSET_MS)) < 0;
 }
 
 export function openOpportunities(items: Opportunity[], now: Date): Opportunity[] {
