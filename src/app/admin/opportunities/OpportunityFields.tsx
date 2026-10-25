@@ -100,6 +100,39 @@ export function opportunityFormFromExisting(o: Opportunity): OpportunityFormStat
   };
 }
 
+/**
+ * A new listing's form, started from what an outside submitter sent in. Their free-text
+ * location goes in the location note for the admin to turn into a country and city.
+ */
+export function opportunityFormFromSubmission(submission: {
+  type: OpportunityType | null;
+  title: string | null;
+  org: string | null;
+  applyUrl: string | null;
+  sourceUrl: string | null;
+  location: string | null;
+  remote: boolean;
+  deadline: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  description: string | null;
+}): OpportunityFormState {
+  return {
+    ...emptyOpportunityForm(),
+    type: submission.type ?? "job",
+    title: submission.title ?? "",
+    org: submission.org ?? "",
+    applyUrl: submission.applyUrl ?? "",
+    sourceUrl: submission.sourceUrl ?? "",
+    locationNote: submission.location ?? "",
+    remote: submission.remote,
+    deadline: submission.deadline ?? "",
+    startDate: submission.startDate ?? "",
+    endDate: submission.endDate ?? "",
+    description: submission.description ?? "",
+  };
+}
+
 /** The request body the create/update routes expect, from the form's working state. */
 export function toOpportunityBody(state: OpportunityFormState): Record<string, unknown> {
   return {

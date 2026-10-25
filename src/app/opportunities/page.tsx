@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { connection } from "next/server";
 import ContentPage from "@/app/ContentPage";
 import Rule from "@/cms/blocks/Rule";
@@ -28,6 +29,13 @@ export default async function OpportunitiesPage() {
       <Rule />
       <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
         Jobs, fellowships, projects, courses and events from organisations working on AI safety and governance law.
+      </p>
+      <p className="text-lg font-light text-brand-navy/85">
+        Know of one we&apos;re missing?{" "}
+        <Link href="/opportunities/submit" className="underline">
+          Submit an opportunity
+        </Link>
+        .
       </p>
       <OpportunitiesBoard opportunities={opportunities} />
     </ContentPage>

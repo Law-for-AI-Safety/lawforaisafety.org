@@ -3,6 +3,8 @@ import { fakeFetch, routeOrigin } from "./fakes/network";
 import { github, GITHUB_API } from "./fakes/github";
 import { emails } from "./fakes/email";
 import { turnstile } from "./fakes/turnstile";
+import { oauthProviders } from "./fakes/oauth";
+import { slack } from "./fakes/slack";
 import { dataCache } from "./next-cache";
 
 /**
@@ -47,6 +49,8 @@ beforeEach(() => {
   emails.reset();
   turnstile.reset();
   github.reset();
+  oauthProviders.reset();
+  slack.reset();
 });
 
 afterEach(() => {

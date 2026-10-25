@@ -52,6 +52,7 @@ From `src/opportunities/schema.ts`:
 | `applyUrl` | URL | required |
 | `applyLabel` | string, ≤50 | optional |
 | `sourceUrl` | URL | optional; where the listing was found, use it to dedupe on re-ingestion |
+| `submissionId` | uuid | `POST` only, optional; publishes an outside submission (`/admin/opportunities/submissions`) as this listing and emails its submitter. 409 if it isn't pending |
 
 ## Prompting an ingestion agent
 

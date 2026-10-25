@@ -541,3 +541,60 @@ export const opportunitiesAuditLog = pgTable("opportunities_audit_log", {
   entityId: uuid("entity_id").notNull(),
   detail: jsonb("detail"),
 });
+
+// Listings sent in by people outside the team, from /opportunities/submit. Each is either a
+// short listing or just a link (`sourceUrl`) for the team to write up. Nothing here is public:
+// an opportunities admin publishes one by creating a listing from it, which links the two
+// (`opportunityId`), or rejects it. The submitter's identity is confirmed the same three ways
+// as an application (LinkedIn, Google, or an emailed link, see `authProvider`), and a draft
+// that never gets confirmed is swept after 24 hours. Decided rows are kept, so the team can
+// see what came in and from whom, until an erasure request (see erasure.ts) deletes them.
+export const opportunitySubmissionStatus = pgEnum("opportunity_submission_status", [
+  "draft",
+  "pending",
+  "published",
+  "rejected",
+]);
+
+export const opportunitySubmissions = pgTable(
+  "opportunity_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+
+    // Self-reported, collected before identity is confirmed. A link-only submission has
+    // `sourceUrl` and perhaps a `type` and `note`; a listing has the rest.
+    sourceUrl: text("source_url"),
+    type: opportunityType("type"),
+    title: text("title"),
+    org: text("org"),
+    applyUrl: text("apply_url"),
+    location: text("location"),
+    remote: boolean("remote").notNull().default(false),
+    deadline: date("deadline"),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    description: text("description"),
+    note: text("note"),
+
+    // As red_lines_applications: confirmed by the provider on the OAuth paths, typed by the
+    // submitter and proven only by the emailed link on the email path. Not unique: one
+    // person can send in many listings.
+    authProvider: authProvider("auth_provider").notNull(),
+    name: text("name"),
+    email: text("email"),
+    providerId: text("provider_id"),
+
+    // Flow control
+    stateToken: text("state_token"),
+    authError: text("auth_error"),
+    status: opportunitySubmissionStatus("status").notNull().default("draft"),
+
+    // Review
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: text("reviewed_by"),
+    rejectionReason: text("rejection_reason"),
+    opportunityId: uuid("opportunity_id").references(() => opportunities.id, { onDelete: "set null" }),
+  },
+  (table) => [index("opportunity_submissions_status_idx").on(table.status)],
+);

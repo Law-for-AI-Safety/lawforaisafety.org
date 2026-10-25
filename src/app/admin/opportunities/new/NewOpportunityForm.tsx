@@ -6,8 +6,17 @@ import OpportunityFields, { emptyOpportunityForm, toOpportunityBody, type Opport
 import PublishedNotice from "../PublishedNotice";
 import type { Opportunity } from "@/opportunities/types";
 
-export default function NewOpportunityForm({ tagSuggestions = [] }: { tagSuggestions?: string[] }) {
-  const [state, setState] = useState<OpportunityFormState>(emptyOpportunityForm());
+export default function NewOpportunityForm({
+  tagSuggestions = [],
+  initial,
+  submissionId,
+}: {
+  tagSuggestions?: string[];
+  initial?: OpportunityFormState;
+  /** Publishes this outside submission with the listing, which emails its submitter. */
+  submissionId?: string;
+}) {
+  const [state, setState] = useState<OpportunityFormState>(initial ?? emptyOpportunityForm());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Opportunity | null>(null);
@@ -17,7 +26,7 @@ export default function NewOpportunityForm({ tagSuggestions = [] }: { tagSuggest
     setBusy(true);
     setError(null);
     try {
-      const result = await sendJson("/api/admin/opportunities", "POST", toOpportunityBody(state));
+      const result = await sendJson("/api/admin/opportunities", "POST", { ...toOpportunityBody(state), submissionId });
       setCreated(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create the opportunity");
@@ -26,7 +35,14 @@ export default function NewOpportunityForm({ tagSuggestions = [] }: { tagSuggest
     }
   }
 
-  if (created) return <PublishedNotice opportunity={created} action="created" />;
+  if (created) {
+    return (
+      <div className="flex flex-col gap-3">
+        <PublishedNotice opportunity={created} action="created" />
+        {submissionId && <p className="text-brand-black/70">We&apos;ve emailed the submitter the link.</p>}
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleCreate} className="flex flex-col gap-4">

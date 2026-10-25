@@ -32,9 +32,9 @@ For example `http://publish.localhost:3001/api/admin/dev-login` (add `?next=/adm
 
 ### Fakes and seams
 
-Only the outside world is faked, and only at a seam. The app reaches Turnstile, Brevo and Slack through `fetch`, so `test/setup-env.ts` replaces it: a request to the app's own origin runs the real route handler (`test/app-fetch.ts`), a request to a service goes to its fake in `test/fakes/`, and any other request throws.
+Only the outside world is faked, and only at a seam. The app reaches Turnstile, Brevo, Slack, LinkedIn and Google through `fetch`, so `test/setup-env.ts` replaces it: a request to the app's own origin runs the real route handler (`test/app-fetch.ts`), a request to a service goes to its fake in `test/fakes/`, and any other request throws.
 
-- Fakes have named helpers so a test's intent is visible: `turnstile.solve()`, `turnstile.failNext()`, `emails.to(address)`, `emails.failNext()`. The harness resets them before each test.
+- Fakes have named helpers so a test's intent is visible: `turnstile.solve()`, `turnstile.failNext()`, `emails.to(address)`, `emails.failNext()`, `oauthProviders.signIn(provider, user)` (LinkedIn and Google sign-in), `slack.messages`. The harness resets them before each test.
 - Assert on what would have reached the outside world: the email's recipient and body, the request Turnstile was sent.
 - Never `vi.mock` our own modules. If code under `src/` needs faking, give it a seam (a parameter or setter with a production default) and add a fake in `test/fakes/`. `vi.mock` is only for framework edges such as `next/navigation` (`test/setup-dom.ts`), `next/cache` (`test/next-cache.ts`, an in-memory data cache, and `connection()` from `next/server`, both in `test/setup-env.ts`) and `next/headers` (`test/next-headers.ts`, mocked by the test file that needs it).
 - Fake the clock with `vi.useFakeTimers({ toFake: ["Date"] })` and `vi.setSystemTime`; set settings with `vi.stubEnv`. Both are undone after each test.

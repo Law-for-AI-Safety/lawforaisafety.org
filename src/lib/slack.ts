@@ -90,6 +90,36 @@ export async function notifyReviewersOfNewRedLinesApplication({
   }
 }
 
+export async function notifyReviewersOfNewOpportunitySubmission({
+  submitterName,
+  what,
+  authProvider,
+  submissionId,
+}: {
+  submitterName: string;
+  what: string;
+  authProvider: ApplicantAuthProvider;
+  submissionId: string;
+}): Promise<void> {
+  const webhookUrl = requireEnv("SLACK_WEBHOOK_URL");
+  const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
+
+  const authProviderLabel =
+    authProvider === "linkedin" ? "LinkedIn" : authProvider === "google" ? "Google" : "email link";
+
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: `New opportunity submitted by ${escapeSlack(submitterName)}: ${escapeSlack(what)}, email confirmed via ${authProviderLabel}. Review: ${siteUrl}/admin/opportunities/submissions/${submissionId}`,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Slack webhook failed: ${response.status} ${await response.text()}`);
+  }
+}
+
 /**
  * Standard `users.list` (available on all plans, unlike the Enterprise-only
  * admin.* namespace) — used to check if an approved applicant already has a

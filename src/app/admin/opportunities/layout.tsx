@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
 import { getAdminSession, isOpportunitiesTeamEmail } from "@/lib/session";
 
 export default async function OpportunitiesLayout({
@@ -14,6 +15,7 @@ export default async function OpportunitiesLayout({
   if (!isOpportunitiesTeamEmail(session.email)) {
     redirect("/admin");
   }
+  const pending = await countPendingSubmissions();
 
   return (
     <div className="flex h-dvh flex-col">
@@ -24,6 +26,9 @@ export default async function OpportunitiesLayout({
           </Link>
           <Link href="/admin/opportunities/new" className="underline">
             New opportunity
+          </Link>
+          <Link href="/admin/opportunities/submissions" className="underline">
+            Submissions{pending > 0 ? ` (${pending} to review)` : ""}
           </Link>
           <span className="text-brand-black/70">Signed in as {session.name}</span>
         </div>

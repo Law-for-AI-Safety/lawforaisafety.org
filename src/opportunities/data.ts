@@ -48,6 +48,12 @@ export async function getOpportunities(): Promise<Opportunity[]> {
   return rows.map(toOpportunity);
 }
 
+/** For linking a published submission to the listing made from it. */
+export async function getOpportunitySlugById(id: string): Promise<string | null> {
+  const [row] = await db.select({ slug: opportunities.slug }).from(opportunities).where(eq(opportunities.id, id));
+  return row?.slug ?? null;
+}
+
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
   const [row] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   return row ? toOpportunity(row) : null;
