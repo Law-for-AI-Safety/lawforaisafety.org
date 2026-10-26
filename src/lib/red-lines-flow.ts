@@ -256,11 +256,7 @@ export async function retryRedLinesApplicationDraft(
 
 async function notifyBestEffort(row: typeof redLinesApplications.$inferSelect): Promise<void> {
   try {
-    await notifyReviewersOfNewRedLinesApplication({
-      applicantName: row.name ?? "Unknown",
-      affiliation: row.affiliation,
-      applicationId: row.id,
-    });
+    await notifyReviewersOfNewRedLinesApplication({ applicationId: row.id });
   } catch {
     // Best-effort — a Slack outage shouldn't fail the applicant-facing flow.
   }

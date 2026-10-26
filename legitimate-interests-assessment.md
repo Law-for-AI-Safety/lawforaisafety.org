@@ -236,15 +236,15 @@ point 1). The rejection email is sent only when the reviewer chooses to.
 capped at three per address per day; the same bot protection and sign-in cookie
 as applications; the queue visible only to the opportunities team; the erasure
 tool finds and deletes a sender's submissions while any published listing,
-which holds none of their details, stays up.
+which holds none of their details, stays up; the team's Slack channel is told
+only that a submission is waiting, never who sent it.
 
-**Retention.** Confirmed submissions are currently kept until an erasure
-request, so the team can see who sent a listing for as long as it is up. That
-is the weakest part of this operation under Article 5(1)(e): a fixed period
-(for example a year after the decision) would sit better, and can be enforced
-by the existing hourly sweep. `[Counsel to set a period.]`
+**Retention.** A confirmed submission is kept until it is decided and then for
+one year, long enough for the team to answer questions about a listing while it
+is current, and deleted automatically after that by the hourly sweep, or sooner
+on request.
 
-**Conclusion.** Not overridden, subject to the retention point.
+**Conclusion.** Not overridden.
 
 ---
 

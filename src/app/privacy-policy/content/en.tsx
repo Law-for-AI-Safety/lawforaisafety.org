@@ -168,10 +168,13 @@ const en: PolicyContent = {
           </p>
 
           <div className={SUBSECTION}>
-            <h3 className={H3}>If you apply to work with us</h3>
+            <h3 className={H3}>How you confirm who you are</h3>
             <p className={P}>
-              You verify your identity through one of three routes, and we
-              collect different data depending on which one you use:
+              Every form on this site that sends us more than an email address
+              (applying to work with us, applying to the Red Lines Dialogues,
+              and sending us an opportunity) asks you to confirm who you are
+              through one of three routes. We collect different data depending
+              on which one you use:
             </p>
             <ul className={UL}>
               <li>
@@ -188,23 +191,30 @@ const en: PolicyContent = {
                 Name and email only, with no identity verification: if you
                 don&apos;t use LinkedIn or Google, you can type your name and
                 email directly. We email a link to that address, and your
-                application is only submitted once you open the link and
-                confirm. That shows you can read mail at the address and
+                form is only submitted once you open the link and confirm. That shows you can read mail at the address and
                 nothing more. Your name is self-reported and unverified. We
                 have no proof it&apos;s accurate, and our reviewers are told to
                 treat it that way.
               </li>
             </ul>
             <p className={P}>
+              When you send us an opportunity, we don&apos;t keep a profile
+              photo.
+            </p>
+            <p className={P}>
               If you use LinkedIn or Google, you sign in on their site rather
               than ours, and they confirm those details back to us. They act as
               controllers of your data in their own right, under their own
               privacy policies, rather than on our instructions. We never send
-              them your application, but signing in does tell them you have
-              used your account here.
+              them what you submit, but signing in does tell them you have used
+              your account here.
             </p>
+          </div>
+
+          <div className={SUBSECTION}>
+            <h3 className={H3}>If you apply to work with us</h3>
             <p className={P}>
-              Alongside identity verification, the application form collects:
+              Alongside confirming who you are, the application form collects:
             </p>
             <ul className={UL}>
               <li>Organisation or firm (optional, self-reported)</li>
@@ -236,15 +246,9 @@ const en: PolicyContent = {
             <h3 className={H3}>If you send us an opportunity</h3>
             <p className={P}>
               You can send us a job, fellowship, project, course or event for
-              our opportunities board. You confirm who you are through the same
-              three routes as an application: LinkedIn sign-in, Google
-              sign-in, or typing your name and email and opening the link we
-              email you. Through LinkedIn or Google we receive your name, email
-              address, and the account identifier the provider uses for you,
-              but not your profile photo. Through the email route, your name is
-              self-reported and unverified, as above.
+              our opportunities board. Alongside confirming who you are, the
+              form collects:
             </p>
-            <p className={P}>Alongside that, the form collects:</p>
             <ul className={UL}>
               <li>
                 Either a link to the opportunity, or its details: its type,
@@ -431,27 +435,24 @@ const en: PolicyContent = {
               24 hours.
             </li>
             <li>
-              Opportunity you sent and confirmed: kept, with your name, email,
-              how you confirmed, and what you sent, so our team can see who
-              sent a listing and answer questions about it. Once we decide on
-              it, we also keep whether we published it, who decided, and any
-              reason we gave you for not publishing it. It is kept until you ask
-              us to delete it. Deleting it does not remove a listing we
-              published from it, which holds none of your details.
+              Opportunity you sent and confirmed: kept until we decide whether
+              to publish it, and then for one year, with your name, email, how
+              you confirmed, what you sent, the decision, who made it, and any
+              reason we gave you for not publishing it. That lets our team see
+              who sent a listing and answer questions about it while it is
+              current. After the year it is deleted automatically, or sooner if
+              you ask. Deleting it does not remove a listing we published from
+              it, which holds none of your details.
             </li>
             <li>
               Rate-limiting counters, keyed by a one-way hash of your IP
               address: deleted within an hour.
             </li>
           </ul>
-          <CounselNote>
-            [Counsel: confirmed opportunity submissions currently have no fixed
-            retention period and are kept until an erasure request. Storage
-            limitation (Article 5(1)(e)) suggests a set period instead, for
-            example a year after the decision. The site already deletes
-            unconfirmed drafts on an hourly schedule, so a period you choose can
-            be enforced the same way; this clause then changes to state it.]
-          </CounselNote>
+          {/*
+            The year after a decision is enforced by the hourly sweep
+            (sweepDecidedSubmissions in lib/opportunity-submission-flow.ts).
+          */}
           {/*
             The reviewer record mentioned under "Decided" is the admin audit
             log (admin_audit_log). It exists so that an approval can be traced
@@ -531,10 +532,7 @@ const en: PolicyContent = {
             <li>
               A team messaging provider, which hosts the workspace you are
               invited to if your application is approved. Before inviting you,
-              a reviewer checks whether you are already a member. Our team is
-              also told there about each new application or opportunity
-              submitted, with the name you gave, how you confirmed it, and what
-              the application or opportunity is.
+              a reviewer checks whether you are already a member.
             </li>
             <li>
               A hosting provider, which runs this site, holds application data
@@ -685,19 +683,19 @@ const en: PolicyContent = {
               challenge, governed by Cloudflare&apos;s privacy policy.
             </li>
             <li>
-              If you apply or send us an opportunity using LinkedIn or Google
-              sign-in, we set one strictly necessary cookie when you submit the
+              If you confirm who you are with LinkedIn or Google on any of our
+              forms, we set one strictly necessary cookie when you submit the
               form. It holds a random value that lets us check the sign-in is
               completed in the same browser that started it, so nobody
-              else&apos;s application or opportunity can be attached to your
-              identity. It contains no personal data,
+              else&apos;s submission can be attached to your identity. It contains no personal data,
               is not used for tracking, and expires within an hour.
             </li>
           </ul>
           {/*
             The sign-in cookies (oauth_state for applications,
+            red_lines_oauth_state for Red Lines Dialogues applications,
             opportunity_submit_oauth_state for opportunities, each with its own
-            name so one flow can't complete the other) are set only on form
+            name so one flow can't complete another) are set only on form
             submission and fall under the "strictly necessary" exemption of Article
             5(3) ePrivacy (Dutch Telecommunicatiewet 11.7a(3)): each is a
             security measure for a service the user explicitly requested, so

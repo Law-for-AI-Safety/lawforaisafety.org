@@ -149,12 +149,13 @@ const nl: PolicyContent = {
           </p>
 
           <div className={SUBSECTION}>
-            <h3 className={H3}>
-              Als u zich aanmeldt om met ons samen te werken
-            </h3>
+            <h3 className={H3}>Hoe u bevestigt wie u bent</h3>
             <p className={P}>
-              U bevestigt uw identiteit via een van drie routes. Afhankelijk van
-              de gekozen route verzamelen wij verschillende gegevens:
+              Elk formulier op deze site waarmee u ons meer dan een e-mailadres
+              stuurt (u aanmelden om met ons samen te werken, u aanmelden voor
+              de Red Lines Dialogues en ons een kans insturen) vraagt u te
+              bevestigen wie u bent via een van drie routes. Afhankelijk van de
+              gekozen route verzamelen wij verschillende gegevens:
             </p>
             <ul className={UL}>
               <li>
@@ -171,7 +172,7 @@ const nl: PolicyContent = {
                 Alleen naam en e-mailadres, zonder identiteitsverificatie:
                 gebruikt u LinkedIn noch Google, dan kunt u uw naam en
                 e-mailadres rechtstreeks invullen. Wij sturen een link naar dat
-                adres, en uw aanmelding wordt pas ingediend nadat u de link
+                adres, en het formulier wordt pas ingediend nadat u de link
                 heeft geopend en bevestigd. Dat toont aan dat u e-mail op dat
                 adres kunt lezen, en niets meer. Uw naam is zelf opgegeven en
                 niet geverifieerd. Wij hebben geen bewijs dat die juist is, en
@@ -180,15 +181,25 @@ const nl: PolicyContent = {
               </li>
             </ul>
             <p className={P}>
+              Als u ons een kans instuurt, bewaren wij geen profielfoto.
+            </p>
+            <p className={P}>
               Gebruikt u LinkedIn of Google, dan logt u in op hun site en niet
               op de onze, en bevestigen zij die gegevens aan ons. Zij treden
               daarbij op als zelfstandig verwerkingsverantwoordelijke voor uw
               gegevens, onder hun eigen privacybeleid, en niet in onze opdracht.
-              Wij sturen hun nooit uw aanmelding, maar door in te loggen laat u
+              Wij sturen hun nooit wat u indient, maar door in te loggen laat u
               hun wel weten dat u uw account hier heeft gebruikt.
             </p>
+          </div>
+
+          <div className={SUBSECTION}>
+            <h3 className={H3}>
+              Als u zich aanmeldt om met ons samen te werken
+            </h3>
             <p className={P}>
-              Naast de identiteitsverificatie verzamelt het aanmeldformulier:
+              Naast de bevestiging van wie u bent, verzamelt het
+              aanmeldformulier:
             </p>
             <ul className={UL}>
               <li>Organisatie of kantoor (optioneel, zelf opgegeven)</li>
@@ -224,15 +235,9 @@ const nl: PolicyContent = {
             <p className={P}>
               U kunt ons een vacature, fellowship, project, cursus of evenement
               (samen: &ldquo;kansen&rdquo;) sturen voor ons overzicht van
-              kansen. U bevestigt wie u bent via dezelfde drie routes als bij
-              een aanmelding: inloggen met LinkedIn, inloggen met Google, of uw
-              naam en e-mailadres invullen en de link openen die wij u mailen.
-              Via LinkedIn of Google ontvangen wij uw naam, uw e-mailadres en de
-              accountcode die de aanbieder voor u gebruikt, maar niet uw
-              profielfoto. Via de e-mailroute is uw naam zelf opgegeven en niet
-              geverifieerd, zoals hierboven.
+              kansen. Naast de bevestiging van wie u bent, verzamelt het
+              formulier:
             </p>
-            <p className={P}>Daarnaast verzamelt het formulier:</p>
             <ul className={UL}>
               <li>
                 Ofwel een link naar de kans, ofwel de gegevens ervan: het soort
@@ -419,26 +424,23 @@ const nl: PolicyContent = {
               uur.
             </li>
             <li>
-              Ingestuurde en bevestigde kans: bewaard, met uw naam, uw
-              e-mailadres, de manier waarop u heeft bevestigd en wat u heeft
-              ingestuurd, zodat ons team kan zien wie een vermelding heeft
-              ingestuurd en vragen erover kan beantwoorden. Zodra wij erover
-              hebben beslist, bewaren wij ook of wij haar hebben gepubliceerd,
-              wie heeft beslist en een eventuele reden die wij u hebben gegeven
-              om haar niet te publiceren. Dit wordt bewaard totdat u ons vraagt
-              het te verwijderen. Verwijdering haalt een vermelding die wij op
-              basis ervan hebben gepubliceerd niet weg; die bevat geen gegevens
-              over u.
+              Ingestuurde en bevestigde kans: bewaard totdat wij beslissen of
+              wij haar publiceren, en daarna één jaar, met uw naam, uw
+              e-mailadres, de manier waarop u heeft bevestigd, wat u heeft
+              ingestuurd, de beslissing, wie die heeft genomen en een eventuele
+              reden die wij u hebben gegeven om haar niet te publiceren. Zo kan
+              ons team zien wie een vermelding heeft ingestuurd en vragen erover
+              beantwoorden zolang die actueel is. Na dat jaar wordt dit
+              automatisch verwijderd, of eerder als u daarom vraagt.
+              Verwijdering haalt een vermelding die wij op basis ervan hebben
+              gepubliceerd niet weg; die bevat geen gegevens over u.
             </li>
             <li>
               Tellers voor het begrenzen van aanvragen, gekoppeld aan een
               onomkeerbare hash van uw IP-adres: binnen een uur verwijderd.
             </li>
           </ul>
-          <CounselNote>
-            [Counsel: see the note in the English version on the retention of
-            confirmed opportunity submissions.]
-          </CounselNote>
+
           {/*
             The retained email hash is treated as personal data, and an erasure
             request reaches it, so the policy promises deletion of the hash and
@@ -491,10 +493,7 @@ const nl: PolicyContent = {
             <li>
               Een aanbieder van teamcommunicatie, die de werkruimte host waarvoor
               u wordt uitgenodigd als uw aanmelding wordt goedgekeurd. Vóór de
-              uitnodiging controleert een beoordelaar of u al lid bent. Ons team
-              krijgt daar ook bericht van elke nieuwe aanmelding of ingestuurde
-              kans, met de naam die u heeft opgegeven, de manier waarop u heeft
-              bevestigd en waar de aanmelding of kans over gaat.
+              uitnodiging controleert een beoordelaar of u al lid bent.
             </li>
             <li>
               Een hostingaanbieder, die deze site draait, aanmeldingsgegevens en
@@ -565,13 +564,12 @@ const nl: PolicyContent = {
               toepassing is.
             </li>
             <li>
-              Meldt u zich aan of stuurt u ons een kans in via inloggen bij
-              LinkedIn of Google, dan plaatsen wij bij het verzenden van het
-              formulier één strikt noodzakelijke cookie. Die bevat een
-              willekeurige waarde waarmee wij controleren dat het inloggen wordt
-              afgerond in dezelfde browser waarin het is begonnen, zodat de
-              aanmelding of kans van iemand anders niet aan uw identiteit kan
-              worden gekoppeld. De cookie
+              Bevestigt u op een van onze formulieren wie u bent met LinkedIn of
+              Google, dan plaatsen wij bij het verzenden van het formulier één
+              strikt noodzakelijke cookie. Die bevat een willekeurige waarde
+              waarmee wij controleren dat het inloggen wordt afgerond in
+              dezelfde browser waarin het is begonnen, zodat wat iemand anders
+              indient niet aan uw identiteit kan worden gekoppeld. De cookie
               bevat geen persoonsgegevens, wordt niet gebruikt voor tracking en
               vervalt binnen een uur.
             </li>

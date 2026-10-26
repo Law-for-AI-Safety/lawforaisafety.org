@@ -135,14 +135,11 @@ confirming.
    statements; the Article 30 record of processing; whether a DPIA is
    triggered; and how Article 21 objections are handled in practice.
 4. **Have the Dutch checked** by a native legal translator.
-5. **Set a retention period for opportunity submissions.** Added 26 October
-   2026: people outside the team can now send in listings for the
-   opportunities board, and the policy and assessment cover it (operation 4 in
-   the assessment). Confirmed submissions are kept until an erasure request; a
-   fixed period would sit better with storage limitation, and the site can
-   enforce one with its existing hourly sweep. The submitter's name and how
-   they confirmed are also posted to the team messaging workspace, which adds
-   to the reason to sign that provider's agreement (item 1).
+5. **Review the clauses on opportunity submissions.** Added 26 October 2026:
+   people outside the team can now send in listings for the opportunities
+   board, and the policy and assessment cover it (operation 4 in the
+   assessment). A confirmed submission is kept until it is decided and then
+   for one year, enforced by the hourly sweep.
 6. **Decide where the statutory identification block belongs.** Article 2:20
    and Article III.74 are site-wide duties, so a legal notice page or the site
    footer satisfies them equally. The footer is already wired and populates
