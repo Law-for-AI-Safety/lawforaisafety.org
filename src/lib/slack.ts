@@ -1,4 +1,4 @@
-import type { ApplicantAuthProvider } from "@/lib/applicant-types";
+import { authProviderLabel, type ApplicantAuthProvider } from "@/lib/applicant-types";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -36,12 +36,6 @@ export async function notifyReviewersOfNewApplication({
   const webhookUrl = requireEnv("SLACK_WEBHOOK_URL");
   const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
 
-  const authProviderLabel =
-    authProvider === "linkedin"
-      ? "LinkedIn"
-      : authProvider === "google"
-        ? "Google"
-        : "email link";
   const orgLine = organisation ? ` (${escapeSlack(organisation)})` : "";
 
   const response = await fetch(webhookUrl, {
@@ -50,7 +44,7 @@ export async function notifyReviewersOfNewApplication({
     body: JSON.stringify({
       // "Confirmed via", not "verified": sign-in proves control of an account
       // with this name and email, not that the person is who they claim to be.
-      text: `New application: ${escapeSlack(applicantName)}${orgLine}, email confirmed via ${authProviderLabel}. Review: ${siteUrl}/admin/applications/${applicationId}`,
+      text: `New application: ${escapeSlack(applicantName)}${orgLine}, email confirmed via ${authProviderLabel(authProvider)}. Review: ${siteUrl}/admin/applications/${applicationId}`,
     }),
   });
 
@@ -87,6 +81,33 @@ export async function notifyReviewersOfNewRedLinesApplication({
     throw new Error(
       `Slack webhook failed: ${response.status} ${await response.text()}`,
     );
+  }
+}
+
+export async function notifyReviewersOfNewOpportunitySubmission({
+  submitterName,
+  what,
+  authProvider,
+  submissionId,
+}: {
+  submitterName: string;
+  what: string;
+  authProvider: ApplicantAuthProvider;
+  submissionId: string;
+}): Promise<void> {
+  const webhookUrl = requireEnv("SLACK_WEBHOOK_URL");
+  const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
+
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: `New opportunity submitted by ${escapeSlack(submitterName)}: ${escapeSlack(what)}, email confirmed via ${authProviderLabel(authProvider)}. Review: ${siteUrl}/admin/opportunities/submissions/${submissionId}`,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Slack webhook failed: ${response.status} ${await response.text()}`);
   }
 }
 

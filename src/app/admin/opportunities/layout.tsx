@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
 import { getAdminSession, isOpportunitiesTeamEmail } from "@/lib/session";
 
 export default async function OpportunitiesLayout({
@@ -7,7 +8,8 @@ export default async function OpportunitiesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getAdminSession();
+  // The count is only shown once the session checks pass; fetching both at once saves a round trip.
+  const [session, pending] = await Promise.all([getAdminSession(), countPendingSubmissions()]);
   if (!session) {
     redirect("/admin/login");
   }
@@ -24,6 +26,9 @@ export default async function OpportunitiesLayout({
           </Link>
           <Link href="/admin/opportunities/new" className="underline">
             New opportunity
+          </Link>
+          <Link href="/admin/opportunities/submissions" className="underline">
+            Submissions{pending > 0 ? ` (${pending} to review)` : ""}
           </Link>
           <span className="text-brand-black/70">Signed in as {session.name}</span>
         </div>

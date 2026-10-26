@@ -87,7 +87,7 @@ export const SITE_URL = "https://lawforaisafety.org";
  * newsletter flows, and the privacy policy, which `src/app/sitemap.ts` adds itself with its
  * language versions while it is served.
  */
-export const NOT_IN_SITEMAP = ["apply", "newsletter", "privacy-policy", "red-lines-dialogue/confirm", "red-lines-dialogue/retry"];
+export const NOT_IN_SITEMAP = ["apply", "newsletter", "privacy-policy", "red-lines-dialogue/confirm", "red-lines-dialogue/retry", "opportunities/submit/confirm", "opportunities/submit/retry"];
 
 type Hint = Pick<MetadataRoute.Sitemap[number], "changeFrequency" | "priority">;
 const DEFAULT_HINT: Hint = { changeFrequency: "monthly", priority: 0.6 };

@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { sweepOldDrafts } from "@/lib/applicant-flow";
 import { sweepOldRedLinesDrafts } from "@/lib/red-lines-flow";
+import { sweepOldSubmissionDrafts } from "@/lib/opportunity-submission-flow";
 import { sweepUnconfirmedSignups } from "@/lib/newsletter-signup";
 import { sweepRateLimitHits } from "@/lib/rate-limit";
 import { hasBearerSecret } from "@/lib/timing-safe-equal";
 
 /**
  * Deletes everything that has outlived the retention periods the privacy
- * policy states: abandoned application drafts and their CVs (24 hours),
+ * policy states: abandoned application drafts and their CVs, and opportunity submissions never
+ * confirmed (24 hours),
  * newsletter signups never confirmed (7 days), rate-limit counters (1 hour).
  *
  * Called hourly by netlify/functions/sweep-expired-data.mts. The sweeps also
@@ -23,14 +25,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [drafts, redLinesDrafts, newsletterSignups, rateLimitHits] = await Promise.all([
+  const [drafts, redLinesDrafts, submissionDrafts, newsletterSignups, rateLimitHits] = await Promise.all([
     sweepOldDrafts(),
     sweepOldRedLinesDrafts(),
+    sweepOldSubmissionDrafts(),
     sweepUnconfirmedSignups(),
     sweepRateLimitHits(),
   ]);
 
-  const result = { drafts, redLinesDrafts, newsletterSignups, rateLimitHits };
+  const result = { drafts, redLinesDrafts, submissionDrafts, newsletterSignups, rateLimitHits };
   console.log(`[cron] Swept expired data: ${JSON.stringify(result)}`);
   return NextResponse.json(result);
 }

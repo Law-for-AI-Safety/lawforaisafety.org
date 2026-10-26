@@ -218,6 +218,43 @@ function newsletterSignupReceivedEmail() {
   };
 }
 
+/**
+ * Email path of /opportunities/submit: the submitter typed this address, so the submission only
+ * reaches the team once this link is used, the same as an application.
+ */
+function opportunitySubmissionConfirmationEmail(name: string | null, confirmUrl: string) {
+  return {
+    subject: "Confirm your opportunity for Law for AI Safety",
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Please confirm your email address to send us the opportunity you submitted for our opportunities board.</p>
+     <p style="margin:0 0 16px;"><a href="${escapeHtml(confirmUrl)}" style="color:#9b1c1f;">Confirm and send</a></p>
+     <p style="margin:0;">The link works for 24 hours. If you didn't submit anything, you can ignore this email and nothing will be sent.</p>`,
+  };
+}
+
+/** Sent when an opportunities admin publishes a listing made from someone's submission. */
+function opportunitySubmissionPublishedEmail(name: string | null, title: string, listingUrl: string) {
+  return {
+    subject: "Your opportunity is on the Law for AI Safety board",
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Thanks for sending us an opportunity. We've published it on our board as <strong>${escapeHtml(title)}</strong>.</p>
+     <p style="margin:0;"><a href="${escapeHtml(listingUrl)}" style="color:#9b1c1f;">See it on the board</a></p>`,
+  };
+}
+
+/**
+ * Sent only when the admin rejecting a submission chooses to tell the submitter; the reason, if
+ * given, is the admin's own words.
+ */
+function opportunitySubmissionRejectedEmail(name: string | null, what: string, reason: string | null) {
+  const reasonHtml = reason
+    ? `<p style="margin:0 0 16px;">${escapeHtml(reason).replaceAll("\n", "<br>")}</p>`
+    : "";
+  return {
+    subject: "About the opportunity you sent Law for AI Safety",
+    bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Thanks for sending us ${escapeHtml(what)}. We've decided not to add it to our opportunities board.</p>
+     ${reasonHtml}<p style="margin:0;">We appreciate you taking the time, and you're welcome to send us others.</p>`,
+  };
+}
+
 export async function sendApplicationApprovedEmail(
   to: string,
   name: string | null,
@@ -296,6 +333,45 @@ export async function sendAdminNewRedLinesApplicationEmail(params: {
   await send(RED_LINES_NOTIFY_EMAIL, subject, bodyHtml);
 }
 
+export async function sendOpportunitySubmissionConfirmationEmail(
+  to: string,
+  name: string | null,
+  confirmUrl: string,
+): Promise<void> {
+  const { subject, bodyHtml } = opportunitySubmissionConfirmationEmail(name, confirmUrl);
+  await send(to, subject, bodyHtml);
+}
+
+export async function sendOpportunitySubmissionPublishedEmail(
+  to: string,
+  name: string | null,
+  title: string,
+  listingUrl: string,
+): Promise<void> {
+  const { subject, bodyHtml } = opportunitySubmissionPublishedEmail(name, title, listingUrl);
+  await send(to, subject, bodyHtml);
+}
+
+export async function sendOpportunitySubmissionRejectedEmail(
+  to: string,
+  name: string | null,
+  what: string,
+  reason: string | null,
+): Promise<void> {
+  const { subject, bodyHtml } = opportunitySubmissionRejectedEmail(name, what, reason);
+  await send(to, subject, bodyHtml);
+}
+
+export async function sendAdminNewOpportunitySubmissionEmail(params: {
+  submitterName: string;
+  what: string;
+  authProviderLabel: string;
+  submissionId: string;
+}): Promise<void> {
+  const { subject, bodyHtml } = adminNewOpportunitySubmissionEmail(params);
+  await send(GENERAL_NOTIFY_EMAIL, subject, bodyHtml);
+}
+
 /**
  * To the team, not the applicant — a Slack message goes out alongside this
  * (see slack.ts), so this is a second, independent channel in case Slack is
@@ -349,6 +425,25 @@ function adminNewRedLinesApplicationEmail({
   };
 }
 
+/** Opportunities board equivalent of adminNewApplicationEmail. */
+function adminNewOpportunitySubmissionEmail({
+  submitterName,
+  what,
+  authProviderLabel,
+  submissionId,
+}: {
+  submitterName: string;
+  what: string;
+  authProviderLabel: string;
+  submissionId: string;
+}) {
+  return {
+    subject: `New opportunity submitted by ${submitterName}`,
+    bodyHtml: `<p style="margin:0 0 16px;">${escapeHtml(submitterName)} sent in ${escapeHtml(what)} for the opportunities board, confirmed via ${escapeHtml(authProviderLabel)}.</p>
+     <p style="margin:0;"><a href="${siteUrl()}/admin/opportunities/submissions/${submissionId}" style="color:#9b1c1f;">Review the submission</a></p>`,
+  };
+}
+
 /**
  * Rendered HTML for every transactional email template, for the admin
  * preview page — not sent anywhere. Uses a placeholder confirm link since
@@ -381,6 +476,29 @@ export function getEmailPreviews(): { label: string; subject: string; html: stri
       ),
     },
     {
+      label: "Opportunity submission - confirmation (email-only path)",
+      ...opportunitySubmissionConfirmationEmail(
+        "Alex Submitter",
+        `${siteUrl()}/opportunities/submit/confirm?token=preview-token`,
+      ),
+    },
+    {
+      label: "Opportunity submission - published",
+      ...opportunitySubmissionPublishedEmail(
+        "Alex Submitter",
+        "Senior Policy Counsel at Example Org",
+        `${siteUrl()}/opportunities/example-org-senior-policy-counsel`,
+      ),
+    },
+    {
+      label: "Opportunity submission - rejected",
+      ...opportunitySubmissionRejectedEmail(
+        "Alex Submitter",
+        "Senior Policy Counsel at Example Org",
+        "The role isn't focused on AI safety or governance.",
+      ),
+    },
+    {
       label: "Admin notification - new application (info@)",
       ...adminNewApplicationEmail({
         applicantName: "Alex Applicant",
@@ -397,6 +515,15 @@ export function getEmailPreviews(): { label: string; subject: string; html: stri
         applicantName: "Alex Applicant",
         affiliation: "Example Org",
         applicationId: "preview-id",
+      }),
+    },
+    {
+      label: "Admin notification - new opportunity submission (info@)",
+      ...adminNewOpportunitySubmissionEmail({
+        submitterName: "Alex Submitter",
+        what: "Senior Policy Counsel at Example Org",
+        authProviderLabel: "LinkedIn",
+        submissionId: "preview-id",
       }),
     },
   ];

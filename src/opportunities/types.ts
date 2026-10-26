@@ -1,4 +1,6 @@
-export type OpportunityType = "job" | "course";
+import type { OpportunityType } from "./kinds";
+
+export type { OpportunityType };
 export type CommitmentType = "full_time" | "part_time" | "contract" | "internship" | "fellowship";
 export type CompCurrency = "GBP" | "USD" | "EUR";
 export type CompPeriod = "year" | "month" | "week" | "day" | "hour";
@@ -26,7 +28,9 @@ export type Opportunity = {
   /** Caveats that don't fit the structured range, e.g. "benchmarked locally outside London". */
   compNote?: string;
   deadline?: string;
+  /** An event's date; for anything else, when the role, fellowship, project or course begins. */
   startDate?: string;
+  /** A multi-day event's last day; for anything else, when it ends. */
   endDate?: string;
   tags?: string[];
   applyUrl: string;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COUNTRIES } from "./countries";
+import { OPPORTUNITY_TYPES } from "./kinds";
 import type { Opportunity } from "./types";
 
 /**
@@ -13,7 +14,7 @@ import type { Opportunity } from "./types";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** Matches the format, then rejects anything Date rolls over to a different day (e.g. "2024-02-30"). */
-function isRealCalendarDate(value: string): boolean {
+export function isRealCalendarDate(value: string): boolean {
   const [y, m, d] = value.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
@@ -55,6 +56,9 @@ function checkConsistency(
     compPeriod?: unknown;
     locationCountry?: string;
     locationCity?: unknown;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
   },
   ctx: z.RefinementCtx,
 ) {
@@ -71,13 +75,20 @@ function checkConsistency(
   if (val.locationCountry === GLOBAL && val.locationCity !== undefined) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A Global listing can't also have a city", path: ["locationCity"] });
   }
+  // An event closes after its date, so without one it would stay on the board for good.
+  if (val.type === "event" && val.startDate === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An event needs its date (start date)", path: ["startDate"] });
+  }
+  if (val.startDate !== undefined && val.endDate !== undefined && val.endDate < val.startDate) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date can't be before the start date", path: ["endDate"] });
+  }
 }
 
 const opportunityObjectSchema = z
   .object({
     id: z.string(),
     slug: z.string().regex(SLUG, "Slug may use only lowercase letters, digits and single hyphens"),
-    type: z.enum(["job", "course"]),
+    type: z.enum(OPPORTUNITY_TYPES),
     title: text("Title", 200),
     org: text("Organisation", 200),
     orgUrl: url("Organisation URL").optional(),

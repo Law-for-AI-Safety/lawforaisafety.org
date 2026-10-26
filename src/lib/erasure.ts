@@ -4,6 +4,7 @@ import {
   adminAuditLog,
   applications,
   newsletterSignups,
+  opportunitySubmissions,
   processedApplications,
   redLinesApplications,
 } from "@/drizzle/schema";
@@ -55,6 +56,13 @@ export type ErasureFindings = {
     status: string;
     createdAt: string;
   }[];
+  // Listings sent in through /opportunities/submit, kept with the submitter's name and email
+  // whatever their status.
+  opportunitySubmissions: {
+    id: string;
+    status: string;
+    createdAt: string;
+  }[];
 };
 
 export type ErasureResult = {
@@ -63,6 +71,7 @@ export type ErasureResult = {
   newsletterSignups: number;
   processed: number;
   redLinesApplications: number;
+  opportunitySubmissions: number;
 };
 
 /**
@@ -79,6 +88,7 @@ export type ErasureScopes = {
   newsletterSignups: boolean;
   processed: boolean;
   redLinesApplications: boolean;
+  opportunitySubmissions: boolean;
 };
 
 export const ALL_SCOPES: ErasureScopes = {
@@ -86,6 +96,7 @@ export const ALL_SCOPES: ErasureScopes = {
   newsletterSignups: true,
   processed: true,
   redLinesApplications: true,
+  opportunitySubmissions: true,
 };
 
 /** Matches `hashEmail`, so a lookup finds the same row the hash was built from. */
@@ -145,6 +156,15 @@ export async function findDataForEmail(
     .from(redLinesApplications)
     .where(sql`lower(${redLinesApplications.email}) = ${address}`);
 
+  const submissionRows = await db
+    .select({
+      id: opportunitySubmissions.id,
+      status: opportunitySubmissions.status,
+      createdAt: opportunitySubmissions.createdAt,
+    })
+    .from(opportunitySubmissions)
+    .where(sql`lower(${opportunitySubmissions.email}) = ${address}`);
+
   return {
     applications: applicationRows.map((row) => ({
       id: row.id,
@@ -165,6 +185,11 @@ export async function findDataForEmail(
         }
       : null,
     redLinesApplications: redLinesRows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    opportunitySubmissions: submissionRows.map((row) => ({
       id: row.id,
       status: row.status,
       createdAt: row.createdAt.toISOString(),
@@ -196,6 +221,7 @@ export async function eraseDataForEmail(
     newsletterSignups: 0,
     processed: 0,
     redLinesApplications: 0,
+    opportunitySubmissions: 0,
   };
 
   if (scopes.applications) {
@@ -254,6 +280,16 @@ export async function eraseDataForEmail(
       .update(adminAuditLog)
       .set({ subjectEmailHash: null })
       .where(eq(adminAuditLog.subjectEmailHash, hashEmail(address)));
+  }
+
+  // A listing published from a submission stays up: it is the organisation's posting, not the
+  // submitter's data, and only the submission row links it to them.
+  if (scopes.opportunitySubmissions) {
+    const deleted = await db
+      .delete(opportunitySubmissions)
+      .where(sql`lower(${opportunitySubmissions.email}) = ${address}`)
+      .returning({ id: opportunitySubmissions.id });
+    result.opportunitySubmissions = deleted.length;
   }
 
   return result;

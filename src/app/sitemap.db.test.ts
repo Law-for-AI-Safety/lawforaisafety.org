@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import sitemap from "./sitemap";
@@ -47,5 +47,22 @@ describe("sitemap.xml", () => {
     const urls = (await sitemap()).map((e) => e.url);
     expect(urls).toContain("https://lawforaisafety.org/opportunities");
     expect(urls).toContain(`https://lawforaisafety.org/opportunities/${FIXTURE.slug}`);
+  });
+
+  it("leaves out a closed opportunity's page", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...FIXTURE, slug: "closed-job", deadline: "2026-10-30" });
+    const urls = (await sitemap()).map((e) => e.url);
+    expect(urls).not.toContain("https://lawforaisafety.org/opportunities/closed-job");
+    expect(urls).toContain(`https://lawforaisafety.org/opportunities/${FIXTURE.slug}`);
+  });
+
+  it("leaves out an event that has taken place", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...FIXTURE, slug: "past-event", type: "event", startDate: "2026-10-30" });
+    const urls = (await sitemap()).map((e) => e.url);
+    expect(urls).not.toContain("https://lawforaisafety.org/opportunities/past-event");
   });
 });

@@ -104,4 +104,24 @@ describe("opportunitySchema", () => {
   it("rejects a city on a Global listing", () => {
     expect(opportunitySchema.safeParse({ ...valid(), locationCountry: "GLOBAL", locationCity: "London" }).success).toBe(false);
   });
+
+  it("rejects an event with no date", () => {
+    const result = opportunitySchema.safeParse({ ...valid(), type: "event", deadline: "2026-11-01" });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("An event needs its date (start date)");
+  });
+
+  it("accepts an event with a date", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), type: "event", startDate: "2026-11-20" }).success).toBe(true);
+  });
+
+  it("rejects an end date before the start date", () => {
+    const result = opportunitySchema.safeParse({ ...valid(), startDate: "2026-11-05", endDate: "2026-11-01" });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("End date can't be before the start date");
+  });
+
+  it("accepts an end date on the start date", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), startDate: "2026-11-05", endDate: "2026-11-05" }).success).toBe(true);
+  });
 });

@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { filterOpportunities, type OpportunityTypeFilter } from "@/opportunities/filter";
+import { OPPORTUNITY_KINDS, OPPORTUNITY_TYPES } from "@/opportunities/kinds";
 import type { Opportunity } from "@/opportunities/types";
 import OpportunityCard from "./OpportunityCard";
 
 const TABS: { id: OpportunityTypeFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "job", label: "Jobs" },
-  { id: "course", label: "Courses" },
+  ...OPPORTUNITY_TYPES.map((type) => ({ id: type, label: OPPORTUNITY_KINDS[type].plural })),
 ];
 
 export default function OpportunitiesBoard({ opportunities }: { opportunities: Opportunity[] }) {
@@ -17,7 +17,7 @@ export default function OpportunitiesBoard({ opportunities }: { opportunities: O
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex gap-1 border-b border-brand-black/10" role="tablist">
+      <div className="flex gap-1 overflow-x-auto border-b border-brand-black/10" role="tablist">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -25,7 +25,7 @@ export default function OpportunitiesBoard({ opportunities }: { opportunities: O
             role="tab"
             aria-selected={filter === tab.id}
             onClick={() => setFilter(tab.id)}
-            className={`rounded-t-sm px-5 py-3 text-lg transition-colors ${
+            className={`shrink-0 rounded-t-sm px-5 py-3 text-lg transition-colors ${
               filter === tab.id ? "bg-brand-navy text-brand-white" : "text-brand-black/60 hover:text-brand-black"
             }`}
           >

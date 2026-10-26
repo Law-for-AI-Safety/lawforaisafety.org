@@ -8,7 +8,7 @@ import {
   UnverifiedEmailError,
   type OAuthProviderName,
 } from "@/lib/oauth";
-import type { ApplicantAuthProvider } from "@/lib/applicant-types";
+import { authProviderLabel, type ApplicantAuthProvider } from "@/lib/applicant-types";
 import { deleteCv, storeCv, validatePdf } from "@/lib/cv-storage";
 import { sendAdminNewApplicationEmail, sendApplicationConfirmationEmail } from "@/lib/email";
 import { isProductionDeploy } from "@/lib/deploy-context";
@@ -135,12 +135,6 @@ export async function getApplicationSourceByToken(
     .from(applications)
     .where(eq(applications.stateToken, token));
   return row?.source ?? "homepage";
-}
-
-function authProviderLabel(provider: ApplicantAuthProvider): string {
-  if (provider === "linkedin") return "LinkedIn";
-  if (provider === "google") return "Google";
-  return "email link";
 }
 
 function parseSelfReportedFields(formData: FormData) {

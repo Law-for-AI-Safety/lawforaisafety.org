@@ -9,7 +9,7 @@ import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
  * the page with `?error=<code>`, which would otherwise load an empty form.
  *
  * Just before the form posts, `keepInput` copies the visitor's own entries to sessionStorage
- * (this tab only): text fields, choices, and any checkboxes the form names. It never keeps
+ * (this tab only): text and date fields, choices, and any checkboxes the form names. It never keeps
  * hidden fields (the bot-check time, Turnstile's token, the page source), files, passwords or
  * the honeypot, and never a checkbox the form does not name, so consent is always ticked
  * again. When the page loads with an error code within 30 minutes, `useKeptInput` hands the
@@ -27,7 +27,7 @@ export type KeptInput = { values: Record<string, string>; checked: string[] };
 export const KEPT_INPUT_TTL_MS = 30 * 60 * 1000;
 
 const PREFIX = "kept-form-input:";
-const TEXT_TYPES = new Set(["text", "email", "url", "number", "tel", "search"]);
+const TEXT_TYPES = new Set(["text", "email", "url", "number", "tel", "search", "date"]);
 
 export function keepInput(formKey: string, form: HTMLFormElement, keepCheckboxes: readonly string[] = []): void {
   const kept: KeptInput & { savedAt: number } = { savedAt: Date.now(), values: {}, checked: [] };

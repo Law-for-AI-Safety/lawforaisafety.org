@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
 import type { Opportunity } from "./types";
@@ -47,14 +48,35 @@ export async function getOpportunities(): Promise<Opportunity[]> {
   return rows.map(toOpportunity);
 }
 
-/** Just slug and publishedAt, for the sitemap - no need to pull every listing's full text to build its URL list. */
-export async function getOpportunitySitemapEntries(): Promise<Pick<Opportunity, "slug" | "publishedAt">[]> {
-  return db.select({ slug: opportunities.slug, publishedAt: opportunities.publishedAt }).from(opportunities);
+/** For linking a published submission to the listing made from it. */
+export async function getOpportunitySlugById(id: string): Promise<string | null> {
+  const [row] = await db.select({ slug: opportunities.slug }).from(opportunities).where(eq(opportunities.id, id));
+  return row?.slug ?? null;
 }
 
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
   const [row] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   return row ? toOpportunity(row) : null;
+}
+
+/** Tags the public pages' cached reads; `src/lib/opportunities-flow.ts` clears it on every write. */
+export const OPPORTUNITIES_CACHE_TAG = "opportunities";
+const PUBLIC_CACHE = { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 };
+
+// The public board and listing pages read through Next's data cache, so a visit needn't wake
+// the database. Writes through the flow clear it at once. A change made around the flow (a
+// seed, a manual SQL fix) waits for the hour to pass, and then one more visit: the first
+// request after that is still served the cached list while it refreshes in the background.
+// Admin pages and the API read the uncached functions above; the sitemap shares the cached list.
+// On Netlify the data cache is kept per deploy, so each deploy starts with it empty.
+export const getCachedOpportunities = unstable_cache(getOpportunities, ["opportunities"], PUBLIC_CACHE);
+
+/**
+ * Picked out of the cached list rather than cached per slug, so one entry serves every listing
+ * page and a request for a made-up slug adds nothing to the cache.
+ */
+export async function getCachedOpportunityBySlug(slug: string): Promise<Opportunity | null> {
+  return (await getCachedOpportunities()).find((opportunity) => opportunity.slug === slug) ?? null;
 }
 
 /** Every distinct tag already in use, for the admin form's typeahead - keeps tagging consistent across listings. */

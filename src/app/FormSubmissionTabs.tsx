@@ -26,6 +26,7 @@ const TABS: { id: VerifyTabId; label: string }[] = [
  */
 export default function FormSubmissionTabs({
   heading = "Confirm your submission",
+  emailSubmitLabel = "Submit application",
   linkedinAction,
   googleAction,
   emailAction,
@@ -36,6 +37,8 @@ export default function FormSubmissionTabs({
   kept,
 }: {
   heading?: string;
+  /** The name and email tab's button. */
+  emailSubmitLabel?: string;
   linkedinAction: string;
   googleAction: string;
   emailAction: string;
@@ -154,7 +157,7 @@ export default function FormSubmissionTabs({
             className="self-start bg-brand-black px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden"
             hoverBg="rgba(255,255,255,0.15)"
           >
-            {submittingTo === emailAction ? "Sending…" : "Submit application"}
+            {submittingTo === emailAction ? "Sending…" : emailSubmitLabel}
           </WipeSubmitButton>
         </div>
       )}

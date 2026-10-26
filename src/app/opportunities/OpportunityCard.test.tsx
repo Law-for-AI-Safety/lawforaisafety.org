@@ -53,6 +53,28 @@ describe("OpportunityCard", () => {
     expect(screen.queryByText(/Apply by/)).not.toBeInTheDocument();
   });
 
+  it("shows an event's dates and registration deadline", () => {
+    render(
+      <OpportunityCard
+        opportunity={{ ...course, type: "event", startDate: "2026-11-20", endDate: "2026-11-21", deadline: "2026-11-10" }}
+        now={new Date("2026-10-01")}
+      />,
+    );
+    expect(screen.getByText("Event")).toBeInTheDocument();
+    expect(screen.getByText(/20 Nov 2026 – 21 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Register by 10 Nov 2026/)).toBeInTheDocument();
+  });
+
+  it("flags an event with no deadline as coming up when its date is near", () => {
+    render(<OpportunityCard opportunity={{ ...course, type: "event", startDate: "2026-10-10" }} now={new Date("2026-10-01")} />);
+    expect(screen.getByText("Coming up")).toBeInTheDocument();
+  });
+
+  it("flags nothing for an event with no deadline whose date is far off", () => {
+    render(<OpportunityCard opportunity={{ ...course, type: "event", startDate: "2026-12-10" }} now={new Date("2026-10-01")} />);
+    expect(screen.queryByText("Coming up")).not.toBeInTheDocument();
+  });
+
   it("flags a deadline within 30 days as closing soon", () => {
     render(<OpportunityCard opportunity={job} now={new Date("2026-10-25")} />);
     expect(screen.getByText(/Closing soon/)).toBeInTheDocument();

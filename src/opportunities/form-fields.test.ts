@@ -8,24 +8,32 @@ describe("opportunityFieldsFromBody", () => {
   });
 
   it("trims strings and drops blank optional fields", () => {
-    const result = opportunityFieldsFromBody({ title: " A Job ", org: " Acme ", applyUrl: " https://example.com/apply ", orgUrl: "   " });
+    const result = opportunityFieldsFromBody({ type: "job", title: " A Job ", org: " Acme ", applyUrl: " https://example.com/apply ", orgUrl: "   " });
     expect(result).toMatchObject({ ok: true, fields: { title: "A Job", org: "Acme", applyUrl: "https://example.com/apply", orgUrl: undefined } });
   });
 
-  it("defaults type to job unless it's exactly 'course'", () => {
+  it("keeps any known type", () => {
     const base = { title: "A", org: "B", applyUrl: "https://example.com" };
-    expect(opportunityFieldsFromBody(base)).toMatchObject({ fields: { type: "job" } });
-    expect(opportunityFieldsFromBody({ ...base, type: "course" })).toMatchObject({ fields: { type: "course" } });
-    expect(opportunityFieldsFromBody({ ...base, type: "nonsense" })).toMatchObject({ fields: { type: "job" } });
+    for (const type of ["job", "fellowship", "project", "course", "event"]) {
+      expect(opportunityFieldsFromBody({ ...base, type })).toMatchObject({ ok: true, fields: { type } });
+    }
+  });
+
+  it("rejects a missing or unknown type rather than guessing one", () => {
+    const base = { title: "A", org: "B", applyUrl: "https://example.com" };
+    const error = "Type must be one of: job, fellowship, project, course, event";
+    expect(opportunityFieldsFromBody(base)).toEqual({ ok: false, error });
+    expect(opportunityFieldsFromBody({ ...base, type: "Event" })).toEqual({ ok: false, error });
+    expect(opportunityFieldsFromBody({ ...base, type: "workshop" })).toEqual({ ok: false, error });
   });
 
   it("keeps only non-blank string tags", () => {
-    const result = opportunityFieldsFromBody({ title: "A", org: "B", applyUrl: "https://example.com", tags: ["Remote", "  ", 42, "Policy"] });
+    const result = opportunityFieldsFromBody({ type: "job", title: "A", org: "B", applyUrl: "https://example.com", tags: ["Remote", "  ", 42, "Policy"] });
     expect(result).toMatchObject({ fields: { tags: ["Remote", "Policy"] } });
   });
 
   it("leaves tags undefined when not an array", () => {
-    const result = opportunityFieldsFromBody({ title: "A", org: "B", applyUrl: "https://example.com" });
+    const result = opportunityFieldsFromBody({ type: "job", title: "A", org: "B", applyUrl: "https://example.com" });
     expect(result).toMatchObject({ fields: { tags: undefined } });
   });
 });

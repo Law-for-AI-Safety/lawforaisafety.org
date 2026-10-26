@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
+import { dataCache } from "../../../../test/next-cache";
+import { deleteOpportunity, updateOpportunity } from "@/lib/opportunities-flow";
 import OpportunityPage, { generateMetadata } from "./page";
 
 const JOB = {
@@ -50,6 +52,81 @@ describe("an opportunity's detail page", () => {
   it("renders a course's View course CTA", async () => {
     render(await OpportunityPage(params(COURSE.slug)));
     expect(screen.getByRole("link", { name: "View course" })).toHaveAttribute("href", COURSE.applyUrl);
+  });
+
+  it("keeps a closed listing's page up, marked closed and with no CTA", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "closed-job", deadline: "2026-10-30" });
+    render(await OpportunityPage(params("closed-job")));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(JOB.title);
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText("Applications closed on 30 Oct 2026.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Apply now" })).not.toBeInTheDocument();
+  });
+
+  it("labels an event's dates and button as an event's", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "an-event", type: "event", startDate: "2026-11-20", deadline: "2026-11-10" });
+    render(await OpportunityPage(params("an-event")));
+    expect(screen.getByText("Event")).toBeInTheDocument();
+    expect(screen.getByText("Date")).toBeInTheDocument();
+    expect(screen.getByText("Register by")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Register" })).toHaveAttribute("href", JOB.applyUrl);
+  });
+
+  it("closes an event with no deadline once it has taken place", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "past-event", type: "event", startDate: "2026-10-30" });
+    render(await OpportunityPage(params("past-event")));
+    expect(screen.getByText("Registration closed on 30 Oct 2026.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Register" })).not.toBeInTheDocument();
+  });
+
+  it("still shows the CTA on the deadline day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "closing-job", deadline: "2026-10-30" });
+    render(await OpportunityPage(params("closing-job")));
+    expect(screen.getByRole("link", { name: "Apply now" })).toHaveAttribute("href", JOB.applyUrl);
+    expect(screen.queryByText("Closed")).not.toBeInTheDocument();
+  });
+
+  it("shows an edit made through the flow at once", async () => {
+    render(await OpportunityPage(params(JOB.slug)));
+    const { type, org, summary, description, locationCountry, remote, applyUrl } = JOB;
+    await updateOpportunity(
+      JOB.slug,
+      { type, title: "Renamed Job", org, summary, description, locationCountry, remote, applyUrl },
+      "admin@example.com",
+    );
+
+    cleanup();
+    render(await OpportunityPage(params(JOB.slug)));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Renamed Job");
+  });
+
+  it("is a 404 at once when the listing is deleted through the flow", async () => {
+    render(await OpportunityPage(params(JOB.slug)));
+    await deleteOpportunity(JOB.slug, "admin@example.com");
+    await expect(OpportunityPage(params(JOB.slug))).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("keeps a closed listing out of search results", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...JOB, slug: "closed-job", deadline: "2026-10-30" });
+    expect(await generateMetadata(params("closed-job"))).toMatchObject({ robots: { index: false } });
+    expect(await generateMetadata(params(JOB.slug))).not.toHaveProperty("robots");
+  });
+
+  it("caches nothing extra for a made-up address", async () => {
+    render(await OpportunityPage(params(JOB.slug)));
+    const cached = dataCache.size;
+    await expect(OpportunityPage(params("no-such-opportunity"))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(dataCache.size).toBe(cached);
   });
 
   it("gives the page its own metadata", async () => {

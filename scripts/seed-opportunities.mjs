@@ -34,7 +34,7 @@ if (!process.env.DATABASE_URL) {
 
 const SEEDER = "seed@local.dev";
 
-// Fixed UUIDs so re-running is idempotent (delete-then-insert, same ids).
+// Fixed UUIDs, so each listing keeps its id across re-runs.
 const OPPORTUNITIES = [
   {
     id: "20000000-0000-4000-8000-000000000001",
@@ -62,13 +62,13 @@ const OPPORTUNITIES = [
     tags: ["Compliance", "Legal operations", "Nonprofit management"],
     applyUrl: "https://docs.google.com/forms/d/e/1FAIpQLSeQzwNbPha28IgDs2c2M9pAfeubSQbQRYZM_Yj_SI2QtfM0iw/viewform",
     applyLabel: "Apply now",
-    sourceUrl: null,
+    sourceUrl: "https://princint.ai/now-hiring-senior-compliance-operations-manager-at-principles-of-intelligence/",
     publishedAt: "2026-10-21",
   },
   {
     id: "20000000-0000-4000-8000-000000000002",
     slug: "lawai-summer-research-fellowship",
-    type: "job",
+    type: "fellowship",
     title: "Summer Research Fellowship (Legal Frontiers)",
     org: "Institute for Law & AI (LawAI)",
     orgUrl: "https://law-ai.org",
@@ -91,94 +91,7 @@ const OPPORTUNITIES = [
     tags: ["Fellowship", "AI governance", "Legal research"],
     applyUrl: "https://law-ai.org/srf-lf/",
     applyLabel: "Apply now",
-    sourceUrl: null,
-    publishedAt: "2026-10-21",
-  },
-  {
-    id: "20000000-0000-4000-8000-000000000003",
-    slug: "vista-national-security-law-and-ai",
-    type: "course",
-    title: "National Security Law and AI",
-    org: "Vista Institute for AI Policy",
-    orgUrl: "https://vistainstituteai.org",
-    summary: "A foundational virtual course on AI and national security challenges and the role of legal instruments in AI governance.",
-    description:
-      "A foundational course on the challenges artificial intelligence poses for national security, and the role legal instruments play in AI governance.\n\nRun virtually and part-time, the course suits students and working professionals who want a grounding in this area before pursuing further research. Completing the course also opens eligibility for the Vista Institute's AI Law and Policy Fellowship, which has no separate public application.",
-    locationCountry: "GLOBAL",
-    locationCity: null,
-    locationNote: null,
-    remote: true,
-    commitment: "part_time",
-    compMin: null,
-    compMax: null,
-    compCurrency: null,
-    compPeriod: null,
-    compNote: null,
-    deadline: null,
-    startDate: "2027-08-10",
-    endDate: "2027-08-26",
-    tags: ["National security", "AI governance", "Course"],
-    applyUrl: "https://vistainstituteai.org/programs/national-security-law-ai",
-    applyLabel: "View course",
-    sourceUrl: null,
-    publishedAt: "2026-10-21",
-  },
-  {
-    id: "20000000-0000-4000-8000-000000000004",
-    slug: "vista-ai-agents-and-the-law-module-1",
-    type: "course",
-    title: "AI Agents and the Law: Module 1",
-    org: "Vista Institute for AI Policy",
-    orgUrl: "https://vistainstituteai.org",
-    summary: "Technical foundations on AI agents, plus an introduction to torts, agency and consumer protection law.",
-    description:
-      "The first module of a two-part virtual course on AI agents and the law, covering the technical foundations of AI agents alongside an introduction to torts, agency, and consumer protection law.\n\nRun part-time and virtually, it is designed to be followed by Module 2, which builds on this grounding with research streams on liability frameworks and law-following AI.",
-    locationCountry: "GLOBAL",
-    locationCity: null,
-    locationNote: null,
-    remote: true,
-    commitment: "part_time",
-    compMin: null,
-    compMax: null,
-    compCurrency: null,
-    compPeriod: null,
-    compNote: null,
-    deadline: null,
-    startDate: "2027-08-19",
-    endDate: "2027-09-04",
-    tags: ["AI agents", "Torts", "Course"],
-    applyUrl: "https://vistainstituteai.org/programs/agents",
-    applyLabel: "View course",
-    sourceUrl: null,
-    publishedAt: "2026-10-21",
-  },
-  {
-    id: "20000000-0000-4000-8000-000000000005",
-    slug: "vista-ai-agents-and-the-law-module-2",
-    type: "course",
-    title: "AI Agents and the Law: Module 2",
-    org: "Vista Institute for AI Policy",
-    orgUrl: "https://vistainstituteai.org",
-    summary: "Research streams on liability frameworks, law-following AI and technical infrastructure, culminating in an individual research proposal.",
-    description:
-      "The second module of the Vista Institute's AI agents course, building on Module 1 with research streams on liability frameworks, law-following AI, and technical infrastructure.\n\nThe module culminates in an individual research proposal, giving participants a concrete output to carry into further study or the Institute's AI Law and Policy Fellowship.",
-    locationCountry: "GLOBAL",
-    locationCity: null,
-    locationNote: null,
-    remote: true,
-    commitment: "part_time",
-    compMin: null,
-    compMax: null,
-    compCurrency: null,
-    compPeriod: null,
-    compNote: null,
-    deadline: null,
-    startDate: "2027-09-07",
-    endDate: "2027-10-02",
-    tags: ["AI agents", "Liability", "Course"],
-    applyUrl: "https://vistainstituteai.org/programs/agents",
-    applyLabel: "View course",
-    sourceUrl: null,
+    sourceUrl: "https://law-ai.org/srf-lf/",
     publishedAt: "2026-10-21",
   },
 ];
@@ -186,8 +99,8 @@ const OPPORTUNITIES = [
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 await client.connect();
 
-const ids = OPPORTUNITIES.map((o) => o.id);
-await client.query("DELETE FROM opportunities WHERE id = ANY($1)", [ids]);
+// Everything an earlier run seeded, so a listing since dropped from this file goes too.
+await client.query("DELETE FROM opportunities WHERE created_by = $1", [SEEDER]);
 
 for (const o of OPPORTUNITIES) {
   await client.query(
@@ -232,4 +145,5 @@ for (const o of OPPORTUNITIES) {
 
 await client.end();
 
-console.log(`Seeded ${OPPORTUNITIES.length} opportunities.`);
+// The seed writes around src/lib/opportunities-flow.ts, so it can't clear the public pages' cache.
+console.log(`Seeded ${OPPORTUNITIES.length} opportunities. The public pages may show the old ones for up to an hour, or until any listing is saved in the admin.`);
