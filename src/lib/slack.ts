@@ -1,5 +1,3 @@
-import { authProviderLabel, type ApplicantAuthProvider } from "@/lib/applicant-types";
-
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -9,9 +7,25 @@ function requireEnv(name: string): string {
 }
 
 /**
- * Slack parses `<url|label>` and `<!channel>` in webhook text, so applicant-
+ * The reviewers' channel is told only that something new is waiting, with a link to it in the
+ * admin. Applicants' and submitters' details stay in our own database and admin pages, so Slack
+ * never holds them.
+ */
+async function postToReviewers(text: string): Promise<void> {
+  const response = await fetch(requireEnv("SLACK_WEBHOOK_URL"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) {
+    throw new Error(`Slack webhook failed: ${response.status} ${await response.text()}`);
+  }
+}
+
+/**
+ * Slack parses `<url|label>` and `<!channel>` in webhook text, so submitter-
  * supplied values are escaped per Slack's own rules (`&`, `<`, `>` only) —
- * otherwise an applicant could post a disguised link into the reviewers'
+ * otherwise a submitter could post a disguised link into the reviewers'
  * channel. Capped so a long value can't push the real review link out of view.
  */
 function escapeSlack(value: string, maxLength = 120): string {
@@ -23,92 +37,35 @@ function escapeSlack(value: string, maxLength = 120): string {
 }
 
 export async function notifyReviewersOfNewApplication({
-  applicantName,
-  organisation,
-  authProvider,
   applicationId,
 }: {
-  applicantName: string;
-  organisation: string | null;
-  authProvider: ApplicantAuthProvider;
   applicationId: string;
 }): Promise<void> {
-  const webhookUrl = requireEnv("SLACK_WEBHOOK_URL");
   const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
-
-  const orgLine = organisation ? ` (${escapeSlack(organisation)})` : "";
-
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      // "Confirmed via", not "verified": sign-in proves control of an account
-      // with this name and email, not that the person is who they claim to be.
-      text: `New application: ${escapeSlack(applicantName)}${orgLine}, email confirmed via ${authProviderLabel(authProvider)}. Review: ${siteUrl}/admin/applications/${applicationId}`,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Slack webhook failed: ${response.status} ${await response.text()}`,
-    );
-  }
+  await postToReviewers(`New application to review: ${siteUrl}/admin/applications/${applicationId}`);
 }
 
 export async function notifyReviewersOfNewRedLinesApplication({
-  applicantName,
-  affiliation,
   applicationId,
 }: {
-  applicantName: string;
-  affiliation: string | null;
   applicationId: string;
 }): Promise<void> {
-  const webhookUrl = requireEnv("SLACK_WEBHOOK_URL");
   const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
-
-  const affiliationLine = affiliation ? ` (${escapeSlack(affiliation)})` : "";
-
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text: `New Red Lines Dialogues application: ${escapeSlack(applicantName)}${affiliationLine}, confirmed via LinkedIn. Review: ${siteUrl}/admin/red-lines-dialogue/${applicationId}`,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Slack webhook failed: ${response.status} ${await response.text()}`,
-    );
-  }
+  await postToReviewers(`New Red Lines Dialogues application to review: ${siteUrl}/admin/red-lines-dialogue/${applicationId}`);
 }
 
+/** `what` names the opportunity (its title and organisation, or its link), never the submitter. */
 export async function notifyReviewersOfNewOpportunitySubmission({
-  submitterName,
   what,
-  authProvider,
   submissionId,
 }: {
-  submitterName: string;
   what: string;
-  authProvider: ApplicantAuthProvider;
   submissionId: string;
 }): Promise<void> {
-  const webhookUrl = requireEnv("SLACK_WEBHOOK_URL");
   const siteUrl = requireEnv("NEXT_PUBLIC_SITE_URL");
-
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text: `New opportunity submitted by ${escapeSlack(submitterName)}: ${escapeSlack(what)}, email confirmed via ${authProviderLabel(authProvider)}. Review: ${siteUrl}/admin/opportunities/submissions/${submissionId}`,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Slack webhook failed: ${response.status} ${await response.text()}`);
-  }
+  await postToReviewers(
+    `New opportunity to review: ${escapeSlack(what)}. Review: ${siteUrl}/admin/opportunities/submissions/${submissionId}`,
+  );
 }
 
 /**

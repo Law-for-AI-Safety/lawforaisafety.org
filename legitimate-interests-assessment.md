@@ -13,7 +13,7 @@ needs input.
 | Reviewed by | `[counsel, date]`                                                                          |
 | Next review | `[date — suggest annually, or on any change to the flow]`                                  |
 
-This assessment covers the three processing operations that rely on Article
+This assessment covers the five processing operations that rely on Article
 6(1)(f). It does **not** cover the newsletter, which runs on consent under
 Article 6(1)(a), or anything we do because the law requires it.
 
@@ -30,6 +30,8 @@ itself.
 | 1   | Assessing applications to join the network       | Name and email (provider-verified via LinkedIn or Google, or self-reported); organisation; LinkedIn URL; CV (PDF, max 5 MB); position statement; comments; profile photo where a provider supplies one |
 | 2   | Recognising repeat applications after a decision | One-way HMAC of the email address, the outcome, reviewer notes on rejections only, and an internal audit entry (which reviewer decided, when) linked to the same HMAC                                                                                                                  |
 | 3   | Preventing automated and abusive submissions     | IP address, never stored as such (a keyed one-way hash is kept for up to an hour to count requests); signals collected by Cloudflare Turnstile; a strictly necessary sign-in cookie holding a random value                                                                                                               |
+| 4   | Reviewing opportunities sent in for the board    | Name and email (provider-verified via LinkedIn or Google, with the provider's account identifier, or self-reported); what was sent (a link, or a short listing); an optional note; the decision, who made it, and any rejection reason |
+| 5   | Red Lines Dialogues applications and working group | Name and email (provider-verified via LinkedIn or Google, or self-reported); profile photo where a provider supplies one; area of expertise; motivation; available hours and meetings; interest in visiting the European Parliament; affiliation; optional publication example and LinkedIn URL; the decision, who made it, reviewer notes, and who contacted the person and when |
 
 ---
 
@@ -200,6 +202,104 @@ profile users more heavily; disclosed in the privacy policy.
 
 ---
 
+## 4. Reviewing opportunities sent in for the board
+
+### Purpose test
+
+The opportunities board lists jobs, fellowships, projects, courses and events
+in AI law and policy. Letting people outside the team send listings in widens
+what the board covers. Knowing who sent each one lets the team judge whether
+to trust it, ask the sender about it, and tell them the outcome. Both are
+legitimate interests of the organisation, and the sender's own interest is
+served too: they want the opportunity seen.
+
+### Necessity test
+
+Necessary, and kept to the minimum. The listing itself is about an
+organisation, not the sender, and is written by the team; the sender's name
+and email never appear on it. Identity is confirmed by the same routes as an
+application, because an unconfirmed address would let anyone put a listing in
+someone else's name, or send mail to a stranger's inbox through the outcome
+emails. No profile photo is kept, unlike an application, because nothing about
+the review needs it.
+
+### Balancing test
+
+**Reasonable expectations.** High. The sender chose to send the listing in, the
+form says the team reviews it, and they are told when it is published.
+
+**Nature and impact.** Low. Name, email, the sign-in route, and a listing about
+someone else's opportunity. Nothing sensitive is asked for; the free-text
+description and note could carry more, as with an application (see residual
+point 1). The rejection email is sent only when the reviewer chooses to.
+
+**Safeguards.** Unconfirmed drafts deleted after 24 hours; confirmation emails
+capped at three per address per day; the same bot protection and sign-in cookie
+as applications; the queue visible only to the opportunities team; the erasure
+tool finds and deletes a sender's submissions while any published listing,
+which holds none of their details, stays up; the team's Slack channel is told
+only that a submission is waiting, never who sent it.
+
+**Retention.** A confirmed submission is kept until it is decided and then for
+one year, long enough for the team to answer questions about a listing while it
+is current, and deleted automatically after that by the hourly sweep, or sooner
+on request.
+
+**Conclusion.** Not overridden.
+
+---
+
+## 5. Red Lines Dialogues applications and the working group
+
+### Purpose test
+
+The Red Lines Dialogues bring legal and technical experts together in a
+working group that meets on set dates. Reviewing applications decides who is
+invited; keeping the accepted ones is how the group knows who its members are,
+what they bring, when they can meet, and how to reach them. Keeping the ones
+not accepted for a while stops the same person being assessed afresh, or
+contacted, as if they were new.
+
+### Necessity test
+
+Necessary, and close to minimal. Each field bears on whether to invite someone
+or on planning the meetings: expertise and affiliation on the first,
+availability and the European Parliament question on the second. The
+publication example and LinkedIn URL are optional. Unlike operation 1, the
+record cannot be deleted on decision for accepted applicants, because it is
+the group's working contact list; the alternative of copying the same details
+somewhere else would only move the data, not reduce it.
+
+### Balancing test
+
+**Reasonable expectations.** High. The person asked to join a working group;
+being contacted by it, and the group keeping their details while they take
+part, is what they asked for. Keeping a declined application for a year is
+less obvious, which is why the policy says so explicitly.
+
+**Nature and impact.** Ordinary professional information. Motivation and the
+publication example are free text, with the same residual point 1 as
+applications. The worst outcome is not being invited, with no consequence
+beyond that. No outcome email is sent automatically; the working group
+contacts people by hand and records that it has.
+
+**Safeguards.** Unconfirmed drafts deleted after 24 hours; the same identity
+routes, bot protection and sign-in cookie as applications; review access
+restricted to named people; the team's Slack channel is told only that an
+application is waiting, never who sent it; the erasure tool finds and deletes
+a person's Red Lines application.
+
+**Retention.** Awaiting review: until decided. Accepted: while the person is
+in the working group, deleted with the erasure tool when they leave or sooner
+on request. Not accepted: one year after the decision, deleted automatically
+by the hourly sweep, or sooner on request.
+
+**Conclusion.** Not overridden. The one manual step is deleting an accepted
+application when someone leaves the group. `[Confirm who does this and how
+departures are noticed.]`
+
+---
+
 ## Residual risks and open points
 
 1. **Special category data volunteered in free text.** The CV and position
@@ -227,7 +327,7 @@ written down.]`
 
 ## Outcome
 
-Legitimate interests is an appropriate basis for all three operations, subject
+Legitimate interests is an appropriate basis for all five operations, subject
 to the residual points above. This assessment should be revisited if the
 application flow changes, if new categories of data are collected, or if the
 retention design changes — in particular the treatment of the email hash.

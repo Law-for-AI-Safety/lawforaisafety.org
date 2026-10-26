@@ -66,8 +66,10 @@ const en: PolicyContent = {
           lawforaisafety.org
         </Link>
         , why we collect it, who we share it with, how long we keep it, and what
-        rights you have. It covers the two things you can do on this site:
-        applying to work with us, and subscribing to our newsletter.
+        rights you have. It covers the four things you can do on this site:
+        applying to work with us, applying to the Red Lines Dialogues,
+        subscribing to our newsletter, and sending us an opportunity for our
+        opportunities board.
       </p>
       <p className={P}>
         If you have any questions after reading this policy, please get in
@@ -167,10 +169,13 @@ const en: PolicyContent = {
           </p>
 
           <div className={SUBSECTION}>
-            <h3 className={H3}>If you apply to work with us</h3>
+            <h3 className={H3}>How you confirm who you are</h3>
             <p className={P}>
-              You verify your identity through one of three routes, and we
-              collect different data depending on which one you use:
+              Every form on this site that sends us more than an email address
+              (applying to work with us, applying to the Red Lines Dialogues,
+              and sending us an opportunity) asks you to confirm who you are
+              through one of three routes. We collect different data depending
+              on which one you use:
             </p>
             <ul className={UL}>
               <li>
@@ -187,23 +192,30 @@ const en: PolicyContent = {
                 Name and email only, with no identity verification: if you
                 don&apos;t use LinkedIn or Google, you can type your name and
                 email directly. We email a link to that address, and your
-                application is only submitted once you open the link and
-                confirm. That shows you can read mail at the address and
+                form is only submitted once you open the link and confirm. That shows you can read mail at the address and
                 nothing more. Your name is self-reported and unverified. We
                 have no proof it&apos;s accurate, and our reviewers are told to
                 treat it that way.
               </li>
             </ul>
             <p className={P}>
+              When you send us an opportunity, we don&apos;t keep a profile
+              photo.
+            </p>
+            <p className={P}>
               If you use LinkedIn or Google, you sign in on their site rather
               than ours, and they confirm those details back to us. They act as
               controllers of your data in their own right, under their own
               privacy policies, rather than on our instructions. We never send
-              them your application, but signing in does tell them you have
-              used your account here.
+              them what you submit, but signing in does tell them you have used
+              your account here.
             </p>
+          </div>
+
+          <div className={SUBSECTION}>
+            <h3 className={H3}>If you apply to work with us</h3>
             <p className={P}>
-              Alongside identity verification, the application form collects:
+              Alongside confirming who you are, the application form collects:
             </p>
             <ul className={UL}>
               <li>Organisation or firm (optional, self-reported)</li>
@@ -224,10 +236,54 @@ const en: PolicyContent = {
           </div>
 
           <div className={SUBSECTION}>
+            <h3 className={H3}>If you apply to the Red Lines Dialogues</h3>
+            <p className={P}>
+              Alongside confirming who you are, the Red Lines Dialogues form
+              collects:
+            </p>
+            <ul className={UL}>
+              <li>Your area of expertise: legal and governance, or technical</li>
+              <li>Why you want to take part</li>
+              <li>How many hours you could give</li>
+              <li>Which of the working group&apos;s meetings you could attend</li>
+              <li>
+                Whether you would be interested in visiting the European
+                Parliament
+              </li>
+              <li>Your affiliation</li>
+              <li>An example of your published work (optional)</li>
+              <li>LinkedIn profile URL (optional, self-reported)</li>
+            </ul>
+          </div>
+
+          <div className={SUBSECTION}>
             <h3 className={H3}>If you subscribe to our newsletter only</h3>
             <p className={P}>
               Just your email address, plus the confirmation status and
               timestamp of your double opt-in click.
+            </p>
+          </div>
+
+          <div className={SUBSECTION}>
+            <h3 className={H3}>If you send us an opportunity</h3>
+            <p className={P}>
+              You can send us a job, fellowship, project, course or event for
+              our opportunities board. Alongside confirming who you are, the
+              form collects:
+            </p>
+            <ul className={UL}>
+              <li>
+                Either a link to the opportunity, or its details: its type,
+                title, organisation, link to apply, location, whether it can
+                be done remotely, dates, and a description
+              </li>
+              <li>Where you saw it (optional)</li>
+              <li>A note to our team (optional)</li>
+            </ul>
+            <p className={P}>
+              The opportunity is about an organisation, not about you. If we
+              publish it, our team writes the listing, and your name and email
+              never appear on it.
             </p>
           </div>
 
@@ -274,6 +330,11 @@ const en: PolicyContent = {
           </p>
           <ul className={UL}>
             <li>To assess and decide on applications to work with us</li>
+            <li>
+              To assess applications to the Red Lines Dialogues and, if you are
+              invited, for the working group to contact you and plan its
+              meetings
+            </li>
             <li>To notify you of the outcome of your application by email</li>
             <li>
               To add you to our mailing list and send you our newsletter, if
@@ -288,10 +349,16 @@ const en: PolicyContent = {
               If your application is approved, to invite you to our Slack
               workspace
             </li>
+            <li>
+              To review an opportunity you send us, to contact you about it if
+              we need to, and to email you when it is published or, if we
+              choose to, when we decide not to publish it
+            </li>
           </ul>
           <p className={P}>
             We do not use your data for automated decision-making or profiling.
-            Every application is read and decided by a person.
+            Every application and every opportunity sent to us is read and
+            decided by a person.
           </p>
         </>
       ),
@@ -332,9 +399,12 @@ const en: PolicyContent = {
             </li>
             <li>
               Legitimate interests: assessing applications from legal
-              professionals wanting to work with us, and preventing fraudulent
-              or automated submissions, weighed against your interests and
-              rights.
+              professionals wanting to work with us, assessing applications to
+              the Red Lines Dialogues and running its working group, reviewing
+              opportunities
+              sent to us for our board and knowing who sent them, and
+              preventing fraudulent or automated submissions, weighed against
+              your interests and rights.
             </li>
             <li>
               Legal obligations: where we are required to retain or disclose
@@ -355,7 +425,8 @@ const en: PolicyContent = {
           </p>
           <ul className={UL}>
             <li>
-              Started but never completed an application, meaning sign-in or
+              Started but never completed an application, to work with us or
+              to the Red Lines Dialogues, meaning sign-in or
               email confirmation was not finished: deleted automatically after
               24 hours, including any uploaded CV.
             </li>
@@ -368,7 +439,8 @@ const en: PolicyContent = {
               decision.
             </li>
             <li>
-              Decided, whether approved or rejected: your full application
+              Application to work with us, once decided, whether approved or
+              rejected: your full application
               record (name, email, CV, profile photo, everything you submitted)
               is deleted immediately once the decision is made and you&apos;ve
               been notified. We retain only a one-way cryptographic hash of your
@@ -384,15 +456,54 @@ const en: PolicyContent = {
               erase your data, that link is removed along with the hash.
             </li>
             <li>
+              Application to the Red Lines Dialogues awaiting review: kept
+              until a reviewer makes a decision.
+            </li>
+            <li>
+              Application to the Red Lines Dialogues that was accepted: kept
+              while you are part of the working group, because it is how the
+              group knows who you are and how to reach you. It is deleted when
+              you leave the group, or sooner if you ask.
+            </li>
+            <li>
+              Application to the Red Lines Dialogues that was not accepted:
+              kept for one year after the decision, so we know who we have
+              already heard from, then deleted automatically, or sooner if you
+              ask.
+            </li>
+            <li>
               Newsletter subscribers: your email is kept for as long as you
               remain subscribed. You can unsubscribe at any time via the link in
               any newsletter email.
+            </li>
+            <li>
+              Opportunity you sent but never confirmed, meaning sign-in or
+              email confirmation was not finished: deleted automatically after
+              24 hours.
+            </li>
+            <li>
+              Opportunity you sent and confirmed: kept until we decide whether
+              to publish it, and then for one year, with your name, email, how
+              you confirmed, what you sent, the decision, who made it, and any
+              reason we gave you for not publishing it. That lets our team see
+              who sent a listing and answer questions about it while it is
+              current. After the year it is deleted automatically, or sooner if
+              you ask. Deleting it does not remove a listing we published from
+              it, which holds none of your details.
             </li>
             <li>
               Rate-limiting counters, keyed by a one-way hash of your IP
               address: deleted within an hour.
             </li>
           </ul>
+          {/*
+            The year after a decision is enforced by the hourly sweep
+            (sweepDecidedSubmissions in lib/opportunity-submission-flow.ts, and
+            sweepRejectedRedLinesApplications in lib/red-lines-flow.ts). An
+            accepted Red Lines application has no automatic end: the team
+            deletes it with the erasure tool when someone leaves the working
+            group.
+          */}
           {/*
             The reviewer record mentioned under "Decided" is the admin audit
             log (admin_audit_log). It exists so that an approval can be traced
@@ -463,9 +574,11 @@ const en: PolicyContent = {
               are not automated.
             </li>
             <li>
-              An email provider, to send transactional emails (your application
-              outcome, newsletter confirmation) and to manage our newsletter
-              mailing list. You can unsubscribe from the newsletter at any time
+              An email provider, to send transactional emails (the link that
+              confirms your email address when you don&apos;t use LinkedIn or
+              Google, your application outcome, newsletter confirmation, and
+              updates on an opportunity you sent), to tell our team about new applications
+              and opportunities, and to manage our newsletter mailing list. You can unsubscribe from the newsletter at any time
               using the unsubscribe link in any newsletter email.
             </li>
             <li>
@@ -475,7 +588,7 @@ const en: PolicyContent = {
             </li>
             <li>
               A hosting provider, which runs this site, holds application data
-              in a managed database, and keeps uploaded CVs in private object
+              and the opportunities sent to us in a managed database, and keeps uploaded CVs in private object
               storage.
             </li>
           </ul>
@@ -622,18 +735,21 @@ const en: PolicyContent = {
               challenge, governed by Cloudflare&apos;s privacy policy.
             </li>
             <li>
-              If you apply using LinkedIn or Google sign-in, we set one
-              strictly necessary cookie when you submit the form. It holds a
-              random value that lets us check the sign-in is completed in the
-              same browser that started it, so nobody else&apos;s application
-              can be attached to your identity. It contains no personal data,
+              If you confirm who you are with LinkedIn or Google on any of our
+              forms, we set one strictly necessary cookie when you submit the
+              form. It holds a random value that lets us check the sign-in is
+              completed in the same browser that started it, so nobody
+              else&apos;s submission can be attached to your identity. It contains no personal data,
               is not used for tracking, and expires within an hour.
             </li>
           </ul>
           {/*
-            The sign-in cookie (oauth_state) is set only on form submission
-            and falls under the "strictly necessary" exemption of Article
-            5(3) ePrivacy (Dutch Telecommunicatiewet 11.7a(3)): it is a
+            The sign-in cookies (oauth_state for applications,
+            red_lines_oauth_state for Red Lines Dialogues applications,
+            opportunity_submit_oauth_state for opportunities, each with its own
+            name so one flow can't complete another) are set only on form
+            submission and fall under the "strictly necessary" exemption of Article
+            5(3) ePrivacy (Dutch Telecommunicatiewet 11.7a(3)): each is a
             security measure for a service the user explicitly requested, so
             no consent banner is needed. Reviewers signing in to the admin
             area get session cookies too; those are staff-side and outside
@@ -659,8 +775,8 @@ const en: PolicyContent = {
               in-browser viewer, not downloaded to a reviewer&apos;s device.
             </li>
             <li>
-              Access to the internal system where applications are reviewed is
-              restricted to a specific list of authorised people, each signed in
+              Access to the internal system where applications and the
+              opportunities sent to us are reviewed is restricted to a specific list of authorised people, each signed in
               to an authenticated session.
             </li>
             <li>
@@ -701,7 +817,8 @@ const en: PolicyContent = {
             <li>
               Right to object: you can object to our processing of your data
               where we rely on legitimate interests, which is the basis on
-              which we assess applications.
+              which we assess applications and review the opportunities sent
+              to us.
             </li>
             <li>
               Right to data portability: where we rely on your consent, which

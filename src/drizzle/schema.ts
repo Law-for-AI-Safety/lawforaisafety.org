@@ -154,13 +154,13 @@ export const applications = pgTable(
 );
 
 // Red Lines Dialogues expert applications. Unlike `applications`, decided
-// rows are never purged — approved rows are the working group's actual
-// contact list (area of expertise, affiliation, meeting availability), and
-// rejected rows are deliberately kept as "who we didn't invite", per policy.
-// Only an erasure request (see erasure.ts) deletes a row here. That also
-// means there's no processed_applications-style hash table for this flow:
-// "already applied" is answered directly from provider_id, since the record
-// that answers it is never gone.
+// rows aren't purged on decision — approved rows are the working group's
+// actual contact list (area of expertise, affiliation, meeting availability),
+// kept until an erasure request (see erasure.ts), and rejected rows are kept
+// as "who we didn't invite" for a year after the decision, then swept (see
+// sweepRejectedRedLinesApplications). So there's no processed_applications-
+// style hash table for this flow: "already applied" is answered directly
+// from provider_id.
 export const redLinesApplications = pgTable("red_lines_applications", {
   id: uuid("id").primaryKey().defaultRandom(),
   createdAt: timestamp("created_at", { withTimezone: true })

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { opportunitySubmissions, rateLimitHits } from "@/drizzle/schema";
 import { FORM_RENDERED_AT_FIELD_NAME, HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
-import { sweepOldSubmissionDrafts } from "@/lib/opportunity-submission-flow";
+import { sweepDecidedSubmissions, sweepOldSubmissionDrafts } from "@/lib/opportunity-submission-flow";
 import { APP_ORIGIN } from "../../../../../test/app-fetch";
 import { cookieJar } from "../../../../../test/next-headers";
 import { emails, linkParam } from "../../../../../test/fakes/email";
@@ -103,8 +103,10 @@ describe("submitting by name and email", () => {
     const [pending] = await rows();
     expect(pending).toMatchObject({ status: "pending", name: "Sam Submitter", providerId: "sam@example.org", stateToken: null });
     expect(slack.messages).toHaveLength(1);
-    expect(slack.messages[0]).toContain(`New opportunity submitted by Sam Submitter: ${LINK.sourceUrl}`);
-    expect(slack.messages[0]).toContain(`/admin/opportunities/submissions/${pending.id}`);
+    // Slack hears that something is waiting, never who sent it.
+    expect(slack.messages).toEqual([
+      `New opportunity to review: ${LINK.sourceUrl}. Review: https://lawforaisafety.test/admin/opportunities/submissions/${pending.id}`,
+    ]);
     expect(emails.to("info@lawforaisafety.org")[0].subject).toBe("New opportunity submitted by Sam Submitter");
   });
 
@@ -310,5 +312,18 @@ describe("sweeping", () => {
     expect(await sweepOldSubmissionDrafts()).toBe(1);
     expect((await rows()).map((row) => row.status).sort()).toEqual(["draft", "pending"]);
     expect(await db.select().from(opportunitySubmissions).where(eq(opportunitySubmissions.status, "pending"))).toHaveLength(1);
+  });
+
+  it("deletes submissions decided over a year ago, and keeps newer and undecided ones", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const longAgo = new Date(Date.now() - 366 * day);
+    await db.insert(opportunitySubmissions).values([
+      { authProvider: "email", status: "published", title: "old published", reviewedAt: longAgo },
+      { authProvider: "email", status: "rejected", title: "old rejected", reviewedAt: longAgo },
+      { authProvider: "email", status: "rejected", title: "recent", reviewedAt: new Date(Date.now() - 364 * day) },
+      { authProvider: "email", status: "pending", title: "waiting", createdAt: longAgo },
+    ]);
+    expect(await sweepDecidedSubmissions()).toBe(2);
+    expect((await rows()).map((row) => row.title).sort()).toEqual(["recent", "waiting"]);
   });
 });

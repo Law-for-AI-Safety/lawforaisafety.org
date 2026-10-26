@@ -64,6 +64,8 @@ const MAX_LENGTHS = {
 
 export const SUBMIT_PATH = "/opportunities/submit";
 const EMAIL_CONFIRM_TTL_MS = 24 * 60 * 60 * 1000;
+/** How long a decided submission is kept, as the privacy policy states. */
+const DECIDED_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
 // Confirmation emails go to whatever address was typed, so cap how many one address can be
 // sent in a day regardless of who is asking.
 const MAX_EMAIL_DRAFTS_PER_DAY = 3;
@@ -193,6 +195,25 @@ export async function sweepOldSubmissionDrafts(): Promise<number> {
   return deleted.length;
 }
 
+/**
+ * Deletes submissions decided over a year ago, the retention period the privacy policy gives.
+ * A listing published from one stays up: it holds none of the submitter's details, and the
+ * foreign key is set null.
+ */
+export async function sweepDecidedSubmissions(): Promise<number> {
+  const cutoff = new Date(Date.now() - DECIDED_RETENTION_MS);
+  const deleted = await db
+    .delete(opportunitySubmissions)
+    .where(
+      and(
+        inArray(opportunitySubmissions.status, ["published", "rejected"]),
+        lt(opportunitySubmissions.reviewedAt, cutoff),
+      ),
+    )
+    .returning({ id: opportunitySubmissions.id });
+  return deleted.length;
+}
+
 export async function createSubmissionDraft(
   provider: OAuthProviderName,
   formData: FormData,
@@ -254,12 +275,7 @@ async function notifyBestEffort(row: SubmissionRow): Promise<void> {
   const what = describeSubmission(row);
 
   try {
-    await notifyReviewersOfNewOpportunitySubmission({
-      submitterName,
-      what,
-      authProvider: row.authProvider,
-      submissionId: row.id,
-    });
+    await notifyReviewersOfNewOpportunitySubmission({ what, submissionId: row.id });
   } catch {
     // Best-effort — a Slack outage shouldn't fail the submitter-facing flow.
   }

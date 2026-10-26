@@ -185,12 +185,7 @@ async function notifyAdminsBestEffort(
   provider: ApplicantAuthProvider,
 ): Promise<void> {
   try {
-    await notifyReviewersOfNewApplication({
-      applicantName: row.name ?? "Unknown",
-      organisation: row.organisation,
-      authProvider: provider,
-      applicationId: row.id,
-    });
+    await notifyReviewersOfNewApplication({ applicationId: row.id });
   } catch {
     // Best-effort — a Slack outage shouldn't fail the applicant-facing flow.
   }
