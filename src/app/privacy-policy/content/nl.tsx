@@ -65,10 +65,10 @@ const nl: PolicyContent = {
           lawforaisafety.org
         </Link>{" "}
         verzamelen, waarom wij dat doen, met wie wij ze delen, hoe lang wij ze
-        bewaren en welke rechten u heeft. De verklaring gaat over de drie dingen
+        bewaren en welke rechten u heeft. De verklaring gaat over de vier dingen
         die u op deze site kunt doen: u aanmelden om met ons samen te werken, u
-        inschrijven voor onze nieuwsbrief en ons een kans insturen voor ons
-        overzicht van kansen.
+        aanmelden voor de Red Lines Dialogues, u inschrijven voor onze
+        nieuwsbrief en ons een kans insturen voor ons overzicht van kansen.
       </p>
       <p className={P}>
         Heeft u na het lezen van deze privacyverklaring nog vragen, neem dan
@@ -222,6 +222,30 @@ const nl: PolicyContent = {
 
           <div className={SUBSECTION}>
             <h3 className={H3}>
+              Als u zich aanmeldt voor de Red Lines Dialogues
+            </h3>
+            <p className={P}>
+              Naast de bevestiging van wie u bent, verzamelt het formulier voor
+              de Red Lines Dialogues:
+            </p>
+            <ul className={UL}>
+              <li>Uw vakgebied: juridisch en bestuurlijk, of technisch</li>
+              <li>Waarom u wilt deelnemen</li>
+              <li>Hoeveel uur u kunt besteden</li>
+              <li>
+                Welke bijeenkomsten van de werkgroep u kunt bijwonen
+              </li>
+              <li>
+                Of u interesse heeft in een bezoek aan het Europees Parlement
+              </li>
+              <li>Uw affiliatie</li>
+              <li>Een voorbeeld van uw gepubliceerde werk (optioneel)</li>
+              <li>URL van uw LinkedIn-profiel (optioneel, zelf opgegeven)</li>
+            </ul>
+          </div>
+
+          <div className={SUBSECTION}>
+            <h3 className={H3}>
               Als u zich alleen inschrijft voor onze nieuwsbrief
             </h3>
             <p className={P}>
@@ -305,6 +329,11 @@ const nl: PolicyContent = {
               daarover te beslissen
             </li>
             <li>
+              Om aanmeldingen voor de Red Lines Dialogues te beoordelen en, als
+              u wordt uitgenodigd, zodat de werkgroep contact met u kan opnemen
+              en haar bijeenkomsten kan plannen
+            </li>
+            <li>
               Om u per e-mail te informeren over de uitkomst van uw aanmelding
             </li>
             <li>
@@ -359,7 +388,9 @@ const nl: PolicyContent = {
             </li>
             <li>
               Gerechtvaardigde belangen: het beoordelen van aanmeldingen van
-              juristen die met ons willen samenwerken, het beoordelen van kansen
+              juristen die met ons willen samenwerken, het beoordelen van
+              aanmeldingen voor de Red Lines Dialogues en het laten werken van
+              de werkgroep daarvan, het beoordelen van kansen
               die ons worden ingestuurd en weten wie ze heeft ingestuurd, en het
               tegengaan van frauduleuze of geautomatiseerde inzendingen,
               afgewogen tegen uw belangen en rechten.
@@ -383,7 +414,8 @@ const nl: PolicyContent = {
           </p>
           <ul className={UL}>
             <li>
-              Aanmelding begonnen maar nooit afgerond, dus inloggen of
+              Aanmelding begonnen maar nooit afgerond, om met ons samen te
+              werken of voor de Red Lines Dialogues, dus inloggen of
               e-mailbevestiging niet voltooid: automatisch verwijderd na 24
               uur, inclusief een eventueel geüpload cv.
             </li>
@@ -396,7 +428,8 @@ const nl: PolicyContent = {
               beoordelaar een beslissing neemt.
             </li>
             <li>
-              Beslist, goedgekeurd of afgewezen: uw volledige
+              Aanmelding om met ons samen te werken, na een beslissing,
+              goedgekeurd of afgewezen: uw volledige
               aanmeldingsdossier (naam, e-mailadres, cv, profielfoto, alles wat
               u heeft ingediend) wordt onmiddellijk verwijderd zodra de
               beslissing is genomen en u bent geïnformeerd. Wij bewaren
@@ -412,6 +445,22 @@ const nl: PolicyContent = {
               beoordelaar de beslissing heeft genomen en wanneer, gekoppeld aan
               dezelfde hash. Vraagt u ons uw gegevens te wissen, dan wordt die
               koppeling samen met de hash verwijderd.
+            </li>
+            <li>
+              Aanmelding voor de Red Lines Dialogues in afwachting van
+              beoordeling: bewaard totdat een beoordelaar een beslissing neemt.
+            </li>
+            <li>
+              Aanmelding voor de Red Lines Dialogues die is geaccepteerd:
+              bewaard zolang u deel uitmaakt van de werkgroep, omdat de groep
+              zo weet wie u bent en hoe u te bereiken bent. Verwijderd wanneer
+              u de groep verlaat, of eerder als u daarom vraagt.
+            </li>
+            <li>
+              Aanmelding voor de Red Lines Dialogues die niet is geaccepteerd:
+              bewaard tot één jaar na de beslissing, zodat wij weten van wie wij
+              al hebben gehoord, en daarna automatisch verwijderd, of eerder als
+              u daarom vraagt.
             </li>
             <li>
               Nieuwsbriefabonnees: uw e-mailadres wordt bewaard zolang u
@@ -484,9 +533,9 @@ const nl: PolicyContent = {
             </li>
             <li>
               Een e-mailaanbieder, om transactionele e-mails te versturen
-              (uitkomst van uw aanmelding, bevestiging van de nieuwsbrief,
-              bevestiging van en berichten over een kans die u heeft
-              ingestuurd), om ons team te informeren over nieuwe aanmeldingen en
+              (de link die uw e-mailadres bevestigt als u geen LinkedIn of
+              Google gebruikt, uitkomst van uw aanmelding, bevestiging van de
+              nieuwsbrief en berichten over een kans die u heeft ingestuurd), om ons team te informeren over nieuwe aanmeldingen en
               kansen, en om onze verzendlijst te beheren. U kunt zich op elk moment
               uitschrijven via de uitschrijflink in elke nieuwsbrief.
             </li>

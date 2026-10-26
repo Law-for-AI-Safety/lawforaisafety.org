@@ -66,9 +66,10 @@ const en: PolicyContent = {
           lawforaisafety.org
         </Link>
         , why we collect it, who we share it with, how long we keep it, and what
-        rights you have. It covers the three things you can do on this site:
-        applying to work with us, subscribing to our newsletter, and sending
-        us an opportunity for our opportunities board.
+        rights you have. It covers the four things you can do on this site:
+        applying to work with us, applying to the Red Lines Dialogues,
+        subscribing to our newsletter, and sending us an opportunity for our
+        opportunities board.
       </p>
       <p className={P}>
         If you have any questions after reading this policy, please get in
@@ -235,6 +236,27 @@ const en: PolicyContent = {
           </div>
 
           <div className={SUBSECTION}>
+            <h3 className={H3}>If you apply to the Red Lines Dialogues</h3>
+            <p className={P}>
+              Alongside confirming who you are, the Red Lines Dialogues form
+              collects:
+            </p>
+            <ul className={UL}>
+              <li>Your area of expertise: legal and governance, or technical</li>
+              <li>Why you want to take part</li>
+              <li>How many hours you could give</li>
+              <li>Which of the working group&apos;s meetings you could attend</li>
+              <li>
+                Whether you would be interested in visiting the European
+                Parliament
+              </li>
+              <li>Your affiliation</li>
+              <li>An example of your published work (optional)</li>
+              <li>LinkedIn profile URL (optional, self-reported)</li>
+            </ul>
+          </div>
+
+          <div className={SUBSECTION}>
             <h3 className={H3}>If you subscribe to our newsletter only</h3>
             <p className={P}>
               Just your email address, plus the confirmation status and
@@ -308,6 +330,11 @@ const en: PolicyContent = {
           </p>
           <ul className={UL}>
             <li>To assess and decide on applications to work with us</li>
+            <li>
+              To assess applications to the Red Lines Dialogues and, if you are
+              invited, for the working group to contact you and plan its
+              meetings
+            </li>
             <li>To notify you of the outcome of your application by email</li>
             <li>
               To add you to our mailing list and send you our newsletter, if
@@ -372,7 +399,9 @@ const en: PolicyContent = {
             </li>
             <li>
               Legitimate interests: assessing applications from legal
-              professionals wanting to work with us, reviewing opportunities
+              professionals wanting to work with us, assessing applications to
+              the Red Lines Dialogues and running its working group, reviewing
+              opportunities
               sent to us for our board and knowing who sent them, and
               preventing fraudulent or automated submissions, weighed against
               your interests and rights.
@@ -396,7 +425,8 @@ const en: PolicyContent = {
           </p>
           <ul className={UL}>
             <li>
-              Started but never completed an application, meaning sign-in or
+              Started but never completed an application, to work with us or
+              to the Red Lines Dialogues, meaning sign-in or
               email confirmation was not finished: deleted automatically after
               24 hours, including any uploaded CV.
             </li>
@@ -409,7 +439,8 @@ const en: PolicyContent = {
               decision.
             </li>
             <li>
-              Decided, whether approved or rejected: your full application
+              Application to work with us, once decided, whether approved or
+              rejected: your full application
               record (name, email, CV, profile photo, everything you submitted)
               is deleted immediately once the decision is made and you&apos;ve
               been notified. We retain only a one-way cryptographic hash of your
@@ -423,6 +454,22 @@ const en: PolicyContent = {
               We also keep an internal record of which reviewer made the
               decision and when, linked to the same hash. If you ask us to
               erase your data, that link is removed along with the hash.
+            </li>
+            <li>
+              Application to the Red Lines Dialogues awaiting review: kept
+              until a reviewer makes a decision.
+            </li>
+            <li>
+              Application to the Red Lines Dialogues that was accepted: kept
+              while you are part of the working group, because it is how the
+              group knows who you are and how to reach you. It is deleted when
+              you leave the group, or sooner if you ask.
+            </li>
+            <li>
+              Application to the Red Lines Dialogues that was not accepted:
+              kept for one year after the decision, so we know who we have
+              already heard from, then deleted automatically, or sooner if you
+              ask.
             </li>
             <li>
               Newsletter subscribers: your email is kept for as long as you
@@ -451,7 +498,11 @@ const en: PolicyContent = {
           </ul>
           {/*
             The year after a decision is enforced by the hourly sweep
-            (sweepDecidedSubmissions in lib/opportunity-submission-flow.ts).
+            (sweepDecidedSubmissions in lib/opportunity-submission-flow.ts, and
+            sweepRejectedRedLinesApplications in lib/red-lines-flow.ts). An
+            accepted Red Lines application has no automatic end: the team
+            deletes it with the erasure tool when someone leaves the working
+            group.
           */}
           {/*
             The reviewer record mentioned under "Decided" is the admin audit
@@ -523,9 +574,10 @@ const en: PolicyContent = {
               are not automated.
             </li>
             <li>
-              An email provider, to send transactional emails (your application
-              outcome, newsletter confirmation, confirming and updating you on
-              an opportunity you sent), to tell our team about new applications
+              An email provider, to send transactional emails (the link that
+              confirms your email address when you don&apos;t use LinkedIn or
+              Google, your application outcome, newsletter confirmation, and
+              updates on an opportunity you sent), to tell our team about new applications
               and opportunities, and to manage our newsletter mailing list. You can unsubscribe from the newsletter at any time
               using the unsubscribe link in any newsletter email.
             </li>

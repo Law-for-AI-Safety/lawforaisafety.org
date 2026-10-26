@@ -135,11 +135,15 @@ confirming.
    statements; the Article 30 record of processing; whether a DPIA is
    triggered; and how Article 21 objections are handled in practice.
 4. **Have the Dutch checked** by a native legal translator.
-5. **Review the clauses on opportunity submissions.** Added 26 October 2026:
-   people outside the team can now send in listings for the opportunities
-   board, and the policy and assessment cover it (operation 4 in the
-   assessment). A confirmed submission is kept until it is decided and then
-   for one year, enforced by the hourly sweep.
+5. **Review the clauses on opportunity submissions and the Red Lines
+   Dialogues.** Added 26 October 2026: people outside the team can now send in
+   listings for the opportunities board, and the policy and assessment cover
+   it (operation 4 in the assessment). A confirmed submission is kept until it
+   is decided and then for one year, enforced by the hourly sweep. The Red
+   Lines Dialogues application form now has its own section too (operation 5):
+   an accepted application is kept while the person is in the working group
+   and deleted by hand when they leave, and one not accepted is kept for a year
+   after the decision, enforced by the same sweep.
 6. **Decide where the statutory identification block belongs.** Article 2:20
    and Article III.74 are site-wide duties, so a legal notice page or the site
    footer satisfies them equally. The footer is already wired and populates
@@ -171,7 +175,8 @@ can be revisited.
   and a mission statement in a legal document goes stale independently of the
   processing.
 - **Staff reviewer processing is not covered.** The public policy covers
-  applicants, subscribers, and people who send in opportunities.
+  applicants (to work with us and to the Red Lines Dialogues), subscribers,
+  and people who send in opportunities.
 - **Each language is a separate URL**, so a specific version can be linked,
   cited and indexed.
 

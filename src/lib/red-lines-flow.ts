@@ -196,6 +196,27 @@ export async function sweepOldRedLinesDrafts(): Promise<number> {
   return deleted.length;
 }
 
+const REJECTED_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
+
+/**
+ * Rejected applications are kept for a year after the decision, as the privacy policy states,
+ * then swept hourly (see /api/cron/sweep). Approved ones stay: they are the working group's
+ * contact list, and are removed by an erasure request when someone leaves it.
+ */
+export async function sweepRejectedRedLinesApplications(): Promise<number> {
+  const cutoff = new Date(Date.now() - REJECTED_RETENTION_MS);
+  const deleted = await db
+    .delete(redLinesApplications)
+    .where(
+      and(
+        eq(redLinesApplications.status, "rejected"),
+        lt(redLinesApplications.reviewedAt, cutoff),
+      ),
+    )
+    .returning({ id: redLinesApplications.id });
+  return deleted.length;
+}
+
 export async function createRedLinesApplicationDraft(
   provider: OAuthProviderName,
   formData: FormData,
