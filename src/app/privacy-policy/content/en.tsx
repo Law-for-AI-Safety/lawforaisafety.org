@@ -66,8 +66,9 @@ const en: PolicyContent = {
           lawforaisafety.org
         </Link>
         , why we collect it, who we share it with, how long we keep it, and what
-        rights you have. It covers the two things you can do on this site:
-        applying to work with us, and subscribing to our newsletter.
+        rights you have. It covers the three things you can do on this site:
+        applying to work with us, subscribing to our newsletter, and sending
+        us an opportunity for our opportunities board.
       </p>
       <p className={P}>
         If you have any questions after reading this policy, please get in
@@ -232,6 +233,35 @@ const en: PolicyContent = {
           </div>
 
           <div className={SUBSECTION}>
+            <h3 className={H3}>If you send us an opportunity</h3>
+            <p className={P}>
+              You can send us a job, fellowship, project, course or event for
+              our opportunities board. You confirm who you are through the same
+              three routes as an application: LinkedIn sign-in, Google
+              sign-in, or typing your name and email and opening the link we
+              email you. Through LinkedIn or Google we receive your name, email
+              address, and the account identifier the provider uses for you,
+              but not your profile photo. Through the email route, your name is
+              self-reported and unverified, as above.
+            </p>
+            <p className={P}>Alongside that, the form collects:</p>
+            <ul className={UL}>
+              <li>
+                Either a link to the opportunity, or its details: its type,
+                title, organisation, link to apply, location, whether it can
+                be done remotely, dates, and a description
+              </li>
+              <li>Where you saw it (optional)</li>
+              <li>A note to our team (optional)</li>
+            </ul>
+            <p className={P}>
+              The opportunity is about an organisation, not about you. If we
+              publish it, our team writes the listing, and your name and email
+              never appear on it.
+            </p>
+          </div>
+
+          <div className={SUBSECTION}>
             <h3 className={H3}>Technical and anti-abuse data</h3>
             <ul className={UL}>
               <li>
@@ -288,10 +318,16 @@ const en: PolicyContent = {
               If your application is approved, to invite you to our Slack
               workspace
             </li>
+            <li>
+              To review an opportunity you send us, to contact you about it if
+              we need to, and to email you when it is published or, if we
+              choose to, when we decide not to publish it
+            </li>
           </ul>
           <p className={P}>
             We do not use your data for automated decision-making or profiling.
-            Every application is read and decided by a person.
+            Every application and every opportunity sent to us is read and
+            decided by a person.
           </p>
         </>
       ),
@@ -332,9 +368,10 @@ const en: PolicyContent = {
             </li>
             <li>
               Legitimate interests: assessing applications from legal
-              professionals wanting to work with us, and preventing fraudulent
-              or automated submissions, weighed against your interests and
-              rights.
+              professionals wanting to work with us, reviewing opportunities
+              sent to us for our board and knowing who sent them, and
+              preventing fraudulent or automated submissions, weighed against
+              your interests and rights.
             </li>
             <li>
               Legal obligations: where we are required to retain or disclose
@@ -389,10 +426,32 @@ const en: PolicyContent = {
               any newsletter email.
             </li>
             <li>
+              Opportunity you sent but never confirmed, meaning sign-in or
+              email confirmation was not finished: deleted automatically after
+              24 hours.
+            </li>
+            <li>
+              Opportunity you sent and confirmed: kept, with your name, email,
+              how you confirmed, and what you sent, so our team can see who
+              sent a listing and answer questions about it. Once we decide on
+              it, we also keep whether we published it, who decided, and any
+              reason we gave you for not publishing it. It is kept until you ask
+              us to delete it. Deleting it does not remove a listing we
+              published from it, which holds none of your details.
+            </li>
+            <li>
               Rate-limiting counters, keyed by a one-way hash of your IP
               address: deleted within an hour.
             </li>
           </ul>
+          <CounselNote>
+            [Counsel: confirmed opportunity submissions currently have no fixed
+            retention period and are kept until an erasure request. Storage
+            limitation (Article 5(1)(e)) suggests a set period instead, for
+            example a year after the decision. The site already deletes
+            unconfirmed drafts on an hourly schedule, so a period you choose can
+            be enforced the same way; this clause then changes to state it.]
+          </CounselNote>
           {/*
             The reviewer record mentioned under "Decided" is the admin audit
             log (admin_audit_log). It exists so that an approval can be traced
@@ -464,18 +523,22 @@ const en: PolicyContent = {
             </li>
             <li>
               An email provider, to send transactional emails (your application
-              outcome, newsletter confirmation) and to manage our newsletter
-              mailing list. You can unsubscribe from the newsletter at any time
+              outcome, newsletter confirmation, confirming and updating you on
+              an opportunity you sent), to tell our team about new applications
+              and opportunities, and to manage our newsletter mailing list. You can unsubscribe from the newsletter at any time
               using the unsubscribe link in any newsletter email.
             </li>
             <li>
               A team messaging provider, which hosts the workspace you are
               invited to if your application is approved. Before inviting you,
-              a reviewer checks whether you are already a member.
+              a reviewer checks whether you are already a member. Our team is
+              also told there about each new application or opportunity
+              submitted, with the name you gave, how you confirmed it, and what
+              the application or opportunity is.
             </li>
             <li>
               A hosting provider, which runs this site, holds application data
-              in a managed database, and keeps uploaded CVs in private object
+              and the opportunities sent to us in a managed database, and keeps uploaded CVs in private object
               storage.
             </li>
           </ul>
@@ -622,18 +685,21 @@ const en: PolicyContent = {
               challenge, governed by Cloudflare&apos;s privacy policy.
             </li>
             <li>
-              If you apply using LinkedIn or Google sign-in, we set one
-              strictly necessary cookie when you submit the form. It holds a
-              random value that lets us check the sign-in is completed in the
-              same browser that started it, so nobody else&apos;s application
-              can be attached to your identity. It contains no personal data,
+              If you apply or send us an opportunity using LinkedIn or Google
+              sign-in, we set one strictly necessary cookie when you submit the
+              form. It holds a random value that lets us check the sign-in is
+              completed in the same browser that started it, so nobody
+              else&apos;s application or opportunity can be attached to your
+              identity. It contains no personal data,
               is not used for tracking, and expires within an hour.
             </li>
           </ul>
           {/*
-            The sign-in cookie (oauth_state) is set only on form submission
-            and falls under the "strictly necessary" exemption of Article
-            5(3) ePrivacy (Dutch Telecommunicatiewet 11.7a(3)): it is a
+            The sign-in cookies (oauth_state for applications,
+            opportunity_submit_oauth_state for opportunities, each with its own
+            name so one flow can't complete the other) are set only on form
+            submission and fall under the "strictly necessary" exemption of Article
+            5(3) ePrivacy (Dutch Telecommunicatiewet 11.7a(3)): each is a
             security measure for a service the user explicitly requested, so
             no consent banner is needed. Reviewers signing in to the admin
             area get session cookies too; those are staff-side and outside
@@ -659,8 +725,8 @@ const en: PolicyContent = {
               in-browser viewer, not downloaded to a reviewer&apos;s device.
             </li>
             <li>
-              Access to the internal system where applications are reviewed is
-              restricted to a specific list of authorised people, each signed in
+              Access to the internal system where applications and the
+              opportunities sent to us are reviewed is restricted to a specific list of authorised people, each signed in
               to an authenticated session.
             </li>
             <li>
@@ -701,7 +767,8 @@ const en: PolicyContent = {
             <li>
               Right to object: you can object to our processing of your data
               where we rely on legitimate interests, which is the basis on
-              which we assess applications.
+              which we assess applications and review the opportunities sent
+              to us.
             </li>
             <li>
               Right to data portability: where we rely on your consent, which

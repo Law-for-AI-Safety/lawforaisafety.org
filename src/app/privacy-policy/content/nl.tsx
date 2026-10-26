@@ -65,9 +65,10 @@ const nl: PolicyContent = {
           lawforaisafety.org
         </Link>{" "}
         verzamelen, waarom wij dat doen, met wie wij ze delen, hoe lang wij ze
-        bewaren en welke rechten u heeft. De verklaring gaat over de twee dingen
-        die u op deze site kunt doen: u aanmelden om met ons samen te werken en
-        u inschrijven voor onze nieuwsbrief.
+        bewaren en welke rechten u heeft. De verklaring gaat over de drie dingen
+        die u op deze site kunt doen: u aanmelden om met ons samen te werken, u
+        inschrijven voor onze nieuwsbrief en ons een kans insturen voor ons
+        overzicht van kansen.
       </p>
       <p className={P}>
         Heeft u na het lezen van deze privacyverklaring nog vragen, neem dan
@@ -219,6 +220,36 @@ const nl: PolicyContent = {
           </div>
 
           <div className={SUBSECTION}>
+            <h3 className={H3}>Als u ons een kans instuurt</h3>
+            <p className={P}>
+              U kunt ons een vacature, fellowship, project, cursus of evenement
+              (samen: &ldquo;kansen&rdquo;) sturen voor ons overzicht van
+              kansen. U bevestigt wie u bent via dezelfde drie routes als bij
+              een aanmelding: inloggen met LinkedIn, inloggen met Google, of uw
+              naam en e-mailadres invullen en de link openen die wij u mailen.
+              Via LinkedIn of Google ontvangen wij uw naam, uw e-mailadres en de
+              accountcode die de aanbieder voor u gebruikt, maar niet uw
+              profielfoto. Via de e-mailroute is uw naam zelf opgegeven en niet
+              geverifieerd, zoals hierboven.
+            </p>
+            <p className={P}>Daarnaast verzamelt het formulier:</p>
+            <ul className={UL}>
+              <li>
+                Ofwel een link naar de kans, ofwel de gegevens ervan: het soort
+                kans, de titel, de organisatie, de link om zich aan te melden, de
+                locatie, of het op afstand kan, de data en een beschrijving
+              </li>
+              <li>Waar u de kans heeft gezien (optioneel)</li>
+              <li>Een bericht aan ons team (optioneel)</li>
+            </ul>
+            <p className={P}>
+              De kans gaat over een organisatie, niet over u. Als wij haar
+              publiceren, schrijft ons team de vermelding, en uw naam en
+              e-mailadres komen daar nooit op te staan.
+            </p>
+          </div>
+
+          <div className={SUBSECTION}>
             <h3 className={H3}>Technische gegevens en misbruikpreventie</h3>
             <ul className={UL}>
               <li>
@@ -286,11 +317,17 @@ const nl: PolicyContent = {
               Om u bij goedkeuring van uw aanmelding uit te nodigen voor onze
               Slack-werkruimte
             </li>
+            <li>
+              Om een kans die u ons instuurt te beoordelen, zo nodig contact met
+              u op te nemen, en u te mailen wanneer zij is gepubliceerd of, als
+              wij daarvoor kiezen, wanneer wij besluiten haar niet te
+              publiceren
+            </li>
           </ul>
           <p className={P}>
             Wij gebruiken uw gegevens niet voor geautomatiseerde besluitvorming
-            of profilering. Elke aanmelding wordt door een mens gelezen en
-            beoordeeld.
+            of profilering. Elke aanmelding en elke ingestuurde kans wordt door
+            een mens gelezen en beoordeeld.
           </p>
         </>
       ),
@@ -317,9 +354,10 @@ const nl: PolicyContent = {
             </li>
             <li>
               Gerechtvaardigde belangen: het beoordelen van aanmeldingen van
-              juristen die met ons willen samenwerken, en het tegengaan van
-              frauduleuze of geautomatiseerde inzendingen, afgewogen tegen uw
-              belangen en rechten.
+              juristen die met ons willen samenwerken, het beoordelen van kansen
+              die ons worden ingestuurd en weten wie ze heeft ingestuurd, en het
+              tegengaan van frauduleuze of geautomatiseerde inzendingen,
+              afgewogen tegen uw belangen en rechten.
             </li>
             <li>
               Wettelijke verplichtingen: voor zover wij wettelijk verplicht zijn
@@ -376,10 +414,31 @@ const nl: PolicyContent = {
               link in elke nieuwsbrief.
             </li>
             <li>
+              Ingestuurde kans die u nooit heeft bevestigd, dus inloggen of
+              e-mailbevestiging niet voltooid: automatisch verwijderd na 24
+              uur.
+            </li>
+            <li>
+              Ingestuurde en bevestigde kans: bewaard, met uw naam, uw
+              e-mailadres, de manier waarop u heeft bevestigd en wat u heeft
+              ingestuurd, zodat ons team kan zien wie een vermelding heeft
+              ingestuurd en vragen erover kan beantwoorden. Zodra wij erover
+              hebben beslist, bewaren wij ook of wij haar hebben gepubliceerd,
+              wie heeft beslist en een eventuele reden die wij u hebben gegeven
+              om haar niet te publiceren. Dit wordt bewaard totdat u ons vraagt
+              het te verwijderen. Verwijdering haalt een vermelding die wij op
+              basis ervan hebben gepubliceerd niet weg; die bevat geen gegevens
+              over u.
+            </li>
+            <li>
               Tellers voor het begrenzen van aanvragen, gekoppeld aan een
               onomkeerbare hash van uw IP-adres: binnen een uur verwijderd.
             </li>
           </ul>
+          <CounselNote>
+            [Counsel: see the note in the English version on the retention of
+            confirmed opportunity submissions.]
+          </CounselNote>
           {/*
             The retained email hash is treated as personal data, and an erasure
             request reaches it, so the policy promises deletion of the hash and
@@ -423,18 +482,23 @@ const nl: PolicyContent = {
             </li>
             <li>
               Een e-mailaanbieder, om transactionele e-mails te versturen
-              (uitkomst van uw aanmelding, bevestiging van de nieuwsbrief) en
-              onze verzendlijst te beheren. U kunt zich op elk moment
+              (uitkomst van uw aanmelding, bevestiging van de nieuwsbrief,
+              bevestiging van en berichten over een kans die u heeft
+              ingestuurd), om ons team te informeren over nieuwe aanmeldingen en
+              kansen, en om onze verzendlijst te beheren. U kunt zich op elk moment
               uitschrijven via de uitschrijflink in elke nieuwsbrief.
             </li>
             <li>
               Een aanbieder van teamcommunicatie, die de werkruimte host waarvoor
               u wordt uitgenodigd als uw aanmelding wordt goedgekeurd. Vóór de
-              uitnodiging controleert een beoordelaar of u al lid bent.
+              uitnodiging controleert een beoordelaar of u al lid bent. Ons team
+              krijgt daar ook bericht van elke nieuwe aanmelding of ingestuurde
+              kans, met de naam die u heeft opgegeven, de manier waarop u heeft
+              bevestigd en waar de aanmelding of kans over gaat.
             </li>
             <li>
-              Een hostingaanbieder, die deze site draait, aanmeldingsgegevens in
-              een beheerde database bewaart en geüploade cv&apos;s in
+              Een hostingaanbieder, die deze site draait, aanmeldingsgegevens en
+              ingestuurde kansen in een beheerde database bewaart en geüploade cv&apos;s in
               afgeschermde objectopslag houdt.
             </li>
           </ul>
@@ -501,12 +565,13 @@ const nl: PolicyContent = {
               toepassing is.
             </li>
             <li>
-              Meldt u zich aan via inloggen bij LinkedIn of Google, dan
-              plaatsen wij bij het verzenden van het formulier één strikt
-              noodzakelijke cookie. Die bevat een willekeurige waarde waarmee
-              wij controleren dat het inloggen wordt afgerond in dezelfde
-              browser waarin het is begonnen, zodat de aanmelding van iemand
-              anders niet aan uw identiteit kan worden gekoppeld. De cookie
+              Meldt u zich aan of stuurt u ons een kans in via inloggen bij
+              LinkedIn of Google, dan plaatsen wij bij het verzenden van het
+              formulier één strikt noodzakelijke cookie. Die bevat een
+              willekeurige waarde waarmee wij controleren dat het inloggen wordt
+              afgerond in dezelfde browser waarin het is begonnen, zodat de
+              aanmelding of kans van iemand anders niet aan uw identiteit kan
+              worden gekoppeld. De cookie
               bevat geen persoonsgegevens, wordt niet gebruikt voor tracking en
               vervalt binnen een uur.
             </li>
@@ -534,8 +599,8 @@ const nl: PolicyContent = {
               beoordelaar.
             </li>
             <li>
-              Toegang tot het interne systeem waarin aanmeldingen worden
-              beoordeeld, is beperkt tot een specifieke lijst van geautoriseerde
+              Toegang tot het interne systeem waarin aanmeldingen en
+              ingestuurde kansen worden beoordeeld, is beperkt tot een specifieke lijst van geautoriseerde
               personen, die elk zijn ingelogd op een geverifieerde sessie.
             </li>
             <li>
@@ -580,7 +645,7 @@ const nl: PolicyContent = {
             <li>
               Recht van bezwaar: u kunt bezwaar maken tegen verwerking waarvoor
               wij ons op gerechtvaardigde belangen baseren, de grondslag
-              waarop wij aanmeldingen beoordelen.
+              waarop wij aanmeldingen en ingestuurde kansen beoordelen.
             </li>
             <li>
               Recht op gegevensoverdraagbaarheid: waar wij ons op uw

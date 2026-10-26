@@ -13,7 +13,7 @@ needs input.
 | Reviewed by | `[counsel, date]`                                                                          |
 | Next review | `[date — suggest annually, or on any change to the flow]`                                  |
 
-This assessment covers the three processing operations that rely on Article
+This assessment covers the four processing operations that rely on Article
 6(1)(f). It does **not** cover the newsletter, which runs on consent under
 Article 6(1)(a), or anything we do because the law requires it.
 
@@ -30,6 +30,7 @@ itself.
 | 1   | Assessing applications to join the network       | Name and email (provider-verified via LinkedIn or Google, or self-reported); organisation; LinkedIn URL; CV (PDF, max 5 MB); position statement; comments; profile photo where a provider supplies one |
 | 2   | Recognising repeat applications after a decision | One-way HMAC of the email address, the outcome, reviewer notes on rejections only, and an internal audit entry (which reviewer decided, when) linked to the same HMAC                                                                                                                  |
 | 3   | Preventing automated and abusive submissions     | IP address, never stored as such (a keyed one-way hash is kept for up to an hour to count requests); signals collected by Cloudflare Turnstile; a strictly necessary sign-in cookie holding a random value                                                                                                               |
+| 4   | Reviewing opportunities sent in for the board    | Name and email (provider-verified via LinkedIn or Google, with the provider's account identifier, or self-reported); what was sent (a link, or a short listing); an optional note; the decision, who made it, and any rejection reason |
 
 ---
 
@@ -200,6 +201,53 @@ profile users more heavily; disclosed in the privacy policy.
 
 ---
 
+## 4. Reviewing opportunities sent in for the board
+
+### Purpose test
+
+The opportunities board lists jobs, fellowships, projects, courses and events
+in AI law and policy. Letting people outside the team send listings in widens
+what the board covers. Knowing who sent each one lets the team judge whether
+to trust it, ask the sender about it, and tell them the outcome. Both are
+legitimate interests of the organisation, and the sender's own interest is
+served too: they want the opportunity seen.
+
+### Necessity test
+
+Necessary, and kept to the minimum. The listing itself is about an
+organisation, not the sender, and is written by the team; the sender's name
+and email never appear on it. Identity is confirmed by the same routes as an
+application, because an unconfirmed address would let anyone put a listing in
+someone else's name, or send mail to a stranger's inbox through the outcome
+emails. No profile photo is kept, unlike an application, because nothing about
+the review needs it.
+
+### Balancing test
+
+**Reasonable expectations.** High. The sender chose to send the listing in, the
+form says the team reviews it, and they are told when it is published.
+
+**Nature and impact.** Low. Name, email, the sign-in route, and a listing about
+someone else's opportunity. Nothing sensitive is asked for; the free-text
+description and note could carry more, as with an application (see residual
+point 1). The rejection email is sent only when the reviewer chooses to.
+
+**Safeguards.** Unconfirmed drafts deleted after 24 hours; confirmation emails
+capped at three per address per day; the same bot protection and sign-in cookie
+as applications; the queue visible only to the opportunities team; the erasure
+tool finds and deletes a sender's submissions while any published listing,
+which holds none of their details, stays up.
+
+**Retention.** Confirmed submissions are currently kept until an erasure
+request, so the team can see who sent a listing for as long as it is up. That
+is the weakest part of this operation under Article 5(1)(e): a fixed period
+(for example a year after the decision) would sit better, and can be enforced
+by the existing hourly sweep. `[Counsel to set a period.]`
+
+**Conclusion.** Not overridden, subject to the retention point.
+
+---
+
 ## Residual risks and open points
 
 1. **Special category data volunteered in free text.** The CV and position
@@ -227,7 +275,7 @@ written down.]`
 
 ## Outcome
 
-Legitimate interests is an appropriate basis for all three operations, subject
+Legitimate interests is an appropriate basis for all four operations, subject
 to the residual points above. This assessment should be revisited if the
 application flow changes, if new categories of data are collected, or if the
 retention design changes — in particular the treatment of the email hash.
