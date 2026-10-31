@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   closingDate,
-  countryOptions,
   daysUntil,
   DEFAULT_FILTERS,
   filterOpportunities,
@@ -13,6 +12,7 @@ import {
   hasActiveFilters,
   isClosed,
   isClosingSoon,
+  locationOptions,
   openOpportunities,
   parseFilters,
   serializeFilters,
@@ -45,10 +45,10 @@ describe("parseFilters", () => {
   });
 
   it("reads every filter", () => {
-    expect(parse("type=job,fellowship&country=GB&local=1&soon=1")).toEqual({
+    expect(parse("type=job,fellowship&location=GB,FR,global&soon=1")).toEqual({
       types: ["job", "fellowship"],
-      country: "GB",
-      includeGlobal: false,
+      countries: ["FR", "GB"],
+      global: true,
       closingSoon: true,
     });
   });
@@ -57,18 +57,16 @@ describe("parseFilters", () => {
     expect(parse("type=event,nonsense,job,event").types).toEqual(["job", "event"]);
   });
 
-  it("accepts a lower-case country code", () => {
-    expect(parse("country=gb").country).toBe("GB");
+  it("accepts lower-case country codes, once each", () => {
+    expect(parse("location=gb,GB").countries).toEqual(["GB"]);
   });
 
-  it("ignores an unknown country, and GLOBAL, which the checkbox covers", () => {
-    expect(parse("country=XX").country).toBeUndefined();
-    expect(parse("country=GLOBAL").country).toBeUndefined();
-    expect(parse("country=constructor").country).toBeUndefined();
+  it("ignores unknown locations, and GLOBAL as a country code", () => {
+    expect(parse("location=XX,GLOBAL,constructor,,Global")).toEqual(DEFAULT_FILTERS);
   });
 
-  it("ignores other values for the checkboxes", () => {
-    expect(parse("local=yes&soon=true")).toEqual(DEFAULT_FILTERS);
+  it("ignores other values for closing soon", () => {
+    expect(parse("soon=true")).toEqual(DEFAULT_FILTERS);
   });
 });
 
@@ -78,21 +76,22 @@ describe("serializeFilters", () => {
     expect(hasActiveFilters(DEFAULT_FILTERS)).toBe(false);
   });
 
-  it("writes every filter, with types in the board's order", () => {
-    const query = serializeFilters({ types: ["event", "job"], country: "GB", includeGlobal: false, closingSoon: true });
-    expect(query).toBe("type=job,event&country=GB&local=1&soon=1");
+  it("writes every filter in a stable order", () => {
+    const filters = { types: ["event" as const, "job" as const], countries: ["US", "GB"], global: true, closingSoon: true };
+    const query = serializeFilters(filters);
+    expect(query).toBe("type=job,event&location=GB,US,global&soon=1");
     expect(parseFilters(new URLSearchParams(query))).toEqual({
       types: ["job", "event"],
-      country: "GB",
-      includeGlobal: false,
+      countries: ["GB", "US"],
+      global: true,
       closingSoon: true,
     });
   });
 
   it("counts any one filter as active", () => {
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, types: ["course"] })).toBe(true);
-    expect(hasActiveFilters({ ...DEFAULT_FILTERS, country: "FR" })).toBe(true);
-    expect(hasActiveFilters({ ...DEFAULT_FILTERS, includeGlobal: false })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_FILTERS, countries: ["FR"] })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_FILTERS, global: true })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, closingSoon: true })).toBe(true);
   });
 });
@@ -103,7 +102,7 @@ describe("filterOpportunities", () => {
     make({ slug: "gb-office", type: "job", locationCountry: "GB", remote: false }),
     make({ slug: "gb-remote", type: "fellowship", locationCountry: "GB", remote: true }),
     make({ slug: "fr-office", type: "course", locationCountry: "FR", remote: false, deadline: "2026-11-10" }),
-    make({ slug: "global", type: "event", locationCountry: "GLOBAL", remote: true }),
+    make({ slug: "global", type: "event", locationCountry: "GLOBAL", remote: false }),
     make({ slug: "us-remote", type: "job", locationCountry: "US", remote: true, deadline: "2027-06-01" }),
   ];
   const slugs = (filters: Partial<typeof DEFAULT_FILTERS>) =>
@@ -118,16 +117,17 @@ describe("filterOpportunities", () => {
     expect(slugs({ types: ["course", "event"] })).toEqual(["fr-office", "global"]);
   });
 
-  it("shows a country's listings and the global ones", () => {
-    expect(slugs({ country: "GB" })).toEqual(["gb-office", "gb-remote", "global"]);
+  it("keeps listings based in the chosen countries, remote or not", () => {
+    expect(slugs({ countries: ["GB"] })).toEqual(["gb-office", "gb-remote"]);
+    expect(slugs({ countries: ["GB", "FR"] })).toEqual(["gb-office", "gb-remote", "fr-office"]);
   });
 
-  it("shows only in-person listings when global and remote are left out", () => {
-    expect(slugs({ includeGlobal: false })).toEqual(["gb-office", "fr-office"]);
+  it("keeps remote and global listings for global and remote", () => {
+    expect(slugs({ global: true })).toEqual(["gb-remote", "global", "us-remote"]);
   });
 
-  it("shows only a country's in-person listings when global and remote are left out", () => {
-    expect(slugs({ country: "GB", includeGlobal: false })).toEqual(["gb-office"]);
+  it("adds global and remote listings to the chosen countries", () => {
+    expect(slugs({ countries: ["FR"], global: true })).toEqual(["gb-remote", "fr-office", "global", "us-remote"]);
   });
 
   it("keeps only listings closing soon", () => {
@@ -135,31 +135,36 @@ describe("filterOpportunities", () => {
   });
 
   it("combines filters", () => {
-    expect(slugs({ types: ["job", "fellowship"], country: "GB", includeGlobal: false })).toEqual(["gb-office"]);
+    expect(slugs({ types: ["job", "fellowship"], countries: ["GB"], closingSoon: false })).toEqual(["gb-office", "gb-remote"]);
   });
 });
 
-describe("countryOptions", () => {
+describe("locationOptions", () => {
   const items = [
-    make({ locationCountry: "US" }),
-    make({ locationCountry: "GB" }),
-    make({ locationCountry: "GLOBAL" }),
-    make({ locationCountry: "GB" }),
+    make({ locationCountry: "US", remote: false }),
+    make({ locationCountry: "GB", remote: true }),
+    make({ locationCountry: "GLOBAL", remote: false }),
+    make({ locationCountry: "GB", remote: false }),
   ];
 
-  it("lists the countries listings are based in, by name, with counts, leaving out GLOBAL", () => {
-    expect(countryOptions(items)).toEqual([
-      { code: "GB", name: "United Kingdom", count: 2 },
-      { code: "US", name: "United States", count: 1 },
-    ]);
+  it("counts global and remote listings, and lists the countries listings are based in, by name", () => {
+    expect(locationOptions(items)).toEqual({
+      globalCount: 2,
+      countries: [
+        { code: "GB", name: "United Kingdom", count: 2 },
+        { code: "US", name: "United States", count: 1 },
+      ],
+    });
   });
 
-  it("still offers a selected country with no listings", () => {
-    expect(countryOptions(items, "FR")[0]).toEqual({ code: "FR", name: "France", count: 0 });
+  it("still offers selected countries with no listings", () => {
+    expect(locationOptions(items, ["FR"]).countries[0]).toEqual({ code: "FR", name: "France", count: 0 });
   });
 
   it("falls back to the code for a country it has no name for", () => {
-    expect(countryOptions([make({ locationCountry: "ZZ" })])).toEqual([{ code: "ZZ", name: "ZZ", count: 1 }]);
+    expect(locationOptions([make({ locationCountry: "ZZ", remote: false })]).countries).toEqual([
+      { code: "ZZ", name: "ZZ", count: 1 },
+    ]);
   });
 });
 

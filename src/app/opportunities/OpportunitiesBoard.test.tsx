@@ -1,7 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 import type { Opportunity } from "@/opportunities/types";
 import { navigation } from "../../../test/next-navigation";
 import OpportunitiesBoard from "./OpportunitiesBoard";
@@ -32,6 +31,9 @@ const items = [
 
 const shownTitles = () => screen.queryAllByRole("listitem").map((item) => item.querySelector("p")?.textContent);
 
+const openLocations = () => userEvent.click(screen.getByRole("button", { name: /^Location/ }));
+const locationPanel = () => screen.getByRole("group", { name: "Location" });
+
 describe("OpportunitiesBoard", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -45,58 +47,108 @@ describe("OpportunitiesBoard", () => {
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
   });
 
-  it("has a chip for every kind of listing, none pressed", () => {
+  it("has an unticked box for every kind of listing", () => {
     render(<OpportunitiesBoard opportunities={items} />);
-    const chips = within(screen.getByRole("group", { name: "Type" })).getAllByRole("button");
-    expect(chips.map((chip) => chip.textContent)).toEqual(["Jobs", "Fellowships", "Projects", "Courses", "Events"]);
-    expect(chips.every((chip) => chip.getAttribute("aria-pressed") === "false")).toBe(true);
+    const boxes = within(screen.getByRole("group", { name: "Type" })).getAllByRole("checkbox");
+    expect(boxes.map((box) => box.closest("label")?.textContent)).toEqual(["Jobs", "Fellowships", "Projects", "Courses", "Events"]);
+    expect(boxes.every((box) => !(box as HTMLInputElement).checked)).toBe(true);
   });
 
-  it("narrows to the chosen types, styled as their badges, and records them in the URL", async () => {
+  it("narrows to the ticked types and records them in the URL", async () => {
     render(<OpportunitiesBoard opportunities={items} />);
-    await userEvent.click(screen.getByRole("button", { name: "Jobs" }));
-    await userEvent.click(screen.getByRole("button", { name: "Events" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Jobs" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Events" }));
 
     expect(shownTitles()).toEqual(["London Job", "Global Event"]);
-    expect(screen.getByRole("button", { name: "Jobs" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Jobs" })).toHaveClass(...OPPORTUNITY_KINDS.job.badge.split(" "));
+    expect(screen.getByRole("checkbox", { name: "Jobs" })).toBeChecked();
     expect(window.location.search).toBe("?type=job,event");
     expect(navigation.replace).toHaveBeenLastCalledWith("/?type=job,event", { scroll: false });
   });
 
-  it("shows everything again once the last chip is unpressed, with a clean URL", async () => {
+  it("shows everything again once the last type is unticked, with a clean URL", async () => {
     render(<OpportunitiesBoard opportunities={items} />);
-    await userEvent.click(screen.getByRole("button", { name: "Jobs" }));
-    await userEvent.click(screen.getByRole("button", { name: "Jobs" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Jobs" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Jobs" }));
     expect(shownTitles()).toHaveLength(4);
     expect(window.location.search).toBe("");
     expect(navigation.replace).toHaveBeenLastCalledWith("/", { scroll: false });
   });
 
-  it("offers only the countries listings are in, with counts", () => {
+  it("keeps the locations closed until asked, then offers global and remote and each country, with counts", async () => {
     render(<OpportunitiesBoard opportunities={items} />);
-    const options = within(screen.getByRole("combobox", { name: "Country" })).getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual(["Any country", "France (1)", "United Kingdom (2)"]);
+    const button = screen.getByRole("button", { name: "Location Anywhere" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("group", { name: "Location" })).not.toBeInTheDocument();
+
+    await openLocations();
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(within(locationPanel()).getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual([
+      "Global and remote (2)",
+      "France (1)",
+      "United Kingdom (2)",
+    ]);
   });
 
-  it("narrows to a country plus the global listings", async () => {
+  it("narrows to a ticked country, then adds global and remote listings", async () => {
     render(<OpportunitiesBoard opportunities={items} />);
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Country" }), "GB");
-    expect(shownTitles()).toEqual(["London Job", "Remote Fellowship", "Global Event"]);
-    expect(window.location.search).toBe("?country=GB");
+    await openLocations();
+    await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "France (1)" }));
+    expect(shownTitles()).toEqual(["Paris Course"]);
+    expect(window.location.search).toBe("?location=FR");
+    expect(screen.getByRole("button", { name: /^Location/ })).toHaveTextContent("France");
 
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Country" }), "");
+    await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "Global and remote (2)" }));
+    expect(shownTitles()).toEqual(["Remote Fellowship", "Paris Course", "Global Event"]);
+    expect(window.location.search).toBe("?location=FR,global");
+    expect(screen.getByRole("button", { name: /^Location/ })).toHaveTextContent("2 locations");
+
+    await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "France (1)" }));
+    expect(screen.getByRole("button", { name: /^Location/ })).toHaveTextContent("Global and remote");
+  });
+
+  it("includes remote listings based in a ticked country", async () => {
+    render(<OpportunitiesBoard opportunities={items} />);
+    await openLocations();
+    await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "United Kingdom (2)" }));
+    expect(shownTitles()).toEqual(["London Job", "Remote Fellowship"]);
+  });
+
+  it("clears the locations from inside the panel", async () => {
+    window.history.replaceState(null, "", "/opportunities?location=GB,global");
+    render(<OpportunitiesBoard opportunities={items} />);
+    await openLocations();
+    await userEvent.click(within(locationPanel()).getByRole("button", { name: "Any location" }));
     expect(shownTitles()).toHaveLength(4);
     expect(window.location.search).toBe("");
   });
 
-  it("leaves out global and remote listings when unticked", async () => {
+  it("closes the panel from Done, Escape or a click outside, handing focus back to the button", async () => {
     render(<OpportunitiesBoard opportunities={items} />);
-    const checkbox = screen.getByRole("checkbox", { name: "Include global and remote" });
-    expect(checkbox).toBeChecked();
-    await userEvent.click(checkbox);
-    expect(shownTitles()).toEqual(["London Job", "Paris Course"]);
-    expect(window.location.search).toBe("?local=1");
+    const button = screen.getByRole("button", { name: /^Location/ });
+
+    await openLocations();
+    await userEvent.click(within(locationPanel()).getByRole("button", { name: "Done" }));
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveFocus();
+
+    await openLocations();
+    await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "France (1)" }));
+    await userEvent.keyboard("{Escape}");
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveFocus();
+
+    await openLocations();
+    await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "France (1)" }));
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(screen.getByText("4 opportunities"));
+    expect(button).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("leaves other Escape presses alone while the panel is shut", async () => {
+    render(<OpportunitiesBoard opportunities={items} />);
+    screen.getByRole("button", { name: /^Location/ }).focus();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: /^Location/ })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("narrows to listings closing soon", async () => {
@@ -107,24 +159,26 @@ describe("OpportunitiesBoard", () => {
     expect(window.location.search).toBe("?soon=1");
   });
 
-  it("reads its filters from the URL, ignoring values it doesn't know", () => {
-    window.history.replaceState(null, "", "/opportunities?type=job,bogus&country=GB&local=1&colour=red");
+  it("reads its filters from the URL, ignoring values it doesn't know", async () => {
+    window.history.replaceState(null, "", "/opportunities?type=job,bogus&location=GB,XX&colour=red");
     render(<OpportunitiesBoard opportunities={items} />);
     expect(shownTitles()).toEqual(["London Job"]);
-    expect(screen.getByRole("button", { name: "Jobs" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("combobox", { name: "Country" })).toHaveValue("GB");
-    expect(screen.getByRole("checkbox", { name: "Include global and remote" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Jobs" })).toBeChecked();
+    expect(screen.getByRole("button", { name: /^Location/ })).toHaveTextContent("United Kingdom");
+    await openLocations();
+    expect(within(locationPanel()).getByRole("checkbox", { name: "United Kingdom (2)" })).toBeChecked();
   });
 
-  it("keeps a country from the URL selected even when nothing is based there", () => {
-    window.history.replaceState(null, "", "/opportunities?country=DE");
+  it("keeps a country from the URL ticked even when nothing is based there", async () => {
+    window.history.replaceState(null, "", "/opportunities?location=DE");
     render(<OpportunitiesBoard opportunities={items} />);
-    expect(screen.getByRole("combobox", { name: "Country" })).toHaveValue("DE");
-    expect(shownTitles()).toEqual(["Global Event"]);
+    expect(screen.getByText("No opportunities match these filters.")).toBeInTheDocument();
+    await openLocations();
+    expect(within(locationPanel()).getByRole("checkbox", { name: "Germany (0)" })).toBeChecked();
   });
 
   it("clears every filter from the link beside the count", async () => {
-    window.history.replaceState(null, "", "/opportunities?type=job&soon=1&local=1");
+    window.history.replaceState(null, "", "/opportunities?type=job&soon=1&location=GB");
     render(<OpportunitiesBoard opportunities={[...items, make({ title: "Soon Job", locationCountry: "GB", remote: false, deadline: "2026-11-05" })]} />);
     expect(shownTitles()).toEqual(["Soon Job"]);
     await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
