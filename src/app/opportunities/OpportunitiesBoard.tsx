@@ -71,18 +71,31 @@ export default function OpportunitiesBoard({ opportunities }: { opportunities: O
         <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:gap-8">
           <label className="flex items-center gap-3 text-lg font-light text-brand-black">
             Country
-            <select
-              value={filters.country ?? ""}
-              onChange={(event) => update({ ...filters, country: event.target.value || undefined })}
-              className="min-w-0 flex-1 border border-brand-black/20 bg-brand-white px-3 py-2 text-lg font-light text-brand-black md:flex-none"
-            >
-              <option value="">Any country</option>
-              {countryOptions(opportunities, filters.country).map((option) => (
-                <option key={option.code} value={option.code}>
-                  {option.name} ({option.count})
-                </option>
-              ))}
-            </select>
+            {/* Native, so phones show their own picker; restyled to sit beside the square chips. */}
+            <span className="relative flex min-w-0 flex-1 md:flex-none">
+              <select
+                value={filters.country ?? ""}
+                onChange={(event) => update({ ...filters, country: event.target.value || undefined })}
+                className="w-full min-w-0 cursor-pointer appearance-none rounded-none border border-brand-black/20 bg-brand-white py-2 pl-4 pr-10 text-lg font-light text-brand-black transition-colors hover:border-brand-black/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-navy"
+              >
+                <option value="">Any country</option>
+                {countryOptions(opportunities, filters.country).map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.name} ({option.count})
+                  </option>
+                ))}
+              </select>
+              <svg
+                aria-hidden
+                viewBox="0 0 16 16"
+                className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-brand-navy"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path d="M3 6l5 5 5-5" />
+              </svg>
+            </span>
           </label>
 
           <label className="flex items-center gap-3 text-lg font-light text-brand-black">
