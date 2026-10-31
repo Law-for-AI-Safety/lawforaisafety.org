@@ -89,6 +89,26 @@ describe("OpportunitiesBoard", () => {
     ]);
   });
 
+  it("counts locations under the other filters, but not under the location filter itself", async () => {
+    render(<OpportunitiesBoard opportunities={items} />);
+    await userEvent.click(screen.getByRole("checkbox", { name: "Fellowships" }));
+    await openLocations();
+    expect(within(locationPanel()).getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual([
+      "Global and remote (1)",
+      "United Kingdom (1)",
+    ]);
+
+    await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "Global and remote (1)" }));
+    expect(within(locationPanel()).getByRole("checkbox", { name: "United Kingdom (1)" })).not.toBeChecked();
+  });
+
+  it("keeps a ticked country listed when the other filters leave nothing there", async () => {
+    window.history.replaceState(null, "", "/opportunities?location=FR&type=job");
+    render(<OpportunitiesBoard opportunities={items} />);
+    await openLocations();
+    expect(within(locationPanel()).getByRole("checkbox", { name: "France (0)" })).toBeChecked();
+  });
+
   it("narrows to a ticked country, then adds global and remote listings", async () => {
     render(<OpportunitiesBoard opportunities={items} />);
     await openLocations();
@@ -166,7 +186,7 @@ describe("OpportunitiesBoard", () => {
     expect(screen.getByRole("checkbox", { name: "Jobs" })).toBeChecked();
     expect(screen.getByRole("button", { name: /^Location/ })).toHaveTextContent("United Kingdom");
     await openLocations();
-    expect(within(locationPanel()).getByRole("checkbox", { name: "United Kingdom (2)" })).toBeChecked();
+    expect(within(locationPanel()).getByRole("checkbox", { name: "United Kingdom (1)" })).toBeChecked();
   });
 
   it("keeps a country from the URL ticked even when nothing is based there", async () => {

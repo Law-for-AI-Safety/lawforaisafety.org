@@ -23,9 +23,15 @@ export default function OpportunitiesBoard({ opportunities }: { opportunities: O
   // The filters live in the query string, so a filtered view can be shared and the back button
   // undoes nothing it shouldn't. The page renders per request, so these are read on the server too.
   const filters = parseFilters(useSearchParams());
-  const shown = filterOpportunities(opportunities, filters, new Date());
+  const now = new Date();
+  const shown = filterOpportunities(opportunities, filters, now);
   const active = hasActiveFilters(filters);
-  const locationChoices = locationOptions(opportunities, filters.countries);
+  // Each location's count is what ticking it would add under the other filters, so the
+  // location filter itself is left out of the listings counted.
+  const locationChoices = locationOptions(
+    filterOpportunities(opportunities, { ...filters, countries: [], global: false }, now),
+    filters.countries,
+  );
 
   function update(next: OpportunityFilters) {
     const query = serializeFilters(next);
