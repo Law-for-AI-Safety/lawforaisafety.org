@@ -77,6 +77,6 @@ describe("OpportunityCard", () => {
 
   it("flags a deadline within 30 days as closing soon", () => {
     render(<OpportunityCard opportunity={job} now={new Date("2026-10-25")} />);
-    expect(screen.getByText(/Closing soon/)).toBeInTheDocument();
+    expect(screen.getByText("Closing soon · Apply by 30 Oct 2026")).toBeInTheDocument();
   });
 });

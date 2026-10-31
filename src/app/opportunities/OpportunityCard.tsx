@@ -36,7 +36,7 @@ export default function OpportunityCard({ opportunity, now = new Date() }: { opp
 
       {opportunity.deadline ? (
         <p className="text-sm font-light text-brand-red">
-          {soon ? "Closing soon — " : ""}
+          {soon ? "Closing soon · " : ""}
           {kind.deadlineLabel} {formatDate(opportunity.deadline)}
         </p>
       ) : (

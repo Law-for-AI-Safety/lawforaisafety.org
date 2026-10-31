@@ -1,7 +1,6 @@
 import { COUNTRIES } from "./countries";
+import { OPPORTUNITY_TYPES } from "./kinds";
 import type { Opportunity, OpportunityType } from "./types";
-
-export type OpportunityTypeFilter = "all" | OpportunityType;
 
 const COUNTRY_NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
 
@@ -59,8 +58,94 @@ export function formatLocation(opportunity: Pick<Opportunity, "locationCountry" 
   return locationNote ? `${place} · ${locationNote}` : place;
 }
 
-export function filterOpportunities(items: Opportunity[], filter: OpportunityTypeFilter): Opportunity[] {
-  return filter === "all" ? items : items.filter((item) => item.type === filter);
+/**
+ * What the board is narrowed to. No types means every type. No locations means anywhere;
+ * otherwise a listing shows if it is based in one of `countries`, or, with `global`, if it is
+ * remote or has no single base country.
+ */
+export type OpportunityFilters = {
+  types: OpportunityType[];
+  countries: string[];
+  global: boolean;
+  closingSoon: boolean;
+};
+
+export const DEFAULT_FILTERS: OpportunityFilters = { types: [], countries: [], global: false, closingSoon: false };
+
+/** The `location` value that stands for global and remote listings, beside country codes. */
+const GLOBAL_LOCATION = "global";
+
+/** Reads filters from the board's query string, dropping any value it does not recognise. */
+export function parseFilters(params: URLSearchParams): OpportunityFilters {
+  const requested = new Set((params.get("type") ?? "").split(","));
+  const locations = (params.get("location") ?? "").split(",");
+  const countries = locations.map((code) => code.toUpperCase()).filter((code) => Object.hasOwn(COUNTRY_NAME, code));
+  return {
+    types: OPPORTUNITY_TYPES.filter((type) => requested.has(type)),
+    countries: [...new Set(countries)].sort(),
+    global: locations.includes(GLOBAL_LOCATION),
+    closingSoon: params.get("soon") === "1",
+  };
+}
+
+/** The query string for a set of filters, without the leading "?"; empty for the defaults. */
+export function serializeFilters(filters: OpportunityFilters): string {
+  const params = new URLSearchParams();
+  if (filters.types.length > 0) params.set("type", OPPORTUNITY_TYPES.filter((type) => filters.types.includes(type)).join(","));
+  const locations = [...filters.countries].sort();
+  if (filters.global) locations.push(GLOBAL_LOCATION);
+  if (locations.length > 0) params.set("location", locations.join(","));
+  if (filters.closingSoon) params.set("soon", "1");
+  // Commas are safe in a query string, and "type=job,event" reads better than "job%2Cevent".
+  return params.toString().replaceAll("%2C", ",");
+}
+
+export function hasActiveFilters(filters: OpportunityFilters): boolean {
+  return serializeFilters(filters) !== "";
+}
+
+/** Remote, or with no single base country: what the "Global and remote" location covers. */
+function isGlobalOrRemote(item: Pick<Opportunity, "remote" | "locationCountry">): boolean {
+  return item.remote || item.locationCountry === "GLOBAL";
+}
+
+export function filterOpportunities(items: Opportunity[], filters: OpportunityFilters, now: Date): Opportunity[] {
+  const { types, countries, global, closingSoon } = filters;
+  const anywhere = countries.length === 0 && !global;
+  return items.filter((item) => {
+    if (types.length > 0 && !types.includes(item.type)) return false;
+    if (closingSoon && !isClosingSoon(item, now)) return false;
+    return anywhere || countries.includes(item.locationCountry) || (global && isGlobalOrRemote(item));
+  });
+}
+
+export type CountryOption = { code: string; name: string; count: number };
+
+/**
+ * The choices for the location filter, with how many listings each would show: global and
+ * remote listings, then the countries listings are based in, by name. A `selected` country
+ * with no listings is still offered, so the list can show what the URL asked for.
+ */
+export function locationOptions(
+  items: Opportunity[],
+  selected: string[] = [],
+): { globalCount: number; countries: CountryOption[] } {
+  const counts = new Map<string, number>(selected.map((code) => [code, 0]));
+  for (const item of items) {
+    if (item.locationCountry === "GLOBAL") continue;
+    counts.set(item.locationCountry, (counts.get(item.locationCountry) ?? 0) + 1);
+  }
+  return {
+    globalCount: items.filter(isGlobalOrRemote).length,
+    countries: [...counts]
+      .map(([code, count]) => ({ code, name: countryName(code), count }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+/** A country's name from its ISO code, or the code itself when it has none. */
+export function countryName(code: string): string {
+  return COUNTRY_NAME[code] ?? code;
 }
 
 export type ClosingFields = Pick<Opportunity, "type" | "deadline" | "startDate" | "endDate">;
