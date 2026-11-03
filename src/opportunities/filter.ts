@@ -58,8 +58,12 @@ export function formatLocation(opportunity: Pick<Opportunity, "locationCountry" 
   return locationNote ? `${place} · ${locationNote}` : place;
 }
 
+/** The board's orders: soonest closing date first, or most recently published first. */
+export const OPPORTUNITY_SORTS = ["closing", "newest"] as const;
+export type OpportunitySort = (typeof OPPORTUNITY_SORTS)[number];
+
 /**
- * What the board is narrowed to. No types means every type. No locations means anywhere;
+ * What the board is narrowed to, and the order it is listed in. No types means every type. No locations means anywhere;
  * otherwise a listing shows if it is based in one of `countries`, or, with `global`, if it is
  * remote or has no single base country.
  */
@@ -68,9 +72,16 @@ export type OpportunityFilters = {
   countries: string[];
   global: boolean;
   closingSoon: boolean;
+  sort: OpportunitySort;
 };
 
-export const DEFAULT_FILTERS: OpportunityFilters = { types: [], countries: [], global: false, closingSoon: false };
+export const DEFAULT_FILTERS: OpportunityFilters = {
+  types: [],
+  countries: [],
+  global: false,
+  closingSoon: false,
+  sort: "closing",
+};
 
 /** The `location` value, in any case, that stands for global and remote listings, beside country codes. */
 const GLOBAL_LOCATION = "global";
@@ -85,6 +96,7 @@ export function parseFilters(params: URLSearchParams): OpportunityFilters {
     countries: [...new Set(countries)].sort(),
     global: locations.some((location) => location.toLowerCase() === GLOBAL_LOCATION),
     closingSoon: params.get("soon") === "1",
+    sort: OPPORTUNITY_SORTS.find((sort) => sort === params.get("sort")) ?? DEFAULT_FILTERS.sort,
   };
 }
 
@@ -96,10 +108,12 @@ export function serializeFilters(filters: OpportunityFilters): string {
   if (filters.global) locations.push(GLOBAL_LOCATION);
   if (locations.length > 0) params.set("location", locations.join(","));
   if (filters.closingSoon) params.set("soon", "1");
+  if (filters.sort !== DEFAULT_FILTERS.sort) params.set("sort", filters.sort);
   // Commas are safe in a query string, and "type=job,event" reads better than "job%2Cevent".
   return params.toString().replaceAll("%2C", ",");
 }
 
+/** Whether anything narrows the board. The order it is listed in narrows nothing. */
 export function hasActiveFilters({ types, countries, global, closingSoon }: OpportunityFilters): boolean {
   return types.length > 0 || countries.length > 0 || global || closingSoon;
 }
@@ -160,7 +174,12 @@ export function closingDate(opportunity: ClosingFields): string | undefined {
   return opportunity.type === "event" ? (opportunity.endDate ?? opportunity.startDate) : undefined;
 }
 
-export function sortOpportunities(items: Opportunity[]): Opportunity[] {
+/**
+ * Orders listings. By closing date, those with one come first, soonest first, then the rest
+ * newest first. By newest, every listing goes by when it was published.
+ */
+export function sortOpportunities(items: Opportunity[], sort: OpportunitySort = "closing"): Opportunity[] {
+  if (sort === "newest") return [...items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   return [...items].sort((a, b) => {
     const aCloses = closingDate(a);
     const bCloses = closingDate(b);

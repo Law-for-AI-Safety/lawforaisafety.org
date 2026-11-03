@@ -45,12 +45,19 @@ describe("parseFilters", () => {
   });
 
   it("reads every filter", () => {
-    expect(parse("type=job,fellowship&location=GB,FR,global&soon=1")).toEqual({
+    expect(parse("type=job,fellowship&location=GB,FR,global&soon=1&sort=newest")).toEqual({
       types: ["job", "fellowship"],
       countries: ["FR", "GB"],
       global: true,
       closingSoon: true,
+      sort: "newest",
     });
+  });
+
+  it("orders by closing date unless the query asks for a known order", () => {
+    expect(parse("sort=closing").sort).toBe("closing");
+    expect(parse("sort=oldest").sort).toBe("closing");
+    expect(parse("sort=").sort).toBe("closing");
   });
 
   it("drops unknown types and keeps the board's order without repeats", () => {
@@ -82,14 +89,21 @@ describe("serializeFilters", () => {
   });
 
   it("writes every filter in a stable order", () => {
-    const filters = { types: ["event" as const, "job" as const], countries: ["US", "GB"], global: true, closingSoon: true };
+    const filters = {
+      types: ["event" as const, "job" as const],
+      countries: ["US", "GB"],
+      global: true,
+      closingSoon: true,
+      sort: "newest" as const,
+    };
     const query = serializeFilters(filters);
-    expect(query).toBe("type=job,event&location=GB,US,global&soon=1");
+    expect(query).toBe("type=job,event&location=GB,US,global&soon=1&sort=newest");
     expect(parseFilters(new URLSearchParams(query))).toEqual({
       types: ["job", "event"],
       countries: ["GB", "US"],
       global: true,
       closingSoon: true,
+      sort: "newest",
     });
   });
 
@@ -98,6 +112,12 @@ describe("serializeFilters", () => {
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, countries: ["FR"] })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, global: true })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, closingSoon: true })).toBe(true);
+  });
+
+  it("leaves the default order out of the query, and does not count an order as a filter", () => {
+    expect(serializeFilters({ ...DEFAULT_FILTERS, sort: "closing" })).toBe("");
+    expect(serializeFilters({ ...DEFAULT_FILTERS, sort: "newest" })).toBe("sort=newest");
+    expect(hasActiveFilters({ ...DEFAULT_FILTERS, sort: "newest" })).toBe(false);
   });
 });
 
@@ -203,10 +223,21 @@ describe("sortOpportunities", () => {
     expect(sortOpportunities(items).map((i) => i.slug)).toEqual(["newer", "older"]);
   });
 
+  it("orders by most recently published first when asked for the newest, whatever the deadlines", () => {
+    const items = [
+      make({ slug: "old-soon", publishedAt: "2026-01-01", deadline: "2026-11-01" }),
+      make({ slug: "new-undated", publishedAt: "2026-09-01" }),
+      make({ slug: "mid-later", publishedAt: "2026-05-01", deadline: "2026-12-01" }),
+    ];
+    expect(sortOpportunities(items, "newest").map((i) => i.slug)).toEqual(["new-undated", "mid-later", "old-soon"]);
+    expect(sortOpportunities(items, "closing").map((i) => i.slug)).toEqual(["old-soon", "mid-later", "new-undated"]);
+  });
+
   it("does not mutate the input array", () => {
     const items = [make({ slug: "a", deadline: "2026-12-01" }), make({ slug: "b", deadline: "2026-01-01" })];
     const copy = [...items];
     sortOpportunities(items);
+    sortOpportunities(items, "newest");
     expect(items).toEqual(copy);
   });
 });

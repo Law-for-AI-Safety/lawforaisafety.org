@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import ContentPage from "@/app/ContentPage";
 import Rule from "@/cms/blocks/Rule";
 import { getCachedOpportunities } from "@/opportunities/data";
-import { openOpportunities, sortOpportunities } from "@/opportunities/filter";
+import { openOpportunities } from "@/opportunities/filter";
 import OpportunitiesBoard from "./OpportunitiesBoard";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default async function OpportunitiesPage() {
   await connection();
   // Closed listings keep their own page, but drop off the board.
   const now = new Date();
-  const opportunities = sortOpportunities(openOpportunities(await getCachedOpportunities(), now));
+  const opportunities = openOpportunities(await getCachedOpportunities(), now);
 
   return (
     <ContentPage gap={6}>

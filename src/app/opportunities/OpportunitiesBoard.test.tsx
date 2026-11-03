@@ -37,9 +37,10 @@ const openLocations = () => userEvent.click(screen.getByRole("button", { name: /
 const locationPanel = () => screen.getByRole("group", { name: "Location" });
 
 describe("OpportunitiesBoard", () => {
-  it("shows every opportunity, with a count, and no clear link, by default", () => {
+  it("shows every opportunity, closing soonest first, with a count, and no clear link, by default", () => {
     render(<OpportunitiesBoard opportunities={items} now={NOW} />);
-    expect(shownTitles()).toEqual(["London Job", "Remote Fellowship", "Paris Course", "Global Event"]);
+    expect(shownTitles()).toEqual(["Paris Course", "London Job", "Remote Fellowship", "Global Event"]);
+    expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveValue("closing");
     expect(screen.getByText("4 opportunities")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
   });
@@ -143,7 +144,7 @@ describe("OpportunitiesBoard", () => {
     expect(screen.getByRole("button", { name: /^Location/ })).toHaveTextContent("France");
 
     await userEvent.click(within(locationPanel()).getByRole("checkbox", { name: "Global and remote (2)" }));
-    expect(shownTitles()).toEqual(["Remote Fellowship", "Paris Course", "Global Event"]);
+    expect(shownTitles()).toEqual(["Paris Course", "Remote Fellowship", "Global Event"]);
     expect(window.location.search).toBe("?location=FR,global");
     expect(screen.getByRole("button", { name: /^Location/ })).toHaveTextContent("2 locations");
 
@@ -246,6 +247,43 @@ describe("OpportunitiesBoard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(shownTitles()).toHaveLength(5);
     expect(window.location.pathname + window.location.search).toBe("/opportunities");
+  });
+
+  it("sorts by newest, records it in the URL, and keeps the order when the filters are cleared", async () => {
+    const dated = [
+      make({ title: "Old Soon", publishedAt: "2026-01-01", deadline: "2026-11-02", locationCountry: "GB", remote: false }),
+      make({ title: "New Undated", publishedAt: "2026-10-01" }),
+      make({ title: "Mid Later", publishedAt: "2026-06-01", deadline: "2026-12-20" }),
+    ];
+    render(<OpportunitiesBoard opportunities={dated} now={NOW} />);
+    expect(shownTitles()).toEqual(["Old Soon", "Mid Later", "New Undated"]);
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), "Newest");
+    expect(shownTitles()).toEqual(["New Undated", "Mid Later", "Old Soon"]);
+    expect(window.location.search).toBe("?sort=newest");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Closing soon" }));
+    expect(window.location.search).toBe("?soon=1&sort=newest");
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(window.location.search).toBe("?sort=newest");
+    expect(shownTitles()).toEqual(["New Undated", "Mid Later", "Old Soon"]);
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), "Closing soonest");
+    expect(window.location.search).toBe("");
+    expect(shownTitles()).toEqual(["Old Soon", "Mid Later", "New Undated"]);
+  });
+
+  it("opens in the order the URL asks for", () => {
+    window.history.replaceState(null, "", "/opportunities?sort=newest");
+    render(
+      <OpportunitiesBoard
+        opportunities={[make({ title: "Older", deadline: "2026-11-05" }), make({ title: "Newer", publishedAt: "2026-09-01" })]}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveValue("newest");
+    expect(shownTitles()).toEqual(["Newer", "Older"]);
   });
 
   it("says when nothing matches, and offers to clear the filters", async () => {
