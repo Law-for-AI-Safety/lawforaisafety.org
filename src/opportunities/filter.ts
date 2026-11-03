@@ -54,7 +54,7 @@ export function formatCompensation(
 /** City + country name, or "Global" for a role with no single base country; any note is appended. */
 export function formatLocation(opportunity: Pick<Opportunity, "locationCountry" | "locationCity" | "locationNote">): string {
   const { locationCountry, locationCity, locationNote } = opportunity;
-  const place = locationCountry === "GLOBAL" ? "Global" : [locationCity, COUNTRY_NAME[locationCountry] ?? locationCountry].filter(Boolean).join(", ");
+  const place = locationCountry === "GLOBAL" ? "Global" : [locationCity, countryName(locationCountry)].filter(Boolean).join(", ");
   return locationNote ? `${place} · ${locationNote}` : place;
 }
 
@@ -72,7 +72,7 @@ export type OpportunityFilters = {
 
 export const DEFAULT_FILTERS: OpportunityFilters = { types: [], countries: [], global: false, closingSoon: false };
 
-/** The `location` value that stands for global and remote listings, beside country codes. */
+/** The `location` value, in any case, that stands for global and remote listings, beside country codes. */
 const GLOBAL_LOCATION = "global";
 
 /** Reads filters from the board's query string, dropping any value it does not recognise. */
@@ -83,7 +83,7 @@ export function parseFilters(params: URLSearchParams): OpportunityFilters {
   return {
     types: OPPORTUNITY_TYPES.filter((type) => requested.has(type)),
     countries: [...new Set(countries)].sort(),
-    global: locations.includes(GLOBAL_LOCATION),
+    global: locations.some((location) => location.toLowerCase() === GLOBAL_LOCATION),
     closingSoon: params.get("soon") === "1",
   };
 }
@@ -100,8 +100,8 @@ export function serializeFilters(filters: OpportunityFilters): string {
   return params.toString().replaceAll("%2C", ",");
 }
 
-export function hasActiveFilters(filters: OpportunityFilters): boolean {
-  return serializeFilters(filters) !== "";
+export function hasActiveFilters({ types, countries, global, closingSoon }: OpportunityFilters): boolean {
+  return types.length > 0 || countries.length > 0 || global || closingSoon;
 }
 
 /** Remote, or with no single base country: what the "Global and remote" location covers. */
@@ -122,8 +122,9 @@ export function filterOpportunities(items: Opportunity[], filters: OpportunityFi
 export type CountryOption = { code: string; name: string; count: number };
 
 /**
- * The choices for the location filter, with how many listings each would show: global and
- * remote listings, then the countries listings are based in, by name. A `selected` country
+ * The choices for the location filter, with how many of `items` each covers: global and remote
+ * listings, then the countries listings are based in, by name. A remote listing based in a
+ * country counts under both. A `selected` country
  * with no listings is still offered, so the list can show what the URL asked for.
  */
 export function locationOptions(

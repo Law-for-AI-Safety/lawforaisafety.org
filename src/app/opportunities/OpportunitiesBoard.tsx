@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import {
   DEFAULT_FILTERS,
   filterOpportunities,
@@ -17,36 +18,61 @@ import OpportunityCard from "./OpportunityCard";
 
 const CHECKBOX = "size-5 accent-brand-navy";
 
-export default function OpportunitiesBoard({ opportunities }: { opportunities: Opportunity[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  // The filters live in the query string, so a filtered view can be shared and the back button
-  // undoes nothing it shouldn't. The page renders per request, so these are read on the server too.
-  const filters = parseFilters(useSearchParams());
-  const now = new Date();
-  const shown = filterOpportunities(opportunities, filters, now);
-  const active = hasActiveFilters(filters);
-  // Each location's count is what ticking it would add under the other filters, so the
-  // location filter itself is left out of the listings counted.
-  const locationChoices = locationOptions(
-    filterOpportunities(opportunities, { ...filters, countries: [], global: false }, now),
-    filters.countries,
-  );
+/** The filters in the address bar right now, which may be ahead of the last render. */
+function currentFilters(): OpportunityFilters {
+  return parseFilters(new URLSearchParams(window.location.search));
+}
 
-  function update(next: OpportunityFilters) {
-    const query = serializeFilters(next);
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }
+/**
+ * Writes filters to the query string. The board already holds every open listing, so it uses
+ * the History API, which Next keeps `useSearchParams` in step with, rather than a router
+ * navigation, which would ask the server to render the page again.
+ */
+function writeFilters(next: OpportunityFilters) {
+  const query = serializeFilters(next);
+  window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+}
+
+/** Applies a change to the filters as they are now, so quick clicks each build on the last. */
+function updateFilters(change: (current: OpportunityFilters) => Partial<OpportunityFilters>) {
+  const current = currentFilters();
+  writeFilters({ ...current, ...change(current) });
+}
+
+/**
+ * `now` comes from the server's render, so the server's HTML and the browser's hydration agree on
+ * which listings are closing soon.
+ */
+export default function OpportunitiesBoard({ opportunities, now }: { opportunities: Opportunity[]; now: Date }) {
+  // The filters live in the query string, so a filtered view can be shared. The page renders
+  // per request, so these are read on the server too.
+  const query = useSearchParams().toString();
+  const { filters, shown, locationChoices } = useMemo(() => {
+    const filters = parseFilters(new URLSearchParams(query));
+    return {
+      filters,
+      shown: filterOpportunities(opportunities, filters, now),
+      // Counted under the other filters but not the location filter itself, so ticking one
+      // country leaves the others' counts alone. Each count is how many listings are based
+      // there; a remote one is counted under its country and under global and remote alike.
+      locationChoices: locationOptions(
+        filterOpportunities(opportunities, { ...filters, countries: [], global: false }, now),
+        filters.countries,
+      ),
+    };
+  }, [opportunities, now, query]);
+  const active = hasActiveFilters(filters);
 
   function toggleType(type: OpportunityType) {
-    const types = filters.types.includes(type) ? filters.types.filter((t) => t !== type) : [...filters.types, type];
-    update({ ...filters, types });
+    updateFilters(({ types }) => ({
+      types: types.includes(type) ? types.filter((t) => t !== type) : [...types, type],
+    }));
   }
 
   const clear = (
     <button
       type="button"
-      onClick={() => update(DEFAULT_FILTERS)}
+      onClick={() => writeFilters(DEFAULT_FILTERS)}
       className="text-lg font-light text-brand-navy underline hover:text-brand-black"
     >
       Clear filters
@@ -78,14 +104,14 @@ export default function OpportunitiesBoard({ opportunities }: { opportunities: O
             global={filters.global}
             globalCount={locationChoices.globalCount}
             options={locationChoices.countries}
-            onChange={(location) => update({ ...filters, ...location })}
+            onChange={updateFilters}
           />
 
           <label className="flex items-center gap-3 text-lg font-light text-brand-black">
             <input
               type="checkbox"
               checked={filters.closingSoon}
-              onChange={(event) => update({ ...filters, closingSoon: event.target.checked })}
+              onChange={(event) => updateFilters(() => ({ closingSoon: event.target.checked }))}
               className={CHECKBOX}
             />
             Closing soon
@@ -111,7 +137,7 @@ export default function OpportunitiesBoard({ opportunities }: { opportunities: O
           <ul className="flex flex-col divide-y divide-brand-black/10">
             {shown.map((opportunity) => (
               <li key={opportunity.slug}>
-                <OpportunityCard opportunity={opportunity} />
+                <OpportunityCard opportunity={opportunity} now={now} />
               </li>
             ))}
           </ul>

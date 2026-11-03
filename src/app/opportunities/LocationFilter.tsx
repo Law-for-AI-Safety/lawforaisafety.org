@@ -6,12 +6,13 @@ import { countryName, type CountryOption } from "@/opportunities/filter";
 const CHECKBOX = "size-5 shrink-0 accent-brand-navy";
 const OPTION = "flex items-center gap-3 px-4 py-2 text-lg font-light text-brand-black hover:bg-brand-navy/[0.04]";
 
-type Props = {
-  countries: string[];
-  global: boolean;
+type Location = { countries: string[]; global: boolean };
+
+type Props = Location & {
   globalCount: number;
   options: CountryOption[];
-  onChange: (next: { countries: string[]; global: boolean }) => void;
+  /** Takes a change to apply to the location as it is when applied, so quick ticks don't clash. */
+  onChange: (change: (current: Location) => Partial<Location>) => void;
 };
 
 /** What the closed button says is chosen. */
@@ -24,7 +25,8 @@ function summary(countries: string[], global: boolean): string {
 
 /**
  * A button that opens a panel of checkable locations: global and remote listings, then each
- * country listings are based in. Closes on Escape, on a click outside, or from its Done button.
+ * country listings are based in. Closes on Escape, from its Done button, or when a click or the
+ * keyboard's focus goes outside it.
  */
 export default function LocationFilter({ countries, global, globalCount, options, onChange }: Props) {
   const [open, setOpen] = useState(false);
@@ -48,16 +50,20 @@ export default function LocationFilter({ countries, global, globalCount, options
   }
 
   function toggleCountry(code: string) {
-    onChange({
-      global,
-      countries: countries.includes(code) ? countries.filter((c) => c !== code) : [...countries, code],
-    });
+    onChange((current) => ({
+      countries: current.countries.includes(code)
+        ? current.countries.filter((c) => c !== code)
+        : [...current.countries, code],
+    }));
   }
 
   return (
     <div
       ref={wrapper}
       className="relative flex items-center gap-3"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape" && open) {
           event.preventDefault();
@@ -95,14 +101,19 @@ export default function LocationFilter({ countries, global, globalCount, options
         role="group"
         aria-labelledby={labelId}
         hidden={!open}
-        className="absolute left-0 right-0 top-full z-20 mt-2 border border-brand-black/20 bg-brand-white shadow-lg md:right-auto md:min-w-80"
+        // Focusable, so a click on the panel's padding keeps focus inside and the panel open.
+        tabIndex={-1}
+        className="absolute left-0 right-0 top-full z-20 outline-none mt-2 border border-brand-black/20 bg-brand-white shadow-lg md:right-auto md:min-w-80"
       >
         <div className="max-h-80 overflow-y-auto py-2">
           <label className={OPTION}>
             <input
               type="checkbox"
               checked={global}
-              onChange={(event) => onChange({ countries, global: event.target.checked })}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                onChange(() => ({ global: checked }));
+              }}
               className={CHECKBOX}
             />
             Global and remote ({globalCount})
@@ -123,7 +134,7 @@ export default function LocationFilter({ countries, global, globalCount, options
         <div className="flex justify-between gap-4 border-t border-brand-black/10 px-4 py-3">
           <button
             type="button"
-            onClick={() => onChange({ countries: [], global: false })}
+            onClick={() => onChange(() => ({ countries: [], global: false }))}
             className="text-lg font-light text-brand-navy underline hover:text-brand-black"
           >
             Any location

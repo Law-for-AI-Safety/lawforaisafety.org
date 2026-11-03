@@ -61,8 +61,13 @@ describe("parseFilters", () => {
     expect(parse("location=gb,GB").countries).toEqual(["GB"]);
   });
 
-  it("ignores unknown locations, and GLOBAL as a country code", () => {
-    expect(parse("location=XX,GLOBAL,constructor,,Global")).toEqual(DEFAULT_FILTERS);
+  it("ignores unknown locations", () => {
+    expect(parse("location=XX,constructor,,globe")).toEqual(DEFAULT_FILTERS);
+  });
+
+  it("reads global and remote in any case, never as a country", () => {
+    expect(parse("location=GLOBAL")).toEqual({ ...DEFAULT_FILTERS, global: true });
+    expect(parse("location=Global,gb")).toEqual({ ...DEFAULT_FILTERS, countries: ["GB"], global: true });
   });
 
   it("ignores other values for closing soon", () => {
