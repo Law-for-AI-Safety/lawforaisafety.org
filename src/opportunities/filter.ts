@@ -1,7 +1,6 @@
 import { COUNTRIES } from "./countries";
+import { OPPORTUNITY_TYPES } from "./kinds";
 import type { Opportunity, OpportunityType } from "./types";
-
-export type OpportunityTypeFilter = "all" | OpportunityType;
 
 const COUNTRY_NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
 
@@ -55,12 +54,113 @@ export function formatCompensation(
 /** City + country name, or "Global" for a role with no single base country; any note is appended. */
 export function formatLocation(opportunity: Pick<Opportunity, "locationCountry" | "locationCity" | "locationNote">): string {
   const { locationCountry, locationCity, locationNote } = opportunity;
-  const place = locationCountry === "GLOBAL" ? "Global" : [locationCity, COUNTRY_NAME[locationCountry] ?? locationCountry].filter(Boolean).join(", ");
+  const place = locationCountry === "GLOBAL" ? "Global" : [locationCity, countryName(locationCountry)].filter(Boolean).join(", ");
   return locationNote ? `${place} · ${locationNote}` : place;
 }
 
-export function filterOpportunities(items: Opportunity[], filter: OpportunityTypeFilter): Opportunity[] {
-  return filter === "all" ? items : items.filter((item) => item.type === filter);
+/** The board's orders: soonest closing date first, or most recently published first. */
+export const OPPORTUNITY_SORTS = ["closing", "newest"] as const;
+export type OpportunitySort = (typeof OPPORTUNITY_SORTS)[number];
+
+/**
+ * What the board is narrowed to, and the order it is listed in. No types means every type. No locations means anywhere;
+ * otherwise a listing shows if it is based in one of `countries`, or, with `global`, if it is
+ * remote or has no single base country.
+ */
+export type OpportunityFilters = {
+  types: OpportunityType[];
+  countries: string[];
+  global: boolean;
+  closingSoon: boolean;
+  sort: OpportunitySort;
+};
+
+export const DEFAULT_FILTERS: OpportunityFilters = {
+  types: [],
+  countries: [],
+  global: false,
+  closingSoon: false,
+  sort: "closing",
+};
+
+/** The `location` value, in any case, that stands for global and remote listings, beside country codes. */
+const GLOBAL_LOCATION = "global";
+
+/** Reads filters from the board's query string, dropping any value it does not recognise. */
+export function parseFilters(params: URLSearchParams): OpportunityFilters {
+  const requested = new Set((params.get("type") ?? "").split(","));
+  const locations = (params.get("location") ?? "").split(",");
+  const countries = locations.map((code) => code.toUpperCase()).filter((code) => Object.hasOwn(COUNTRY_NAME, code));
+  return {
+    types: OPPORTUNITY_TYPES.filter((type) => requested.has(type)),
+    countries: [...new Set(countries)].sort(),
+    global: locations.some((location) => location.toLowerCase() === GLOBAL_LOCATION),
+    closingSoon: params.get("soon") === "1",
+    sort: OPPORTUNITY_SORTS.find((sort) => sort === params.get("sort")) ?? DEFAULT_FILTERS.sort,
+  };
+}
+
+/** The query string for a set of filters, without the leading "?"; empty for the defaults. */
+export function serializeFilters(filters: OpportunityFilters): string {
+  const params = new URLSearchParams();
+  if (filters.types.length > 0) params.set("type", OPPORTUNITY_TYPES.filter((type) => filters.types.includes(type)).join(","));
+  const locations = [...filters.countries].sort();
+  if (filters.global) locations.push(GLOBAL_LOCATION);
+  if (locations.length > 0) params.set("location", locations.join(","));
+  if (filters.closingSoon) params.set("soon", "1");
+  if (filters.sort !== DEFAULT_FILTERS.sort) params.set("sort", filters.sort);
+  // Commas are safe in a query string, and "type=job,event" reads better than "job%2Cevent".
+  return params.toString().replaceAll("%2C", ",");
+}
+
+/** Whether anything narrows the board. The order it is listed in narrows nothing. */
+export function hasActiveFilters({ types, countries, global, closingSoon }: OpportunityFilters): boolean {
+  return types.length > 0 || countries.length > 0 || global || closingSoon;
+}
+
+/** Remote, or with no single base country: what the "Global and remote" location covers. */
+function isGlobalOrRemote(item: Pick<Opportunity, "remote" | "locationCountry">): boolean {
+  return item.remote || item.locationCountry === "GLOBAL";
+}
+
+export function filterOpportunities(items: Opportunity[], filters: OpportunityFilters, now: Date): Opportunity[] {
+  const { types, countries, global, closingSoon } = filters;
+  const anywhere = countries.length === 0 && !global;
+  return items.filter((item) => {
+    if (types.length > 0 && !types.includes(item.type)) return false;
+    if (closingSoon && !isClosingSoon(item, now)) return false;
+    return anywhere || countries.includes(item.locationCountry) || (global && isGlobalOrRemote(item));
+  });
+}
+
+export type CountryOption = { code: string; name: string; count: number };
+
+/**
+ * The choices for the location filter, with how many of `items` each covers: global and remote
+ * listings, then the countries listings are based in, by name. A remote listing based in a
+ * country counts under both. A `selected` country
+ * with no listings is still offered, so the list can show what the URL asked for.
+ */
+export function locationOptions(
+  items: Opportunity[],
+  selected: string[] = [],
+): { globalCount: number; countries: CountryOption[] } {
+  const counts = new Map<string, number>(selected.map((code) => [code, 0]));
+  for (const item of items) {
+    if (item.locationCountry === "GLOBAL") continue;
+    counts.set(item.locationCountry, (counts.get(item.locationCountry) ?? 0) + 1);
+  }
+  return {
+    globalCount: items.filter(isGlobalOrRemote).length,
+    countries: [...counts]
+      .map(([code, count]) => ({ code, name: countryName(code), count }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+/** A country's name from its ISO code, or the code itself when it has none. */
+export function countryName(code: string): string {
+  return COUNTRY_NAME[code] ?? code;
 }
 
 export type ClosingFields = Pick<Opportunity, "type" | "deadline" | "startDate" | "endDate">;
@@ -74,7 +174,12 @@ export function closingDate(opportunity: ClosingFields): string | undefined {
   return opportunity.type === "event" ? (opportunity.endDate ?? opportunity.startDate) : undefined;
 }
 
-export function sortOpportunities(items: Opportunity[]): Opportunity[] {
+/**
+ * Orders listings. By closing date, those with one come first, soonest first, then the rest
+ * newest first. By newest, every listing goes by when it was published.
+ */
+export function sortOpportunities(items: Opportunity[], sort: OpportunitySort = "closing"): Opportunity[] {
+  if (sort === "newest") return [...items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   return [...items].sort((a, b) => {
     const aCloses = closingDate(a);
     const bCloses = closingDate(b);

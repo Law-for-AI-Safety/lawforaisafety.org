@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import ContentPage from "@/app/ContentPage";
 import Rule from "@/cms/blocks/Rule";
 import { getCachedOpportunities } from "@/opportunities/data";
-import { openOpportunities, sortOpportunities } from "@/opportunities/filter";
+import { openOpportunities } from "@/opportunities/filter";
 import OpportunitiesBoard from "./OpportunitiesBoard";
 
 export const metadata: Metadata = {
@@ -19,7 +19,8 @@ export default async function OpportunitiesPage() {
   // leaving on the data cache the listings are read through.
   await connection();
   // Closed listings keep their own page, but drop off the board.
-  const opportunities = sortOpportunities(openOpportunities(await getCachedOpportunities(), new Date()));
+  const now = new Date();
+  const opportunities = openOpportunities(await getCachedOpportunities(), now);
 
   return (
     <ContentPage gap={6}>
@@ -37,7 +38,8 @@ export default async function OpportunitiesPage() {
         </Link>
         .
       </p>
-      <OpportunitiesBoard opportunities={opportunities} />
+      {/* The board is handed this render's clock, so its HTML and its hydration agree on what is closing soon. */}
+      <OpportunitiesBoard opportunities={opportunities} now={now} />
     </ContentPage>
   );
 }

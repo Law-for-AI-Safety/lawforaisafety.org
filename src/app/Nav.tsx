@@ -4,8 +4,19 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
-const links = [
-  { href: "#mission", label: "Mission" },
+type NavLink = { href: string; label: string; children?: { href: string; label: string }[] };
+
+// "#…" links are sections of the homepage; "/…" links are pages of their own.
+const links: NavLink[] = [
+  {
+    href: "#mission",
+    label: "About",
+    children: [
+      { href: "#mission", label: "Mission" },
+      { href: "#our-story", label: "Our Story" },
+      { href: "#team", label: "Team" },
+    ],
+  },
   {
     href: "#work",
     label: "Our Work",
@@ -17,9 +28,18 @@ const links = [
       { href: "/freedom-of-information", label: "Freedom of Information" },
     ],
   },
-  { href: "#our-story", label: "Our Story" },
-  { href: "#team", label: "Team" },
+  { href: "/opportunities", label: "Opportunities" },
   { href: "#contact", label: "Contact" },
+];
+
+/** Every homepage section the nav links to, top-level or in a dropdown, for the scroll spy. */
+const sectionIds = [
+  ...new Set(
+    links
+      .flatMap((link) => [link, ...(link.children ?? [])])
+      .filter((link) => link.href.startsWith("#"))
+      .map((link) => link.href.slice(1)),
+  ),
 ];
 
 function Chevron({ open }: { open: boolean }) {
@@ -94,10 +114,9 @@ export default function Nav() {
   useEffect(() => {
     if (!onHomepage) return;
 
-    const ids = links.map((l) => l.href.slice(1));
     const observers: IntersectionObserver[] = [];
 
-    ids.forEach((id) => {
+    sectionIds.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
       const obs = new IntersectionObserver(
@@ -110,6 +129,12 @@ export default function Nav() {
 
     return () => observers.forEach((o) => o.disconnect());
   }, [onHomepage]);
+
+  // A link is current when its homepage section is in view, when it is the page being shown
+  // (or one under it), or when one of its dropdown's links is.
+  const isCurrent = ({ href, children }: NavLink): boolean =>
+    (href.startsWith("#") ? active === href.slice(1) : pathname === href || pathname.startsWith(`${href}/`)) ||
+    (children ?? []).some((child) => isCurrent(child));
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -137,11 +162,11 @@ export default function Nav() {
 
           {/* Desktop links */}
           <div className="hidden md:flex gap-8 p-8 text-xl font-light text-brand-navy">
-            {links.map(({ href, label, children }) => {
-              const id = href.slice(1);
-              const isActive = active === id;
+            {links.map((link) => {
+              const { href, label, children } = link;
+              const isActive = isCurrent(link);
               return (
-                <div key={href} className="relative group">
+                <div key={label} className="relative group">
                   <a href={homeHref(href)} className="relative flex items-center gap-1.5 group/link py-1">
                     <span className={`transition-colors duration-200 ${isActive ? "text-brand-red" : "group-hover/link:text-brand-red"}`}>
                       {label}
@@ -168,12 +193,13 @@ export default function Nav() {
                   </a>
 
                   {children && (
-                    <div className="absolute left-0 top-full pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
+                    // Opens on hover, and on keyboard focus too, so its links can be tabbed to.
+                    <div className="absolute left-0 top-full pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-200">
                       <div className="min-w-[220px] bg-brand-white border border-brand-black/10 rounded-sm shadow-md py-2">
                         {children.map((child) => (
                           <a
                             key={child.href}
-                            href={child.href}
+                            href={homeHref(child.href)}
                             className="block px-5 py-2.5 text-lg font-light text-brand-navy hover:text-brand-red hover:bg-brand-navy/[0.04] transition-colors duration-200"
                           >
                             {child.label}
@@ -200,16 +226,18 @@ export default function Nav() {
 
       {/* Mobile menu overlay */}
       <div
-        className={`fixed inset-0 z-40 bg-brand-white flex flex-col justify-center px-8 transition-all duration-300 md:hidden ${
+        // Scrolls when the menu is taller than the screen; `my-auto` on the list centres it when
+        // it fits, and the top padding keeps its first link clear of the header.
+        className={`fixed inset-0 z-40 bg-brand-white flex flex-col overflow-y-auto px-8 pt-32 pb-12 transition-all duration-300 md:hidden ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       >
-        <nav className="flex flex-col gap-8">
-          {links.map(({ href, label, children }) => {
-            const id = href.slice(1);
-            const isActive = active === id;
+        <nav className="my-auto flex flex-col gap-8">
+          {links.map((link) => {
+            const { href, label, children } = link;
+            const isActive = isCurrent(link);
             return (
-              <div key={href} className="flex flex-col gap-3">
+              <div key={label} className="flex flex-col gap-3">
                 <a
                   href={homeHref(href)}
                   onClick={() => setOpen(false)}
@@ -225,7 +253,7 @@ export default function Nav() {
                     {children.map((child) => (
                       <a
                         key={child.href}
-                        href={child.href}
+                        href={homeHref(child.href)}
                         onClick={() => setOpen(false)}
                         className="text-2xl font-light text-brand-navy/80 hover:text-brand-red transition-colors duration-200"
                       >
