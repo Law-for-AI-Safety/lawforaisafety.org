@@ -7,7 +7,7 @@ import type { CommitmentType, CompCurrency, CompPeriod, Opportunity, Opportunity
  * submission, can build an initial state.
  */
 
-/** The admin form's working state: every field a plain string (or boolean), tags as one comma-separated input, comp amounts as text (parsed on submit). */
+/** The admin form's working state: every field a plain string (or boolean) except tags, a list; comp amounts as text (parsed on submit). */
 export type OpportunityFormState = {
   type: OpportunityType;
   title: string;
