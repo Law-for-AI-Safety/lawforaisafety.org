@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOpportunitiesOrApiKey } from "@/lib/admin-guard";
 import { deleteOpportunity, NotFoundError, publishOpportunity, updateOpportunity, ValidationError } from "@/lib/opportunities-flow";
-import { opportunityFieldsFromBody, statusFromBody } from "@/opportunities/form-fields";
+import { hasOpportunityFields, opportunityFieldsFromBody, statusFromBody } from "@/opportunities/form-fields";
 import { getOpportunityBySlug } from "@/opportunities/data";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -22,7 +22,8 @@ export async function GET(request: Request, { params }: Params) {
 /**
  * Edits an existing opportunity; an edit to a published one is live immediately. The form
  * resends every field; the slug never changes. `"status": "published"` publishes a draft, dated
- * today: on its own it publishes without editing, alongside the fields it saves them first.
+ * today: with no fields it publishes without editing, alongside them it saves and publishes
+ * in one write.
  * A published listing can't go back to being a draft.
  */
 export async function PATCH(request: Request, { params }: Params) {
@@ -37,13 +38,15 @@ export async function PATCH(request: Request, { params }: Params) {
   if (status.status === "draft" && (await getOpportunityBySlug(slug))?.status === "published") {
     return NextResponse.json({ error: "A published listing can't be made a draft again." }, { status: 400 });
   }
-  const publishOnly = status.status === "published" && Object.keys(body).length === 1;
-  const parsed = publishOnly ? null : opportunityFieldsFromBody(body);
+  const publish = status.status === "published";
+  // With no editable fields (say `{"status": "published", "slug": ...}`), it only publishes.
+  const parsed = publish && !hasOpportunityFields(body) ? null : opportunityFieldsFromBody(body);
   if (parsed && !parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   try {
-    let opportunity = parsed ? await updateOpportunity(slug, parsed.fields, session.email) : null;
-    if (status.status === "published") opportunity = await publishOpportunity(slug, session.email);
+    const opportunity = parsed
+      ? await updateOpportunity(slug, parsed.fields, session.email, { publish })
+      : await publishOpportunity(slug, session.email);
     return NextResponse.json(opportunity);
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json(NOT_FOUND, { status: 404 });

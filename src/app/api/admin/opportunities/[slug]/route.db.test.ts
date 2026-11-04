@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { adminSessions, opportunities, opportunitiesAuditLog } from "@/drizzle/schema";
 import { db } from "@/lib/db";
@@ -178,6 +179,28 @@ describe("publishing a draft through PATCH", () => {
     expect(entries).toEqual([
       expect.objectContaining({ action: "publish", actorEmail: "ingestion@api", detail: expect.objectContaining({ slug: DRAFT_SLUG, publishedAt: "2026-11-04" }) }),
     ]);
+  });
+
+  it("publishes without editing when the body has no fields, only things like its slug", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await PATCH(draftRequest({ status: "published", slug: DRAFT_SLUG, id: "ignored" }), draftParams);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ title: "Draft Job", status: "published", publishedAt: "2026-11-04" });
+  });
+
+  it("leaves a draft unpublished and unedited when its edits are invalid", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await PATCH(draftRequest({ ...EXISTING, title: "Edited Draft", compMin: 50_000, status: "published" }), draftParams);
+    expect(response.status).toBe(400);
+    const [row] = await db.select().from(opportunities).where(eq(opportunities.slug, DRAFT_SLUG));
+    expect(row).toMatchObject({ title: "Draft Job", status: "draft", publishedAt: null });
+  });
+
+  it("keeps a published listing's date when it is edited with the published status", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await PATCH(request("PATCH", { ...EXISTING, title: "Renamed", status: "published" }), params);
+    expect(await response.json()).toMatchObject({ title: "Renamed", publishedAt: EXISTING.publishedAt });
+    expect((await db.select().from(opportunitiesAuditLog)).map((entry) => entry.action)).toEqual(["update"]);
   });
 
   it("saves the edited fields and then publishes", async () => {

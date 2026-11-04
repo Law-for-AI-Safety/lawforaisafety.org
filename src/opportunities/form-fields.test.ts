@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { opportunityFieldsFromBody, statusFromBody } from "./form-fields";
+import { hasOpportunityFields, opportunityFieldsFromBody, statusFromBody } from "./form-fields";
 
 describe("opportunityFieldsFromBody", () => {
   it("refuses a body missing title, org or applyUrl", () => {
@@ -52,5 +52,16 @@ describe("statusFromBody", () => {
     const error = "Status must be one of: draft, published";
     expect(statusFromBody({ status: "Draft" })).toEqual({ ok: false, error });
     expect(statusFromBody({ status: true })).toEqual({ ok: false, error });
+  });
+});
+
+describe("hasOpportunityFields", () => {
+  it("is false for a body with only a status and identity", () => {
+    expect(hasOpportunityFields({ status: "published", slug: "a", id: "b", publishedAt: "2026-01-01" })).toBe(false);
+  });
+
+  it("is true once any editable field is there, even a blank one", () => {
+    expect(hasOpportunityFields({ status: "published", title: "" })).toBe(true);
+    expect(hasOpportunityFields({ remote: false })).toBe(true);
   });
 });

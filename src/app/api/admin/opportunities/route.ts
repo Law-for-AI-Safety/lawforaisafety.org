@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const status = statusFromBody(body);
   if (!status.ok) return NextResponse.json({ error: status.error }, { status: 400 });
   const submissionId = typeof body.submissionId === "string" ? body.submissionId : undefined;
-  if (submissionId && status.status === "draft") {
+  if (submissionId !== undefined && status.status === "draft") {
     return NextResponse.json(
       { error: "A listing made from a submission is published at once, since its submitter is emailed the link." },
       { status: 400 },
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   let claimed: SubmissionRow | null = null;
-  if (submissionId) {
+  if (submissionId !== undefined) {
     try {
       claimed = await claimSubmissionForPublishing(submissionId, session.email);
     } catch (err) {

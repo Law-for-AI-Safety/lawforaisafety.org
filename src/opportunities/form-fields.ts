@@ -27,6 +27,21 @@ const oneOf =
 
 export type OpportunityFields = Omit<Opportunity, "id" | "slug" | "status" | "publishedAt">;
 
+/** Every key `opportunityFieldsFromBody` reads, so a route can tell a body with no fields at all. */
+const FIELD_KEYS = [
+  "type", "title", "org", "orgUrl", "summary", "description", "locationCountry", "locationCity", "locationNote",
+  "remote", "commitment", "compMin", "compMax", "compCurrency", "compPeriod", "compNote", "deadline", "startDate",
+  "endDate", "tags", "applyUrl", "applyLabel", "sourceUrl",
+] as const satisfies readonly (keyof OpportunityFields)[];
+// A compile-time check that FIELD_KEYS names every field.
+const _allFieldKeys: Exclude<keyof OpportunityFields, (typeof FIELD_KEYS)[number]> extends never ? true : never = true;
+void _allFieldKeys;
+
+/** Whether a body has any of a listing's editable fields, as opposed to only `status`, `slug` or the like. */
+export function hasOpportunityFields(body: Record<string, unknown>): boolean {
+  return FIELD_KEYS.some((key) => key in body);
+}
+
 export type ParsedStatus = { ok: true; status: OpportunityStatus | undefined } | { ok: false; error: string };
 
 /** A body's optional `status`. Left out, it is undefined, for the route to choose its default. */

@@ -135,6 +135,12 @@ describe("publishing a listing from a submission", () => {
     expect(emails.sent).toEqual([]);
   });
 
+  it("treats an empty submission id as one that doesn't exist, creating nothing", async () => {
+    const response = await create(json("/api/admin/opportunities", { ...LISTING_BODY, submissionId: "" }));
+    expect(response.status).toBe(409);
+    expect(await db.select().from(opportunities)).toEqual([]);
+  });
+
   it("keeps the listing live when the submitter's email fails", async () => {
     const id = await pendingSubmission();
     emails.failNext();

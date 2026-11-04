@@ -27,7 +27,8 @@ function isUniqueSlugViolation(e: unknown): boolean {
 /**
  * Drops the public pages' cached reads, so the next visit sees the write rather than a stale
  * copy. Called as soon as the row is written, so nothing after it can leave a saved change
- * hidden behind the cache.
+ * hidden behind the cache. A write that only touches a draft leaves the cache be: the public
+ * pages never had the draft to begin with.
  */
 function clearPublicCache() {
   revalidateTag(OPPORTUNITIES_CACHE_TAG, { expire: 0 });
@@ -78,7 +79,7 @@ export async function createOpportunity(
     }
   }
   if (!row) throw new Error("Could not find a free slug");
-  clearPublicCache();
+  if (row.status === "published") clearPublicCache();
 
   await recordOpportunityAction({
     actorEmail: createdBy,
@@ -98,28 +99,51 @@ function withNullsForClearedFields(fields: OpportunityFields): typeof fields {
   return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value ?? null])) as typeof fields;
 }
 
-/** Edits an existing listing, draft or published. The slug, status and `publishedAt` are never in `fields`, so they never change. */
-export async function updateOpportunity(slug: string, fields: OpportunityFields, actorEmail: string): Promise<Opportunity> {
+/**
+ * Edits an existing listing, draft or published. The slug, status and `publishedAt` are never in
+ * `fields`, so they never change, except that `publish` also makes a draft public, dated today,
+ * in the same UPDATE as the edits, so a failure can't leave one done without the other.
+ */
+export async function updateOpportunity(
+  slug: string,
+  fields: OpportunityFields,
+  actorEmail: string,
+  { publish = false }: { publish?: boolean } = {},
+): Promise<Opportunity> {
   const parsed = parseFields(fields);
 
   const [existing] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   if (!existing) throw new NotFoundError();
+  const publishing = publish && existing.status === "draft";
 
   const [row] = await db
     .update(opportunities)
-    .set(withNullsForClearedFields(parsed))
+    .set({
+      ...withNullsForClearedFields(parsed),
+      ...(publishing && { status: "published" as const, publishedAt: todayISO() }),
+    })
     .where(eq(opportunities.slug, slug))
     .returning();
   if (!row) throw new NotFoundError();
-  clearPublicCache();
+  if (existing.status === "published" || publishing) clearPublicCache();
 
   const changedKeys = (Object.keys(parsed) as (keyof OpportunityFields)[]).filter(
     (key) => JSON.stringify(existing[key]) !== JSON.stringify(row[key]),
   );
   const detail = Object.fromEntries(changedKeys.map((key) => [key, { before: existing[key], after: row[key] }]));
   await recordOpportunityAction({ actorEmail, action: "update", entityId: row.id, detail });
+  if (publishing) await recordPublish(actorEmail, row);
 
   return toOpportunity(row);
+}
+
+function recordPublish(actorEmail: string, row: OpportunityRow): Promise<void> {
+  return recordOpportunityAction({
+    actorEmail,
+    action: "publish",
+    entityId: row.id,
+    detail: { slug: row.slug, title: row.title, org: row.org, publishedAt: row.publishedAt },
+  });
 }
 
 /**
@@ -138,13 +162,7 @@ export async function publishOpportunity(slug: string, actorEmail: string): Prom
     return toOpportunity(existing);
   }
   clearPublicCache();
-
-  await recordOpportunityAction({
-    actorEmail,
-    action: "publish",
-    entityId: row.id,
-    detail: { slug: row.slug, title: row.title, org: row.org, publishedAt: row.publishedAt },
-  });
+  await recordPublish(actorEmail, row);
   return toOpportunity(row);
 }
 
@@ -152,7 +170,7 @@ export async function publishOpportunity(slug: string, actorEmail: string): Prom
 export async function deleteOpportunity(slug: string, actorEmail: string): Promise<Opportunity> {
   const [row] = await db.delete(opportunities).where(eq(opportunities.slug, slug)).returning();
   if (!row) throw new NotFoundError();
-  clearPublicCache();
+  if (row.status === "published") clearPublicCache();
   await recordOpportunityAction({ actorEmail, action: "delete", entityId: row.id, detail: row });
   return toOpportunity(row);
 }

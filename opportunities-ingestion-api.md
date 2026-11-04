@@ -33,7 +33,7 @@ POST /api/admin/opportunities
 { "status": "draft", "type": "job", "title": "...", "org": "...", ... }
 ```
 
-A draft is never public: it isn't on the board, its `/opportunities/<slug>` page is a 404, and it isn't in the sitemap. Its slug is fixed when it's created, so it keeps the same address once published. It has no `publishedAt` until it's published, which dates it that day. Admins see drafts at `/admin/opportunities`, preview each at `/admin/preview/opportunities/<slug>`, and publish from its edit page; a script can publish one with `PATCH /api/admin/opportunities/<slug>` and `{"status": "published"}`. A published listing can't be made a draft again. `status` left out of a `POST` means `"published"`.
+A draft is never public: it isn't on the board, its `/opportunities/<slug>` page is a 404, and it isn't in the sitemap. Its slug is fixed when it's created, so it keeps the same address once published. It has no `publishedAt` until it's published, which dates it that day. Admins see drafts at `/admin/opportunities`, preview each at `/admin/opportunity-preview/<slug>`, and publish from its edit page; a script can publish one with `PATCH /api/admin/opportunities/<slug>` and `{"status": "published"}`. A published listing can't be made a draft again. `status` left out of a `POST` means `"published"`.
 
 A `POST`/`PATCH` body that fails validation gets `400` with a human-readable `error`; fix the field it names rather than retrying unchanged.
 

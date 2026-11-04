@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 /**
  * A listing as its public page shows it, drafts included, for an admin to check a draft before
  * publishing it. Outside the opportunities admin's own layout so it has the site's nav, as the
- * public page does. A CMS page can't take this address: /opportunities is already a route.
+ * public page does, and outside /admin/preview, whose pages alone may be framed (next.config.ts).
  */
 export default async function OpportunityPreviewPage({ params }: { params: Promise<{ slug: string }> }) {
   const session = await getAdminSession();

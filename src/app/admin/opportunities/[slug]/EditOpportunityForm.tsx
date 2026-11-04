@@ -39,6 +39,8 @@ export default function EditOpportunityForm({
       const result = await sendJson(`/api/admin/opportunities/${opportunity.slug}`, "PATCH", body);
       if (result.status === "draft") {
         setDraftSaved(true);
+        // The page's heading and the Remove prompt still name it as it was.
+        router.refresh();
       } else {
         setSaved({ opportunity: result, action: isDraft ? "published" : "updated" });
         // The page around the form, and the header's drafts count, still show it as a draft.
@@ -63,8 +65,14 @@ export default function EditOpportunityForm({
     setRemoveError(null);
     try {
       const result = await sendJson(`/api/admin/opportunities/${opportunity.slug}`, "DELETE");
+      // A removed draft goes back to the list, where the refresh brings the header's drafts
+      // count up to date. Refreshing this page instead would 404, now the listing is gone.
+      if (isDraft) {
+        router.push("/admin/opportunities");
+        router.refresh();
+        return;
+      }
       setRemoved(result);
-      if (isDraft) router.refresh();
     } catch (err) {
       setRemoveError(err instanceof Error ? err.message : "Failed to remove the listing");
     } finally {

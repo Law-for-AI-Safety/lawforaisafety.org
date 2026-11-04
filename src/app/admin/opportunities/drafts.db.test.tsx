@@ -7,7 +7,7 @@ import { startAdminSession } from "@/lib/session";
 import { getCachedOpportunities, getOpportunityBySlug } from "@/opportunities/data";
 import { navigation } from "../../../../test/next-navigation";
 import { cookieJar } from "../../../../test/next-headers";
-import OpportunityPreviewPage from "../preview/opportunities/[slug]/page";
+import OpportunityPreviewPage from "../opportunity-preview/[slug]/page";
 import EditOpportunityForm from "./[slug]/EditOpportunityForm";
 import EditOpportunityPage from "./[slug]/page";
 import OpportunitiesLayout from "./layout";
@@ -62,7 +62,7 @@ describe("drafts in the admin", () => {
     const drafts = screen.getByRole("region", { name: "Drafts (1)" });
     expect(within(drafts).getByRole("link", { name: "Draft Job" })).toHaveAttribute("href", "/admin/opportunities/draft-job");
     expect(within(drafts).getByText("Draft")).toBeInTheDocument();
-    expect(within(drafts).getByRole("link", { name: "Preview" })).toHaveAttribute("href", "/admin/preview/opportunities/draft-job");
+    expect(within(drafts).getByRole("link", { name: "Preview" })).toHaveAttribute("href", "/admin/opportunity-preview/draft-job");
     expect(within(drafts).queryByText("Live Job")).not.toBeInTheDocument();
 
     const published = screen.getByRole("region", { name: "Published" });
@@ -74,7 +74,7 @@ describe("drafts in the admin", () => {
     expect(screen.getByText("Not on the public site until it is published.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Preview it as it would look" })).toHaveAttribute(
       "href",
-      "/admin/preview/opportunities/draft-job",
+      "/admin/opportunity-preview/draft-job",
     );
     expect(screen.getByRole("button", { name: "Publish" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save draft" })).toBeInTheDocument();
@@ -105,14 +105,24 @@ describe("publishing a draft from its edit page", () => {
     expect(navigation.refresh).toHaveBeenCalled();
   });
 
-  it("refreshes the page once a draft is removed", async () => {
+  it("goes back to the list once a draft is removed, rather than refreshing a page that is gone", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const draft = (await getOpportunityBySlug(DRAFT.slug))!;
     render(<EditOpportunityForm opportunity={draft} />);
     await userEvent.click(screen.getByRole("button", { name: "Remove this listing" }));
-    expect(await screen.findByText(/Removed:/)).toBeInTheDocument();
+    await vi.waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/admin/opportunities"));
     expect(window.confirm).toHaveBeenCalledWith('Remove "Draft Job"? This deletes the draft.');
     expect(navigation.refresh).toHaveBeenCalled();
+    expect(await getOpportunityBySlug(DRAFT.slug)).toBeNull();
+  });
+
+  it("shows the notice, with no navigation, once a published listing is removed", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const live = (await getOpportunityBySlug(PUBLISHED.slug))!;
+    render(<EditOpportunityForm opportunity={live} />);
+    await userEvent.click(screen.getByRole("button", { name: "Remove this listing" }));
+    expect(await screen.findByText(/Removed:/)).toBeInTheDocument();
+    expect(navigation.push).not.toHaveBeenCalled();
   });
 
   it("keeps it a draft on Save draft, with the form still open to publish", async () => {
@@ -122,6 +132,8 @@ describe("publishing a draft from its edit page", () => {
 
     expect(await screen.findByText(/Draft saved/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+    // So the page's heading and the Remove prompt pick up an edited title.
+    expect(navigation.refresh).toHaveBeenCalled();
     expect(await getOpportunityBySlug(DRAFT.slug)).toMatchObject({ status: "draft", publishedAt: undefined });
   });
 
@@ -150,7 +162,7 @@ describe("saving a new listing as a draft", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save as draft" }));
 
     expect(await screen.findByText(/Saved as a draft, not yet on the site/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Preview it" })).toHaveAttribute("href", "/admin/preview/opportunities/acme-new-role");
+    expect(screen.getByRole("link", { name: "Preview it" })).toHaveAttribute("href", "/admin/opportunity-preview/acme-new-role");
     expect(screen.getByRole("link", { name: "edit and publish it" })).toHaveAttribute("href", "/admin/opportunities/acme-new-role");
     expect(await getOpportunityBySlug("acme-new-role")).toMatchObject({ status: "draft" });
     expect((await getCachedOpportunities()).map((o) => o.slug)).not.toContain("acme-new-role");

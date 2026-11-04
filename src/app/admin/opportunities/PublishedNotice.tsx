@@ -13,7 +13,7 @@ const COPY: Record<Action, string> = {
 
 /** The admin preview of a listing, which shows drafts too. */
 export function previewHref(opportunity: Pick<Opportunity, "slug">): string {
-  return `/admin/preview/opportunities/${opportunity.slug}`;
+  return `/admin/opportunity-preview/${opportunity.slug}`;
 }
 
 function Next({ opportunity, action }: { opportunity: Opportunity; action: Action }) {
