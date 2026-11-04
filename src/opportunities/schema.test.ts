@@ -13,8 +13,15 @@ function valid() {
     locationCountry: "GLOBAL",
     remote: true,
     applyUrl: "https://example.com/apply",
+    status: "published" as const,
     publishedAt: "2026-01-01",
   };
+}
+
+function withoutPublishedAt(): Record<string, unknown> {
+  const value: Record<string, unknown> = valid();
+  delete value.publishedAt;
+  return value;
 }
 
 describe("opportunitySchema", () => {
@@ -123,5 +130,23 @@ describe("opportunitySchema", () => {
 
   it("accepts an end date on the start date", () => {
     expect(opportunitySchema.safeParse({ ...valid(), startDate: "2026-11-05", endDate: "2026-11-05" }).success).toBe(true);
+  });
+
+  it("accepts a draft with no published date", () => {
+    expect(opportunitySchema.safeParse({ ...withoutPublishedAt(), status: "draft" }).success).toBe(true);
+  });
+
+  it("rejects a draft that already has a published date", () => {
+    const result = opportunitySchema.safeParse({ ...valid(), status: "draft" });
+    expect(result.error?.issues[0]?.message).toBe("A draft has no published date until it is published");
+  });
+
+  it("rejects a published listing with no published date", () => {
+    const result = opportunitySchema.safeParse(withoutPublishedAt());
+    expect(result.error?.issues[0]?.message).toBe("A published listing needs its published date");
+  });
+
+  it("rejects an unknown status", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), status: "archived" }).success).toBe(false);
   });
 });

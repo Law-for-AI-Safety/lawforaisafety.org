@@ -14,6 +14,7 @@ function make(applyUrl: string): Opportunity {
     locationCountry: "GLOBAL",
     remote: true,
     applyUrl,
+    status: "published",
     publishedAt: "2026-01-01",
   };
 }

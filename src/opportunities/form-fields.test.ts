@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { opportunityFieldsFromBody } from "./form-fields";
+import { hasOpportunityFields, opportunityFieldsFromBody, statusFromBody } from "./form-fields";
 
 describe("opportunityFieldsFromBody", () => {
   it("refuses a body missing title, org or applyUrl", () => {
@@ -35,5 +35,33 @@ describe("opportunityFieldsFromBody", () => {
   it("leaves tags undefined when not an array", () => {
     const result = opportunityFieldsFromBody({ type: "job", title: "A", org: "B", applyUrl: "https://example.com" });
     expect(result).toMatchObject({ fields: { tags: undefined } });
+  });
+});
+
+describe("statusFromBody", () => {
+  it("leaves the status undefined when the body has none", () => {
+    expect(statusFromBody({})).toEqual({ ok: true, status: undefined });
+  });
+
+  it("keeps draft or published", () => {
+    expect(statusFromBody({ status: "draft" })).toEqual({ ok: true, status: "draft" });
+    expect(statusFromBody({ status: "published" })).toEqual({ ok: true, status: "published" });
+  });
+
+  it("rejects any other status rather than guessing one", () => {
+    const error = "Status must be one of: draft, published";
+    expect(statusFromBody({ status: "Draft" })).toEqual({ ok: false, error });
+    expect(statusFromBody({ status: true })).toEqual({ ok: false, error });
+  });
+});
+
+describe("hasOpportunityFields", () => {
+  it("is false for a body with only a status and identity", () => {
+    expect(hasOpportunityFields({ status: "published", slug: "a", id: "b", publishedAt: "2026-01-01" })).toBe(false);
+  });
+
+  it("is true once any editable field is there, even a blank one", () => {
+    expect(hasOpportunityFields({ status: "published", title: "" })).toBe(true);
+    expect(hasOpportunityFields({ remote: false })).toBe(true);
   });
 });

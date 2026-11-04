@@ -49,6 +49,12 @@ describe("sitemap.xml", () => {
     expect(urls).toContain(`https://lawforaisafety.org/opportunities/${FIXTURE.slug}`);
   });
 
+  it("leaves out a draft's page", async () => {
+    await db.insert(opportunities).values({ ...FIXTURE, slug: "draft-job", status: "draft", publishedAt: null });
+    const urls = (await sitemap()).map((e) => e.url);
+    expect(urls).not.toContain("https://lawforaisafety.org/opportunities/draft-job");
+  });
+
   it("leaves out a closed opportunity's page", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
+import { countDraftOpportunities } from "@/opportunities/data";
 import { getAdminSession, isOpportunitiesTeamEmail } from "@/lib/session";
 
 export default async function OpportunitiesLayout({
@@ -8,8 +9,8 @@ export default async function OpportunitiesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // The count is only shown once the session checks pass; fetching both at once saves a round trip.
-  const [session, pending] = await Promise.all([getAdminSession(), countPendingSubmissions()]);
+  // The counts are only shown once the session checks pass; fetching all at once saves round trips.
+  const [session, pending, drafts] = await Promise.all([getAdminSession(), countPendingSubmissions(), countDraftOpportunities()]);
   if (!session) {
     redirect("/admin/login");
   }
@@ -30,6 +31,11 @@ export default async function OpportunitiesLayout({
           <Link href="/admin/opportunities/submissions" className="underline">
             Submissions{pending > 0 ? ` (${pending} to review)` : ""}
           </Link>
+          {drafts > 0 && (
+            <Link href="/admin/opportunities#drafts" className="underline">
+              Drafts ({drafts} to publish)
+            </Link>
+          )}
           <span className="text-brand-black/70">Signed in as {session.name}</span>
         </div>
         <div className="flex flex-wrap items-center gap-4">

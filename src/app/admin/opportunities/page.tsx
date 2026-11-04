@@ -2,9 +2,43 @@ import Link from "next/link";
 import { getOpportunities } from "@/opportunities/data";
 import { sortOpportunities } from "@/opportunities/filter";
 import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
+import type { Opportunity } from "@/opportunities/types";
+import DraftBadge from "./DraftBadge";
+import { previewHref } from "./PublishedNotice";
+
+function OpportunityList({ opportunities }: { opportunities: Opportunity[] }) {
+  return (
+    <ul className="flex flex-col divide-y divide-brand-black/10 border-y border-brand-black/10">
+      {opportunities.map((opportunity) => (
+        <li key={opportunity.slug} className="flex flex-col gap-1 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href={`/admin/opportunities/${opportunity.slug}`} className="font-sans text-lg text-brand-black underline">
+              {opportunity.title}
+            </Link>
+            {opportunity.status === "draft" && <DraftBadge />}
+          </div>
+          <span className="text-sm text-brand-black/70">
+            {OPPORTUNITY_KINDS[opportunity.type].label} · {opportunity.org}
+            {opportunity.deadline ? ` · ${OPPORTUNITY_KINDS[opportunity.type].deadlineLabel} ${opportunity.deadline}` : ""}
+            {opportunity.status === "draft" && (
+              <>
+                {" · "}
+                <Link href={previewHref(opportunity)} className="underline">
+                  Preview
+                </Link>
+              </>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default async function OpportunitiesListPage() {
-  const opportunities = sortOpportunities(await getOpportunities());
+  const all = sortOpportunities(await getOpportunities());
+  const drafts = all.filter((opportunity) => opportunity.status === "draft");
+  const published = all.filter((opportunity) => opportunity.status === "published");
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8 sm:py-12">
@@ -15,22 +49,27 @@ export default async function OpportunitiesListPage() {
         </Link>
       </div>
 
-      {opportunities.length === 0 ? (
-        <p className="text-brand-black/70">There are no opportunities yet.</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-brand-black/10 border-y border-brand-black/10">
-          {opportunities.map((opportunity) => (
-            <li key={opportunity.slug} className="flex flex-col gap-1 py-4">
-              <Link href={`/admin/opportunities/${opportunity.slug}`} className="font-sans text-lg text-brand-black underline">
-                {opportunity.title}
-              </Link>
-              <span className="text-sm text-brand-black/70">
-                {OPPORTUNITY_KINDS[opportunity.type].label} · {opportunity.org}
-                {opportunity.deadline ? ` · ${OPPORTUNITY_KINDS[opportunity.type].deadlineLabel} ${opportunity.deadline}` : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
+      {all.length === 0 && <p className="text-brand-black/70">There are no opportunities yet.</p>}
+
+      {drafts.length > 0 && (
+        <section id="drafts" aria-labelledby="drafts-heading" className="flex flex-col gap-3">
+          <h2 id="drafts-heading" className="font-sans text-xl text-brand-black">
+            Drafts ({drafts.length})
+          </h2>
+          <p className="text-brand-black/70">Not on the public site. Open one to check it, then publish it.</p>
+          <OpportunityList opportunities={drafts} />
+        </section>
+      )}
+
+      {published.length > 0 && (
+        <section aria-labelledby={drafts.length > 0 ? "published-heading" : undefined} className="flex flex-col gap-3">
+          {drafts.length > 0 && (
+            <h2 id="published-heading" className="font-sans text-xl text-brand-black">
+              Published
+            </h2>
+          )}
+          <OpportunityList opportunities={published} />
+        </section>
       )}
     </main>
   );

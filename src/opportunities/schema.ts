@@ -8,8 +8,8 @@ import type { Opportunity } from "./types";
  * key order as declared here so printing a parsed value gives a deterministic file (same
  * convention as `src/cms/schema.ts`'s content pages).
  *
- * Unlike the CMS, there is no draft mode: an admin action either produces a complete, valid
- * file or it doesn't go out as a pull request at all.
+ * A draft is as complete and valid as a published listing: being a draft only keeps it off the
+ * public site until an admin publishes it, which is when it gets its `publishedAt`.
  */
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -41,6 +41,7 @@ export const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const COMMITMENT_TYPES = ["full_time", "part_time", "contract", "internship", "fellowship"] as const;
 export const COMP_CURRENCIES = ["GBP", "USD", "EUR"] as const;
 export const COMP_PERIODS = ["year", "month", "week", "day", "hour"] as const;
+export const OPPORTUNITY_STATUSES = ["draft", "published"] as const;
 /** Sentinel `locationCountry` for roles with no single base country (fully remote, worldwide). */
 export const GLOBAL = "GLOBAL";
 const COUNTRY_CODES = new Set(COUNTRIES.map((c) => c.code));
@@ -111,17 +112,28 @@ const opportunityObjectSchema = z
     applyUrl: url("Apply URL"),
     applyLabel: text("Apply label", 50).optional(),
     sourceUrl: url("Source URL").optional(),
-    publishedAt: isoDate("Published date"),
+    status: z.enum(OPPORTUNITY_STATUSES),
+    publishedAt: isoDate("Published date").optional(),
   })
   .strict();
 
-export const opportunitySchema = opportunityObjectSchema.superRefine(checkConsistency);
+export const opportunitySchema = opportunityObjectSchema.superRefine(checkConsistency).superRefine((val, ctx) => {
+  if (val.status === "published" && val.publishedAt === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A published listing needs its published date", path: ["publishedAt"] });
+  }
+  if (val.status === "draft" && val.publishedAt !== undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A draft has no published date until it is published", path: ["publishedAt"] });
+  }
+});
 
 export type OpportunityInput = z.input<typeof opportunityObjectSchema>;
 
-/** An opportunity's editable fields: everything but `id`/`slug` (identity) and `publishedAt` (set once, on create). */
+/**
+ * An opportunity's editable fields: everything but `id`/`slug` (identity), and `status` and
+ * `publishedAt`, which only change when a draft is published.
+ */
 export const opportunityFieldsSchema = opportunityObjectSchema
-  .omit({ id: true, slug: true, publishedAt: true })
+  .omit({ id: true, slug: true, status: true, publishedAt: true })
   .superRefine(checkConsistency);
 // A compile-time check that the schema's output matches the hand-written `Opportunity` type.
 type _AssertShapeMatches = z.infer<typeof opportunitySchema> extends Opportunity

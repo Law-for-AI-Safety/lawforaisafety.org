@@ -7,7 +7,8 @@ import { opportunitiesAuditLog } from "@/drizzle/schema";
  */
 export async function recordOpportunityAction(entry: {
   actorEmail: string;
-  action: "create" | "update" | "delete";
+  /** `create` is a listing made live at once, `create_draft` one saved as a draft, `publish` a draft made live. */
+  action: "create" | "create_draft" | "publish" | "update" | "delete";
   entityId: string;
   detail?: Record<string, unknown>;
 }): Promise<void> {

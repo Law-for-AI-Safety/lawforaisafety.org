@@ -1,13 +1,14 @@
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
-import type { Opportunity } from "./types";
+import { isPublished, type Opportunity, type PublishedOpportunity } from "./types";
 
 /**
- * Opportunities are plain DB rows - no draft/review state, same trust level as the
- * task-tracker's own CRUD (`src/lib/task-tracker-flow.ts`). Reads go through
- * `src/lib/opportunities-flow.ts` for writes; this module is read-only.
+ * Opportunities are plain DB rows, same trust level as the task-tracker's own CRUD
+ * (`src/lib/task-tracker-flow.ts`). Writes go through `src/lib/opportunities-flow.ts`; this
+ * module is read-only. The admin reads see drafts too; the public reads (the cached ones) see
+ * only published listings.
  */
 
 export type OpportunityRow = typeof opportunities.$inferSelect;
@@ -39,13 +40,31 @@ export function toOpportunity(row: OpportunityRow): Opportunity {
     applyUrl: row.applyUrl,
     applyLabel: row.applyLabel ?? undefined,
     sourceUrl: row.sourceUrl ?? undefined,
-    publishedAt: row.publishedAt,
+    status: row.status,
+    publishedAt: row.publishedAt ?? undefined,
   };
 }
 
+/** Every listing, drafts included, for the admin and the API. */
 export async function getOpportunities(): Promise<Opportunity[]> {
-  const rows = await db.select().from(opportunities).orderBy(desc(opportunities.publishedAt));
+  const rows = await db.select().from(opportunities).orderBy(desc(opportunities.publishedAt), desc(opportunities.createdAt));
   return rows.map(toOpportunity);
+}
+
+/** Only what the public may see. Every public read goes through this, so a draft can't leak. */
+export async function getPublishedOpportunities(): Promise<PublishedOpportunity[]> {
+  const rows = await db
+    .select()
+    .from(opportunities)
+    .where(eq(opportunities.status, "published"))
+    .orderBy(desc(opportunities.publishedAt));
+  return rows.map(toOpportunity).filter(isPublished);
+}
+
+/** For the admin header's Drafts link. */
+export async function countDraftOpportunities(): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(opportunities).where(eq(opportunities.status, "draft"));
+  return row.n;
 }
 
 /** For linking a published submission to the listing made from it. */
@@ -69,13 +88,13 @@ const PUBLIC_CACHE = { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 };
 // request after that is still served the cached list while it refreshes in the background.
 // Admin pages and the API read the uncached functions above; the sitemap shares the cached list.
 // On Netlify the data cache is kept per deploy, so each deploy starts with it empty.
-export const getCachedOpportunities = unstable_cache(getOpportunities, ["opportunities"], PUBLIC_CACHE);
+export const getCachedOpportunities = unstable_cache(getPublishedOpportunities, ["opportunities"], PUBLIC_CACHE);
 
 /**
  * Picked out of the cached list rather than cached per slug, so one entry serves every listing
  * page and a request for a made-up slug adds nothing to the cache.
  */
-export async function getCachedOpportunityBySlug(slug: string): Promise<Opportunity | null> {
+export async function getCachedOpportunityBySlug(slug: string): Promise<PublishedOpportunity | null> {
   return (await getCachedOpportunities()).find((opportunity) => opportunity.slug === slug) ?? null;
 }
 
