@@ -19,9 +19,20 @@ panel. Every person in `ADMIN_EMAILS` does this:
    control. Any confirmed address can be used to reset the password.
 5. Use a password that is unique to LinkedIn.
 
-Then **set who the technical admins are**. Reviewers (everyone in
-`ADMIN_EMAILS`) can read applications and approve or reject. Only technical
-admins can erase data, switch signup on and off, and see the audit log.
+Then **set who the technical admins are**. Everyone in `ADMIN_EMAILS` can
+read applications and approve or reject them, and use the task tracker and
+the opportunities board. Only technical admins can erase data, switch signup
+on and off, and see the audit log.
+
+What else an admin can reach is set the same way, and every list below only
+narrows `ADMIN_EMAILS`, never adds to it:
+
+| Access | Set by | When unset |
+|---|---|---|
+| Technical admin pages, every CMS permission | `TECH_ADMIN_EMAILS` | nobody |
+| Task tracker (`/admin/task-tracker`) | `TASK_TRACKER_TEAM_EMAILS` | every admin |
+| Opportunities board (`/admin/opportunities`) | `OPPORTUNITIES_TEAM_EMAILS` | every admin |
+| Editing (`draft`) or publishing (`publish`) CMS pages | a role a technical admin gives at `/admin/settings` | nobody |
 
 1. In Netlify, set `TECH_ADMIN_EMAILS` to a comma-separated subset of
    `ADMIN_EMAILS`. Name two people, so an erasure request (one-month
@@ -40,8 +51,10 @@ Then, once per admin, **pin their LinkedIn account id**:
    address gets refused, and the settings page marks each account as pinned
    or not.
 
-When an admin leaves: remove them from `ADMIN_EMAILS`, `TECH_ADMIN_EMAILS`
-and `ADMIN_LINKEDIN_SUBS`, redeploy. Their session ends on their next request.
+When an admin leaves: remove them from `ADMIN_EMAILS`, `TECH_ADMIN_EMAILS`,
+`TASK_TRACKER_TEAM_EMAILS`, `OPPORTUNITIES_TEAM_EMAILS` and
+`ADMIN_LINKEDIN_SUBS`, redeploy, and remove their CMS role at
+`/admin/settings`. Their session ends on their next request.
 
 Once a month, skim `/admin/audit`: logins you don't recognise, approvals
 nobody remembers making, or an erasure with no matching email thread are all
