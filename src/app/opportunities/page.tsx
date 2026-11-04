@@ -9,7 +9,7 @@ import OpportunitiesBoard from "./OpportunitiesBoard";
 
 export const metadata: Metadata = {
   title: "Opportunities | Law for AI Safety",
-  description: "Jobs, fellowships, projects, courses and events from organisations working on AI safety and governance law.",
+  description: "Explore jobs, fellowships, projects, courses, and events focused on using law to reduce risks from artificial intelligence.",
   alternates: { canonical: "/opportunities" },
 };
 
@@ -29,7 +29,7 @@ export default async function OpportunitiesPage() {
       </h1>
       <Rule />
       <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">
-        Jobs, fellowships, projects, courses and events from organisations working on AI safety and governance law.
+        Explore jobs, fellowships, projects, courses, and events focused on using law to reduce risks from artificial intelligence.
       </p>
       <p className="text-lg font-light text-brand-navy/85">
         Know of one we&apos;re missing?{" "}
