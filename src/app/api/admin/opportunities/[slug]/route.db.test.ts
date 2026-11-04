@@ -239,6 +239,52 @@ describe("publishing a draft through PATCH", () => {
     expect(response.status).toBe(400);
   });
 
+  it("publishes only once when two requests publish it at the same moment", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const responses = await Promise.all([
+      PATCH(draftRequest({ status: "published" }), draftParams),
+      PATCH(draftRequest({ ...EXISTING, title: "Edited Draft", status: "published" }), draftParams),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const actions = (await db.select().from(opportunitiesAuditLog)).map((entry) => entry.action);
+    expect(actions.filter((action) => action === "publish")).toHaveLength(1);
+  });
+
+  it("clears the public cache for an edit that lands on a listing published since the form was opened", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    expect((await getCachedOpportunities()).map((o) => o.slug)).toEqual([SLUG]);
+    // Published around the flow, so nothing has cleared the cache yet.
+    await db.update(opportunities).set({ status: "published", publishedAt: "2026-11-01" }).where(eq(opportunities.slug, DRAFT_SLUG));
+
+    const response = await PATCH(draftRequest({ ...EXISTING, title: "Edited Draft" }), draftParams);
+    expect(await response.json()).toMatchObject({ title: "Edited Draft", status: "published", publishedAt: "2026-11-01" });
+    expect((await getCachedOpportunities()).find((o) => o.slug === DRAFT_SLUG)?.title).toBe("Edited Draft");
+  });
+
+  it("won't save a draft's edits once it has been published, rather than quietly editing it live", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    await db.update(opportunities).set({ status: "published", publishedAt: "2026-11-01" }).where(eq(opportunities.slug, DRAFT_SLUG));
+    const response = await PATCH(draftRequest({ ...EXISTING, title: "Edited Draft", status: "draft" }), draftParams);
+    expect(response.status).toBe(400);
+    const [row] = await db.select().from(opportunities).where(eq(opportunities.slug, DRAFT_SLUG));
+    expect(row.title).toBe("Draft Job");
+  });
+
+  it("404s keeping a slug that doesn't exist a draft", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await PATCH(draftRequest({ ...EXISTING, status: "draft" }), { params: Promise.resolve({ slug: "no-such-job" }) });
+    expect(response.status).toBe(404);
+  });
+
+  it("is a 400 for a body that isn't a JSON object", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    for (const body of [null, 42, "published", ["status"]]) {
+      const response = await PATCH(draftRequest(body), draftParams);
+      expect(response.status, JSON.stringify(body)).toBe(400);
+      expect(await response.json()).toEqual({ error: "The body must be a JSON object." });
+    }
+  });
+
   it("404s publishing a slug that doesn't exist", async () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await PATCH(draftRequest({ status: "published" }), { params: Promise.resolve({ slug: "no-such-job" }) });

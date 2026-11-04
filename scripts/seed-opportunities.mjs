@@ -146,4 +146,4 @@ for (const o of OPPORTUNITIES) {
 await client.end();
 
 // The seed writes around src/lib/opportunities-flow.ts, so it can't clear the public pages' cache.
-console.log(`Seeded ${OPPORTUNITIES.length} opportunities. The public pages may show the old ones for up to an hour, or until any listing is saved in the admin.`);
+console.log(`Seeded ${OPPORTUNITIES.length} opportunities. The public pages may show the old ones for up to an hour, or until a published listing is saved in the admin (saving a draft leaves them be).`);

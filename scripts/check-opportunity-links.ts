@@ -74,7 +74,10 @@ export function checkAllLinks(
 }
 
 /**
- * Opportunities are DB-backed now, so `getOpportunities` needs `DATABASE_URL` set before
+ * Only published listings are checked: a draft's link is for the admin reviewing it to check,
+ * and a dead one isn't a broken link on the site.
+ *
+ * Opportunities are DB-backed now, so `getPublishedOpportunities` needs `DATABASE_URL` set before
  * `src/lib/db.ts` is first imported - which a static import of it would do before this script's
  * own code ever runs. A dynamic import, after loading `.env.local` here, defers that.
  */
@@ -84,8 +87,8 @@ async function main() {
     const match = readFileSync(ENV_FILE, "utf8").match(/^DATABASE_URL=(.*)$/m);
     if (match) process.env.DATABASE_URL = match[1].replace(/^"(.*)"$/, "$1");
   }
-  const { getOpportunities } = await import("../src/opportunities/data");
-  const results = await checkAllLinks(await getOpportunities());
+  const { getPublishedOpportunities } = await import("../src/opportunities/data");
+  const results = await checkAllLinks(await getPublishedOpportunities());
   for (const r of results) {
     const via = r.via ? ` (via ${r.via})` : "";
     console.log(`${r.ok ? "OK  " : "DEAD"} ${r.status ?? r.error}${via} ${r.slug} -> ${r.url}`);

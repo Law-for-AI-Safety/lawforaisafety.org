@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOpportunityBySlug, getOpportunityTags } from "@/opportunities/data";
+import { formatDate } from "@/opportunities/filter";
 import DraftBadge from "../DraftBadge";
 import { previewHref } from "../PublishedNotice";
 import EditOpportunityForm from "./EditOpportunityForm";
@@ -28,7 +29,7 @@ export default async function EditOpportunityPage({ params }: Props) {
         </p>
       ) : (
         <p className="text-brand-black/70">
-          Published {opportunity.publishedAt}.{" "}
+          Published {opportunity.publishedAt && formatDate(opportunity.publishedAt)}.{" "}
           <Link href={`/opportunities/${opportunity.slug}`} className="underline">
             View it live
           </Link>

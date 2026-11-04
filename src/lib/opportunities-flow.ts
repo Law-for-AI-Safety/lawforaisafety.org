@@ -17,6 +17,8 @@ import { recordOpportunityAction } from "./opportunities-audit-log";
 
 export class NotFoundError extends Error {}
 export class ValidationError extends Error {}
+/** Asking to keep a listing a draft once it is published: a published listing can't go back. */
+export class AlreadyPublishedError extends Error {}
 
 const MAX_SLUG_ATTEMPTS = 5;
 
@@ -101,31 +103,50 @@ function withNullsForClearedFields(fields: OpportunityFields): typeof fields {
 
 /**
  * Edits an existing listing, draft or published. The slug, status and `publishedAt` are never in
- * `fields`, so they never change, except that `publish` also makes a draft public, dated today,
- * in the same UPDATE as the edits, so a failure can't leave one done without the other.
+ * `fields`, so an edit alone never changes them. `status` asks for one as well:
+ * - `"published"` also makes a draft public, dated today, in the same UPDATE as the edits, so a
+ *   failure can't leave one done without the other. A listing already public keeps its date.
+ * - `"draft"` saves the edits only while the listing is still a draft, else `AlreadyPublishedError`.
+ *
+ * Whether the listing is a draft is decided by each UPDATE's own WHERE, not by an earlier read,
+ * so a publish landing between the two can't be missed or done twice.
  */
 export async function updateOpportunity(
   slug: string,
   fields: OpportunityFields,
   actorEmail: string,
-  { publish = false }: { publish?: boolean } = {},
+  status?: OpportunityStatus,
 ): Promise<Opportunity> {
   const parsed = parseFields(fields);
+  const values = withNullsForClearedFields(parsed);
 
+  // The row as it was, for the audit log's before/after.
   const [existing] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
   if (!existing) throw new NotFoundError();
-  const publishing = publish && existing.status === "draft";
 
-  const [row] = await db
-    .update(opportunities)
-    .set({
-      ...withNullsForClearedFields(parsed),
-      ...(publishing && { status: "published" as const, publishedAt: todayISO() }),
-    })
-    .where(eq(opportunities.slug, slug))
-    .returning();
-  if (!row) throw new NotFoundError();
-  if (existing.status === "published" || publishing) clearPublicCache();
+  const isDraft = and(eq(opportunities.slug, slug), eq(opportunities.status, "draft"));
+  let row: OpportunityRow | undefined;
+  let publishing = false;
+  if (status === "published") {
+    [row] = await db
+      .update(opportunities)
+      .set({ ...values, status: "published", publishedAt: todayISO() })
+      .where(isDraft)
+      .returning();
+    publishing = row !== undefined;
+  }
+  if (!row) {
+    [row] = await db
+      .update(opportunities)
+      .set(values)
+      .where(status === "draft" ? isDraft : eq(opportunities.slug, slug))
+      .returning();
+  }
+  if (!row) {
+    const [still] = await db.select({ id: opportunities.id }).from(opportunities).where(eq(opportunities.slug, slug));
+    throw still ? new AlreadyPublishedError() : new NotFoundError();
+  }
+  if (row.status === "published") clearPublicCache();
 
   const changedKeys = (Object.keys(parsed) as (keyof OpportunityFields)[]).filter(
     (key) => JSON.stringify(existing[key]) !== JSON.stringify(row[key]),

@@ -82,7 +82,7 @@ describe("drafts in the admin", () => {
 
   it("shows a published listing's edit page its date and live link, with no Publish button", async () => {
     render(await EditOpportunityPage(params(PUBLISHED.slug)));
-    expect(screen.getByText(/Published 2026-01-01/)).toBeInTheDocument();
+    expect(screen.getByText(/Published 1 Jan 2026/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View it live" })).toHaveAttribute("href", "/opportunities/live-job");
     expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
@@ -182,6 +182,8 @@ describe("the admin preview of a listing", () => {
     expect(screen.getByRole("link", { name: "Apply now" })).toHaveAttribute("href", DRAFT.applyUrl);
     expect(screen.getByText(/Preview of a draft/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to editing" })).toHaveAttribute("href", "/admin/opportunities/draft-job");
+    // The public board wouldn't show the draft, so the preview doesn't send the admin there.
+    expect(screen.queryByRole("link", { name: "← All opportunities" })).not.toBeInTheDocument();
   });
 
   it("says when the listing is already published", async () => {

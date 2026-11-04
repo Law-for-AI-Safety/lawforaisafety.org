@@ -8,7 +8,7 @@ import {
   SubmissionNotFoundError,
   type SubmissionRow,
 } from "@/lib/opportunity-submission-flow";
-import { opportunityFieldsFromBody, statusFromBody } from "@/opportunities/form-fields";
+import { opportunityFieldsFromBody, readJsonObject, statusFromBody } from "@/opportunities/form-fields";
 import { getOpportunities } from "@/opportunities/data";
 
 /**
@@ -33,7 +33,8 @@ export async function POST(request: Request) {
   const session = await requireOpportunitiesOrApiKey(request);
   if (session instanceof NextResponse) return session;
 
-  const body = await request.json().catch(() => ({}));
+  const body = await readJsonObject(request);
+  if (!body) return NextResponse.json({ error: "The body must be a JSON object." }, { status: 400 });
   const parsed = opportunityFieldsFromBody(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const status = statusFromBody(body);

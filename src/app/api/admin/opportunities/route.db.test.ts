@@ -169,6 +169,18 @@ describe("POST /api/admin/opportunities", () => {
     expect(entry.action).toBe("create");
   });
 
+  it("is a 400 for a body that isn't a JSON object, and saves nothing", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    for (const body of [null, 42, "draft", []]) {
+      const response = await POST(request(body));
+      expect(response.status, JSON.stringify(body)).toBe(400);
+      expect(await response.json()).toEqual({ error: "The body must be a JSON object." });
+    }
+    const notJson = new Request("http://localhost:3001/api/admin/opportunities", { method: "POST", body: "{not json" });
+    expect((await POST(notJson)).status).toBe(400);
+    expect(await db.select().from(opportunities)).toEqual([]);
+  });
+
   it("is a 400 for an unknown status, and saves nothing", async () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await POST(request({ ...VALID_BODY, status: "hidden" }));

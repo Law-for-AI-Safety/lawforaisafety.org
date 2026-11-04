@@ -38,7 +38,8 @@ export default async function OpportunityPreviewPage({ params }: { params: Promi
           Back to editing
         </Link>
       </p>
-      <OpportunityListing opportunity={opportunity} closed={isClosed(opportunity, new Date())} />
+      {/* The banner's link goes back to editing; the board's wouldn't show a draft. */}
+      <OpportunityListing opportunity={opportunity} closed={isClosed(opportunity, new Date())} backToBoard={false} />
     </ContentPage>
   );
 }

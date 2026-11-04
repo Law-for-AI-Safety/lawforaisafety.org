@@ -27,6 +27,15 @@ const oneOf =
 
 export type OpportunityFields = Omit<Opportunity, "id" | "slug" | "status" | "publishedAt">;
 
+/**
+ * A request's JSON body, or null when it isn't a JSON object (`null`, a number, an array, or
+ * not JSON at all), for the route to refuse with a 400 rather than fail reading a field of it.
+ */
+export async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
+  const body: unknown = await request.json().catch(() => null);
+  return typeof body === "object" && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
+}
+
 /** Every key `opportunityFieldsFromBody` reads, so a route can tell a body with no fields at all. */
 const FIELD_KEYS = [
   "type", "title", "org", "orgUrl", "summary", "description", "locationCountry", "locationCity", "locationNote",

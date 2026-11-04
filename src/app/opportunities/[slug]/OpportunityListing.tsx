@@ -23,15 +23,26 @@ function facts(opportunity: Opportunity): { label: string; value: string }[] {
  * A listing's page body, shared by the public page and the admin's preview of a draft, so the
  * preview shows exactly what publishing it will put up.
  */
-export default function OpportunityListing({ opportunity, closed }: { opportunity: Opportunity; closed: boolean }) {
+export default function OpportunityListing({
+  opportunity,
+  closed,
+  backToBoard = true,
+}: {
+  opportunity: Opportunity;
+  closed: boolean;
+  /** The link back to the public board, which an admin previewing a draft wouldn't find it on. */
+  backToBoard?: boolean;
+}) {
   const kind = OPPORTUNITY_KINDS[opportunity.type];
   const closedOn = closed ? closingDate(opportunity) : undefined;
 
   return (
     <>
-      <Link href="/opportunities" className="w-fit underline">
-        ← All opportunities
-      </Link>
+      {backToBoard && (
+        <Link href="/opportunities" className="w-fit underline">
+          ← All opportunities
+        </Link>
+      )}
 
       <div className="flex flex-wrap items-center gap-3 text-sm font-light text-brand-navy/70">
         <span className={`px-2 py-0.5 ${kind.badge}`}>{kind.label}</span>
