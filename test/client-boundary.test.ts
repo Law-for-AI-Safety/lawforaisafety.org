@@ -11,10 +11,11 @@ import { afterEach, describe, expect, it } from "vitest";
  * x() from the server but x is on the client"). Vitest ignores the directive, so a test that
  * renders the server page passes either way; this check reads the imports instead.
  *
- * An import counts as a component when its local name starts with a capital and is not all
- * capitals (`OpportunityFields`, `PDFViewer`, not `GLOBAL`), since that is the name JSX renders
- * it under. Any other value imported by a module without the directive from one with it is
- * reported, default imports included; type-only imports are erased and so are fine.
+ * An import counts as a component when the name it is imported or re-exported under starts
+ * with a capital and is not all capitals (`OpportunityFields`, `PDFViewer`, not `GLOBAL`),
+ * since that is the name JSX renders it under. Any other value a module without the directive
+ * takes from one with it is reported, default imports included; type-only imports are erased
+ * and so are fine. Judging by name means a helper renamed with a capital is missed.
  */
 
 const ROOT = resolve(__dirname, "..");
@@ -59,7 +60,10 @@ const isComponentName = (name: string) => /^[A-Z]/.test(name) && !/^[A-Z0-9_]+$/
 function clientBoundaryViolations(src: string): string[] {
   const files = sourceFiles(src);
   const parsed = new Map(files.map((path) => [path, parse(path)]));
-  const isClient = (path: string) => isClientModule(parsed.get(path) ?? parse(path));
+  const isClient = (path: string) => {
+    if (!parsed.has(path)) parsed.set(path, parse(path));
+    return isClientModule(parsed.get(path)!);
+  };
 
   return files.flatMap((path) => {
     const source = parsed.get(path)!;
@@ -86,7 +90,7 @@ function clientBoundaryViolations(src: string): string[] {
         if (statement.isTypeOnly) return [];
         const clause = statement.exportClause;
         names = clause && ts.isNamedExports(clause)
-          ? clause.elements.map((el) => ({ name: (el.propertyName ?? el.name).text, typeOnly: el.isTypeOnly }))
+          ? clause.elements.map((el) => ({ name: el.name.text, typeOnly: el.isTypeOnly }))
           : [{ name: "*", typeOnly: false }];
       }
       return names
@@ -103,8 +107,11 @@ describe("the client boundary", () => {
 });
 
 describe("the client boundary check", () => {
-  let dir: string;
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  let dir: string | undefined;
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+    dir = undefined;
+  });
 
   function violations(files: Record<string, string>): string[] {
     dir = mkdtempSync(join(tmpdir(), "client-boundary-"));
@@ -138,7 +145,7 @@ export { format as again } from "./Field.tsx";
       "page.tsx: LIMIT from ./Field",
       "page.tsx: helper from ./Field",
       "page.tsx: * as all from @/Field.js",
-      "page.tsx: format from ./Field.tsx",
+      "page.tsx: again from ./Field.tsx",
     ]);
   });
 
@@ -148,6 +155,7 @@ export { format as again } from "./Field.tsx";
         "Field.tsx": CLIENT,
         "page.tsx": `import Helper, { Field, PDFViewer, type State } from "./Field";
 import type { State as S } from "./Field";
+export { default as Helper, format as Format } from "./Field";
 `,
         "Other.tsx": `"use strict";
 "use client";
