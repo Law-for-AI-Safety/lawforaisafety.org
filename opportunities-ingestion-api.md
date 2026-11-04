@@ -18,11 +18,22 @@ The comparison is constant-time (`src/lib/timing-safe-equal.ts`). With no key co
 
 | Method | Path | Does |
 | --- | --- | --- |
-| `GET` | `/api/admin/opportunities` | Every listing. Check this before creating, to avoid duplicates. |
-| `POST` | `/api/admin/opportunities` | Creates a listing, live immediately. Slug is computed server-side from `org` and `title`; don't send `id`, `slug`, or `publishedAt`. |
-| `GET` | `/api/admin/opportunities/<slug>` | One listing. 404 if it doesn't exist. |
-| `PATCH` | `/api/admin/opportunities/<slug>` | Updates a listing. Send every field you want kept — an omitted optional field is cleared, not left as-is. |
+| `GET` | `/api/admin/opportunities` | Every listing, drafts included, each with its `status`. Check this before creating, to avoid duplicates. |
+| `POST` | `/api/admin/opportunities` | Creates a listing: live immediately, or a draft with `"status": "draft"`. Slug is computed server-side from `org` and `title`; don't send `id`, `slug`, or `publishedAt`. |
+| `GET` | `/api/admin/opportunities/<slug>` | One listing, draft or published. 404 if it doesn't exist. |
+| `PATCH` | `/api/admin/opportunities/<slug>` | Updates a listing. Send every field you want kept — an omitted optional field is cleared, not left as-is. `{"status": "published"}` on its own publishes a draft without editing it. |
 | `DELETE` | `/api/admin/opportunities/<slug>` | Removes a listing. |
+
+## Drafts
+
+To post a batch for an admin to review, create each listing with `"status": "draft"` alongside its fields:
+
+```
+POST /api/admin/opportunities
+{ "status": "draft", "type": "job", "title": "...", "org": "...", ... }
+```
+
+A draft is never public: it isn't on the board, its `/opportunities/<slug>` page is a 404, and it isn't in the sitemap. Its slug is fixed when it's created, so it keeps the same address once published. It has no `publishedAt` until it's published, which dates it that day. Admins see drafts at `/admin/opportunities`, preview each at `/admin/preview/opportunities/<slug>`, and publish from its edit page; a script can publish one with `PATCH /api/admin/opportunities/<slug>` and `{"status": "published"}`. A published listing can't be made a draft again. `status` left out of a `POST` means `"published"`.
 
 A `POST`/`PATCH` body that fails validation gets `400` with a human-readable `error`; fix the field it names rather than retrying unchanged.
 
@@ -52,7 +63,8 @@ From `src/opportunities/schema.ts`:
 | `applyUrl` | URL | required |
 | `applyLabel` | string, ≤50 | optional |
 | `sourceUrl` | URL | optional; where the listing was found, use it to dedupe on re-ingestion |
-| `submissionId` | uuid | `POST` only, optional; publishes an outside submission (`/admin/opportunities/submissions`) as this listing and emails its submitter. 409 if it isn't pending |
+| `status` | `"draft" \| "published"` | optional, default `"published"`. See [Drafts](#drafts) |
+| `submissionId` | uuid | `POST` only, optional; publishes an outside submission (`/admin/opportunities/submissions`) as this listing and emails its submitter. 409 if it isn't pending. Can't be combined with `"status": "draft"` (400), since the submitter's email links to the public listing |
 
 ### Choosing a type
 

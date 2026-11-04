@@ -1,11 +1,11 @@
 import { OPPORTUNITY_TYPES } from "./kinds";
-import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS } from "./schema";
-import type { Opportunity } from "./types";
+import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, OPPORTUNITY_STATUSES } from "./schema";
+import type { Opportunity, OpportunityStatus } from "./types";
 
 /**
  * Turning an admin form's raw JSON body into an opportunity's fields - shared by the create and
- * update API routes, which otherwise differ only in how they get `slug` and `publishedAt` (a
- * freshly computed slug and today's date on create, the existing ones kept as-is on update).
+ * update API routes, which otherwise differ only in how they get `slug`, `status` and
+ * `publishedAt` (a freshly computed slug on create, the existing ones kept as-is on update).
  */
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
@@ -25,7 +25,17 @@ const oneOf =
     return s && (values as readonly string[]).includes(s) ? (s as T) : undefined;
   };
 
-export type OpportunityFields = Omit<Opportunity, "id" | "slug" | "publishedAt">;
+export type OpportunityFields = Omit<Opportunity, "id" | "slug" | "status" | "publishedAt">;
+
+export type ParsedStatus = { ok: true; status: OpportunityStatus | undefined } | { ok: false; error: string };
+
+/** A body's optional `status`. Left out, it is undefined, for the route to choose its default. */
+export function statusFromBody(body: Record<string, unknown>): ParsedStatus {
+  if (body.status === undefined) return { ok: true, status: undefined };
+  const status = OPPORTUNITY_STATUSES.find((value) => value === body.status);
+  if (!status) return { ok: false, error: `Status must be one of: ${OPPORTUNITY_STATUSES.join(", ")}` };
+  return { ok: true, status };
+}
 
 export type ParsedOpportunityBody = { ok: true; fields: OpportunityFields } | { ok: false; error: string };
 

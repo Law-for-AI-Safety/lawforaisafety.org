@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { adminSessions, opportunities, opportunitiesAuditLog } from "@/drizzle/schema";
+import { getCachedOpportunities } from "@/opportunities/data";
 import { db } from "@/lib/db";
 import { startAdminSession } from "@/lib/session";
 import { GET, POST } from "./route";
@@ -50,6 +51,17 @@ describe("GET /api/admin/opportunities", () => {
     const data = await response.json();
     expect(data).toHaveLength(1);
     expect(data[0].title).toBe(VALID_BODY.title);
+  });
+
+  it("lists drafts too, each marked with its status", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    await POST(request(VALID_BODY));
+    await POST(request({ ...VALID_BODY, title: "Drafted Role", status: "draft" }));
+    const data = await (await GET(listRequest())).json();
+    expect(data.map((o: { title: string; status: string }) => [o.title, o.status]).sort()).toEqual([
+      ["Acme Senior Role", "published"],
+      ["Drafted Role", "draft"],
+    ]);
   });
 
   it("lists every opportunity for a valid API key, with no session", async () => {
@@ -134,5 +146,34 @@ describe("POST /api/admin/opportunities", () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await POST(request({ title: "" }));
     expect(response.status).toBe(400);
+  });
+
+  it("creates a draft, kept off the public list, with no published date yet", async () => {
+    vi.stubEnv("OPPORTUNITIES_API_KEY", "test-key");
+    const response = await POST(request({ ...VALID_BODY, status: "draft" }, { authorization: "Bearer test-key" }));
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data).toMatchObject({ slug: "acme-acme-senior-role", status: "draft" });
+    expect(data.publishedAt).toBeUndefined();
+    expect(await getCachedOpportunities()).toEqual([]);
+
+    const [entry] = await db.select().from(opportunitiesAuditLog);
+    expect(entry).toMatchObject({ action: "create_draft", actorEmail: "ingestion@api", entityId: data.id });
+  });
+
+  it("publishes at once with an explicit published status", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const data = await (await POST(request({ ...VALID_BODY, status: "published" }))).json();
+    expect(data).toMatchObject({ status: "published", publishedAt: new Date().toISOString().slice(0, 10) });
+    const [entry] = await db.select().from(opportunitiesAuditLog);
+    expect(entry.action).toBe("create");
+  });
+
+  it("is a 400 for an unknown status, and saves nothing", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await POST(request({ ...VALID_BODY, status: "hidden" }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Status must be one of: draft, published" });
+    expect(await db.select().from(opportunities)).toEqual([]);
   });
 });

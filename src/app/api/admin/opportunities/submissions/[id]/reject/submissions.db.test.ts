@@ -125,6 +125,16 @@ describe("publishing a listing from a submission", () => {
     expect(emails.sent).toEqual([]);
   });
 
+  it("refuses to make a draft from it, since the submitter would be emailed a link to nothing", async () => {
+    const id = await pendingSubmission();
+
+    const response = await create(json("/api/admin/opportunities", { ...LISTING_BODY, submissionId: id, status: "draft" }));
+    expect(response.status).toBe(400);
+    expect(await db.select().from(opportunities)).toEqual([]);
+    expect((await submission(id)).status).toBe("pending");
+    expect(emails.sent).toEqual([]);
+  });
+
   it("keeps the listing live when the submitter's email fails", async () => {
     const id = await pendingSubmission();
     emails.failNext();

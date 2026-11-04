@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireOpportunitiesOrApiKey } from "@/lib/admin-guard";
-import { deleteOpportunity, NotFoundError, updateOpportunity, ValidationError } from "@/lib/opportunities-flow";
-import { opportunityFieldsFromBody } from "@/opportunities/form-fields";
+import { deleteOpportunity, NotFoundError, publishOpportunity, updateOpportunity, ValidationError } from "@/lib/opportunities-flow";
+import { opportunityFieldsFromBody, statusFromBody } from "@/opportunities/form-fields";
 import { getOpportunityBySlug } from "@/opportunities/data";
 
 type Params = { params: Promise<{ slug: string }> };
 
-const NOT_FOUND = { error: "There is no such listing on the live site." };
+const NOT_FOUND = { error: "There is no such listing." };
 
-/** A single listing, by slug — lets an ingestion script check for an existing match before upserting. */
+/** A single listing, by slug, draft or published — lets an ingestion script check for an existing match before upserting. */
 export async function GET(request: Request, { params }: Params) {
   const session = await requireOpportunitiesOrApiKey(request);
   if (session instanceof NextResponse) return session;
@@ -19,18 +19,31 @@ export async function GET(request: Request, { params }: Params) {
   return NextResponse.json(opportunity);
 }
 
-/** Edits an existing opportunity, live immediately. The form resends every field; the slug never changes. */
+/**
+ * Edits an existing opportunity; an edit to a published one is live immediately. The form
+ * resends every field; the slug never changes. `"status": "published"` publishes a draft, dated
+ * today: on its own it publishes without editing, alongside the fields it saves them first.
+ * A published listing can't go back to being a draft.
+ */
 export async function PATCH(request: Request, { params }: Params) {
   const session = await requireOpportunitiesOrApiKey(request);
   if (session instanceof NextResponse) return session;
   const { slug } = await params;
 
   const body = await request.json().catch(() => ({}));
-  const parsed = opportunityFieldsFromBody(body);
-  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const status = statusFromBody(body);
+  if (!status.ok) return NextResponse.json({ error: status.error }, { status: 400 });
+  // Resending a draft's own `"status": "draft"` (say, from a GET) is fine; unpublishing isn't.
+  if (status.status === "draft" && (await getOpportunityBySlug(slug))?.status === "published") {
+    return NextResponse.json({ error: "A published listing can't be made a draft again." }, { status: 400 });
+  }
+  const publishOnly = status.status === "published" && Object.keys(body).length === 1;
+  const parsed = publishOnly ? null : opportunityFieldsFromBody(body);
+  if (parsed && !parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   try {
-    const opportunity = await updateOpportunity(slug, parsed.fields, session.email);
+    let opportunity = parsed ? await updateOpportunity(slug, parsed.fields, session.email) : null;
+    if (status.status === "published") opportunity = await publishOpportunity(slug, session.email);
     return NextResponse.json(opportunity);
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json(NOT_FOUND, { status: 404 });

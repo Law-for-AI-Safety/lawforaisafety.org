@@ -1,4 +1,4 @@
-import { eq, like } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
 import { revalidateTag } from "next/cache";
@@ -6,13 +6,13 @@ import { OPPORTUNITIES_CACHE_TAG, toOpportunity, type OpportunityRow } from "@/o
 import type { OpportunityFields } from "@/opportunities/form-fields";
 import { opportunityFieldsSchema } from "@/opportunities/schema";
 import { slugify, uniqueSlug } from "@/opportunities/slug";
-import type { Opportunity } from "@/opportunities/types";
+import type { Opportunity, OpportunityStatus } from "@/opportunities/types";
 import { recordOpportunityAction } from "./opportunities-audit-log";
 
 /**
  * Owns every write to the `opportunities` table, plus validation and audit logging - thin
- * routes call in here, same shape as `src/lib/task-tracker-flow.ts`. Every listing publishes
- * immediately on save; there is no draft/review state.
+ * routes call in here, same shape as `src/lib/task-tracker-flow.ts`. A listing is created either
+ * published, live at once, or as a draft that stays off the public site until `publishOpportunity`.
  */
 
 export class NotFoundError extends Error {}
@@ -52,8 +52,15 @@ function parseFields(fields: OpportunityFields): OpportunityFields {
   return parsed.data;
 }
 
-/** Computes a unique slug and inserts, retrying on the rare race where two admins create the same slug at once. */
-export async function createOpportunity(fields: OpportunityFields, createdBy: string): Promise<Opportunity> {
+/**
+ * Computes a unique slug and inserts, retrying on the rare race where two admins create the same
+ * slug at once. A draft takes its slug now, so it keeps the same address once published.
+ */
+export async function createOpportunity(
+  fields: OpportunityFields,
+  createdBy: string,
+  status: OpportunityStatus = "published",
+): Promise<Opportunity> {
   const parsed = parseFields(fields);
   const baseSlug = slugify(`${parsed.org} ${parsed.title}`);
 
@@ -63,7 +70,7 @@ export async function createOpportunity(fields: OpportunityFields, createdBy: st
     try {
       [row] = await db
         .insert(opportunities)
-        .values({ ...parsed, slug, publishedAt: todayISO(), createdBy })
+        .values({ ...parsed, slug, status, publishedAt: status === "published" ? todayISO() : null, createdBy })
         .returning();
       break;
     } catch (e) {
@@ -75,7 +82,7 @@ export async function createOpportunity(fields: OpportunityFields, createdBy: st
 
   await recordOpportunityAction({
     actorEmail: createdBy,
-    action: "create",
+    action: status === "draft" ? "create_draft" : "create",
     entityId: row.id,
     detail: { slug: row.slug, title: row.title, org: row.org },
   });
@@ -91,7 +98,7 @@ function withNullsForClearedFields(fields: OpportunityFields): typeof fields {
   return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value ?? null])) as typeof fields;
 }
 
-/** Edits an existing listing. The slug and `publishedAt` are never in `fields`, so they never change. */
+/** Edits an existing listing, draft or published. The slug, status and `publishedAt` are never in `fields`, so they never change. */
 export async function updateOpportunity(slug: string, fields: OpportunityFields, actorEmail: string): Promise<Opportunity> {
   const parsed = parseFields(fields);
 
@@ -112,6 +119,32 @@ export async function updateOpportunity(slug: string, fields: OpportunityFields,
   const detail = Object.fromEntries(changedKeys.map((key) => [key, { before: existing[key], after: row[key] }]));
   await recordOpportunityAction({ actorEmail, action: "update", entityId: row.id, detail });
 
+  return toOpportunity(row);
+}
+
+/**
+ * Makes a draft public, dated today. Publishing a listing that is already public changes
+ * nothing, so a script can safely retry.
+ */
+export async function publishOpportunity(slug: string, actorEmail: string): Promise<Opportunity> {
+  const [row] = await db
+    .update(opportunities)
+    .set({ status: "published", publishedAt: todayISO() })
+    .where(and(eq(opportunities.slug, slug), eq(opportunities.status, "draft")))
+    .returning();
+  if (!row) {
+    const [existing] = await db.select().from(opportunities).where(eq(opportunities.slug, slug));
+    if (!existing) throw new NotFoundError();
+    return toOpportunity(existing);
+  }
+  clearPublicCache();
+
+  await recordOpportunityAction({
+    actorEmail,
+    action: "publish",
+    entityId: row.id,
+    detail: { slug: row.slug, title: row.title, org: row.org, publishedAt: row.publishedAt },
+  });
   return toOpportunity(row);
 }
 

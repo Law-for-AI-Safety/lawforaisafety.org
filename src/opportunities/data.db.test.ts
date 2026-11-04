@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
-import { getOpportunities, getOpportunityBySlug } from "./data";
+import { countDraftOpportunities, getOpportunities, getOpportunityBySlug, getPublishedOpportunities } from "./data";
 
 const FIXTURE = {
   slug: "fixture-job",
@@ -47,5 +47,32 @@ describe("getOpportunities / getOpportunityBySlug", () => {
     const found = await getOpportunityBySlug(FIXTURE.slug);
     expect(found?.orgUrl).toBeUndefined();
     expect(found?.tags).toBeUndefined();
+  });
+});
+
+describe("drafts", () => {
+  const DRAFT = { ...FIXTURE, slug: "draft-job", title: "Draft Job", status: "draft" as const, publishedAt: null };
+
+  it("are listed for the admin, marked as drafts with no published date", async () => {
+    await db.insert(opportunities).values([FIXTURE, DRAFT]);
+    const all = await getOpportunities();
+    expect(all.find((o) => o.slug === DRAFT.slug)).toMatchObject({ status: "draft", publishedAt: undefined });
+    expect(all.find((o) => o.slug === FIXTURE.slug)).toMatchObject({ status: "published", publishedAt: "2026-01-01" });
+  });
+
+  it("are left out of the public list", async () => {
+    await db.insert(opportunities).values([FIXTURE, DRAFT]);
+    expect((await getPublishedOpportunities()).map((o) => o.slug)).toEqual([FIXTURE.slug]);
+  });
+
+  it("are counted", async () => {
+    expect(await countDraftOpportunities()).toBe(0);
+    await db.insert(opportunities).values([FIXTURE, DRAFT, { ...DRAFT, slug: "draft-job-2" }]);
+    expect(await countDraftOpportunities()).toBe(2);
+  });
+
+  it("can't be stored with a published date, nor a published listing without one", async () => {
+    await expect(db.insert(opportunities).values({ ...DRAFT, publishedAt: "2026-01-01" })).rejects.toThrow();
+    await expect(db.insert(opportunities).values({ ...FIXTURE, publishedAt: null })).rejects.toThrow();
   });
 });

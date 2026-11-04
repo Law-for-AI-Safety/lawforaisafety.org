@@ -19,6 +19,7 @@ const job: Opportunity = {
   compPeriod: "year",
   deadline: "2026-10-30",
   applyUrl: "https://example.com/apply",
+  status: "published",
   publishedAt: "2026-01-01",
 };
 
@@ -33,6 +34,7 @@ const course: Opportunity = {
   locationCountry: "GLOBAL",
   remote: true,
   applyUrl: "https://example.com/course",
+  status: "published",
   publishedAt: "2026-01-01",
 };
 

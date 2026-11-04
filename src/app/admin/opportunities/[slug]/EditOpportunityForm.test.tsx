@@ -14,6 +14,7 @@ const opportunity: Opportunity = {
   locationCountry: "GLOBAL",
   remote: true,
   applyUrl: "https://example.com/apply",
+  status: "published",
   publishedAt: "2026-01-01",
 };
 

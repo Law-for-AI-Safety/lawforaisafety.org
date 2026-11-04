@@ -484,9 +484,10 @@ export const cmsSubmissions = pgTable(
   (table) => [index("cms_submissions_page_idx").on(table.page)],
 );
 
-// Opportunities board: plain DB-backed CRUD, same trust level as task-tracker (no draft/review
-// state - an admin saving a listing is already the review step). `publishedAt` is set once at
-// creation and never changes on edit; history instead lives in opportunitiesAuditLog.
+// Opportunities board: plain DB-backed CRUD, same trust level as task-tracker. A listing is either
+// published (on the board) or a draft (posted in a batch through the API, say) that only admins
+// see until one publishes it. `publishedAt` is the day it went public: null while a draft, set
+// once on publish and never changed by an edit; history instead lives in opportunitiesAuditLog.
 // The same kinds as OPPORTUNITY_TYPES in src/opportunities/kinds.ts, which holds each one's wording.
 export const opportunityType = pgEnum("opportunity_type", ["job", "fellowship", "project", "course", "event"]);
 export const opportunityCommitment = pgEnum("opportunity_commitment", [
@@ -498,37 +499,50 @@ export const opportunityCommitment = pgEnum("opportunity_commitment", [
 ]);
 export const opportunityCompCurrency = pgEnum("opportunity_comp_currency", ["GBP", "USD", "EUR"]);
 export const opportunityCompPeriod = pgEnum("opportunity_comp_period", ["year", "month", "week", "day", "hour"]);
+// The same values as OPPORTUNITY_STATUSES in src/opportunities/schema.ts.
+export const opportunityStatus = pgEnum("opportunity_status", ["draft", "published"]);
 
-export const opportunities = pgTable("opportunities", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  slug: text("slug").notNull().unique(),
-  type: opportunityType("type").notNull(),
-  title: text("title").notNull(),
-  org: text("org").notNull(),
-  orgUrl: text("org_url"),
-  summary: text("summary").notNull(),
-  description: text("description").notNull(),
-  locationCountry: text("location_country").notNull(),
-  locationCity: text("location_city"),
-  locationNote: text("location_note"),
-  remote: boolean("remote").notNull(),
-  commitment: opportunityCommitment("commitment"),
-  compMin: integer("comp_min"),
-  compMax: integer("comp_max"),
-  compCurrency: opportunityCompCurrency("comp_currency"),
-  compPeriod: opportunityCompPeriod("comp_period"),
-  compNote: text("comp_note"),
-  deadline: date("deadline"),
-  startDate: date("start_date"),
-  endDate: date("end_date"),
-  tags: jsonb("tags").$type<string[]>().default([]),
-  applyUrl: text("apply_url").notNull(),
-  applyLabel: text("apply_label"),
-  sourceUrl: text("source_url"),
-  publishedAt: date("published_at").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  createdBy: text("created_by").notNull(),
-});
+export const opportunities = pgTable(
+  "opportunities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    type: opportunityType("type").notNull(),
+    title: text("title").notNull(),
+    org: text("org").notNull(),
+    orgUrl: text("org_url"),
+    summary: text("summary").notNull(),
+    description: text("description").notNull(),
+    locationCountry: text("location_country").notNull(),
+    locationCity: text("location_city"),
+    locationNote: text("location_note"),
+    remote: boolean("remote").notNull(),
+    commitment: opportunityCommitment("commitment"),
+    compMin: integer("comp_min"),
+    compMax: integer("comp_max"),
+    compCurrency: opportunityCompCurrency("comp_currency"),
+    compPeriod: opportunityCompPeriod("comp_period"),
+    compNote: text("comp_note"),
+    deadline: date("deadline"),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    tags: jsonb("tags").$type<string[]>().default([]),
+    applyUrl: text("apply_url").notNull(),
+    applyLabel: text("apply_label"),
+    sourceUrl: text("source_url"),
+    status: opportunityStatus("status").notNull().default("published"),
+    publishedAt: date("published_at"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    // A published listing has the day it went public; a draft has none yet.
+    check(
+      "opportunities_published_at_chk",
+      sql`(${table.status} = 'published') = (${table.publishedAt} IS NOT NULL)`,
+    ),
+  ],
+);
 
 // Same shape as taskTrackerAuditLog - a delete's `detail` holds a full snapshot of the row,
 // since hard-deleting otherwise loses the record entirely (git previously kept this for free).

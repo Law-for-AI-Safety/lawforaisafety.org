@@ -108,6 +108,12 @@ describe("an opportunity's detail page", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Renamed Job");
   });
 
+  it("is a 404 for a draft", async () => {
+    await db.insert(opportunities).values({ ...JOB, slug: "draft-job", status: "draft", publishedAt: null });
+    await expect(OpportunityPage(params("draft-job"))).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(generateMetadata(params("draft-job"))).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
   it("is a 404 at once when the listing is deleted through the flow", async () => {
     render(await OpportunityPage(params(JOB.slug)));
     await deleteOpportunity(JOB.slug, "admin@example.com");

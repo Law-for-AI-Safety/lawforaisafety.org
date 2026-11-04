@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { opportunityFieldsFromBody } from "./form-fields";
+import { opportunityFieldsFromBody, statusFromBody } from "./form-fields";
 
 describe("opportunityFieldsFromBody", () => {
   it("refuses a body missing title, org or applyUrl", () => {
@@ -35,5 +35,22 @@ describe("opportunityFieldsFromBody", () => {
   it("leaves tags undefined when not an array", () => {
     const result = opportunityFieldsFromBody({ type: "job", title: "A", org: "B", applyUrl: "https://example.com" });
     expect(result).toMatchObject({ fields: { tags: undefined } });
+  });
+});
+
+describe("statusFromBody", () => {
+  it("leaves the status undefined when the body has none", () => {
+    expect(statusFromBody({})).toEqual({ ok: true, status: undefined });
+  });
+
+  it("keeps draft or published", () => {
+    expect(statusFromBody({ status: "draft" })).toEqual({ ok: true, status: "draft" });
+    expect(statusFromBody({ status: "published" })).toEqual({ ok: true, status: "published" });
+  });
+
+  it("rejects any other status rather than guessing one", () => {
+    const error = "Status must be one of: draft, published";
+    expect(statusFromBody({ status: "Draft" })).toEqual({ ok: false, error });
+    expect(statusFromBody({ status: true })).toEqual({ ok: false, error });
   });
 });

@@ -4,6 +4,8 @@ export type { OpportunityType };
 export type CommitmentType = "full_time" | "part_time" | "contract" | "internship" | "fellowship";
 export type CompCurrency = "GBP" | "USD" | "EUR";
 export type CompPeriod = "year" | "month" | "week" | "day" | "hour";
+/** A draft is seen only in the admin, until an admin publishes it. */
+export type OpportunityStatus = "draft" | "published";
 
 export type Opportunity = {
   id: string;
@@ -37,5 +39,14 @@ export type Opportunity = {
   applyLabel?: string;
   /** Where this listing was found, for reference, when it differs from `applyUrl`. */
   sourceUrl?: string;
-  publishedAt: string;
+  status: OpportunityStatus;
+  /** The day it went public. Unset while a draft. */
+  publishedAt?: string;
 };
+
+/** A listing the public may see: what the board, listing pages and sitemap read. */
+export type PublishedOpportunity = Opportunity & { status: "published"; publishedAt: string };
+
+export function isPublished(opportunity: Opportunity): opportunity is PublishedOpportunity {
+  return opportunity.status === "published" && opportunity.publishedAt !== undefined;
+}

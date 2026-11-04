@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import { dataCache } from "../../../test/next-cache";
-import { createOpportunity } from "@/lib/opportunities-flow";
+import { createOpportunity, publishOpportunity } from "@/lib/opportunities-flow";
 import OpportunitiesPage, { metadata } from "./page";
 
 const FIXTURE = {
@@ -78,6 +78,22 @@ describe("the opportunities index page", () => {
     cleanup();
     render(await OpportunitiesPage());
     expect(screen.getByText("Created Job")).toBeInTheDocument();
+  });
+
+  it("leaves out a draft until it is published, then shows it at once", async () => {
+    const { type, org, summary, description, locationCountry, remote, applyUrl } = FIXTURE;
+    const draft = await createOpportunity(
+      { type, title: "Drafted Job", org, summary, description, locationCountry, remote, applyUrl },
+      "admin@example.com",
+      "draft",
+    );
+    render(await OpportunitiesPage());
+    expect(screen.queryByText("Drafted Job")).not.toBeInTheDocument();
+
+    await publishOpportunity(draft.slug, "admin@example.com");
+    cleanup();
+    render(await OpportunitiesPage());
+    expect(screen.getByText("Drafted Job")).toBeInTheDocument();
   });
 
   it("has metadata for the canonical URL", () => {

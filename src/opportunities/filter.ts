@@ -178,15 +178,17 @@ export function closingDate(opportunity: ClosingFields): string | undefined {
  * Orders listings. By closing date, those with one come first, soonest first, then the rest
  * newest first. By newest, every listing goes by when it was published.
  */
-export function sortOpportunities(items: Opportunity[], sort: OpportunitySort = "closing"): Opportunity[] {
-  if (sort === "newest") return [...items].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+export function sortOpportunities<T extends Opportunity>(items: T[], sort: OpportunitySort = "closing"): T[] {
+  // A draft has no published date yet, so it sorts as the oldest.
+  const newestFirst = (a: T, b: T) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
+  if (sort === "newest") return [...items].sort(newestFirst);
   return [...items].sort((a, b) => {
     const aCloses = closingDate(a);
     const bCloses = closingDate(b);
     if (aCloses && bCloses) return aCloses.localeCompare(bCloses);
     if (aCloses) return -1;
     if (bCloses) return 1;
-    return b.publishedAt.localeCompare(a.publishedAt);
+    return newestFirst(a, b);
   });
 }
 
@@ -222,7 +224,7 @@ export function isClosed(opportunity: ClosingFields, now: Date): boolean {
   return days !== undefined && days < 0;
 }
 
-export function openOpportunities(items: Opportunity[], now: Date): Opportunity[] {
+export function openOpportunities<T extends Opportunity>(items: T[], now: Date): T[] {
   return items.filter((item) => !isClosed(item, now));
 }
 
