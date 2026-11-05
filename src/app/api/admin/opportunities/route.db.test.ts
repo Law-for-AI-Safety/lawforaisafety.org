@@ -189,3 +189,62 @@ describe("POST /api/admin/opportunities", () => {
     expect(await db.select().from(opportunities)).toEqual([]);
   });
 });
+
+describe("listings with rounds", () => {
+  const ROUNDS = [
+    { label: "Round 1", deadline: "2026-11-15", startDate: "2026-11-23", endDate: "2027-01-17" },
+    { label: "Round 2", deadline: "2026-12-06", startDate: "2026-12-14", endDate: "2027-02-07" },
+    { label: "Round 3", deadline: "2026-12-27", startDate: "2027-01-04", endDate: "2027-02-28" },
+  ];
+  const COURSE = { ...VALID_BODY, type: "course", title: "Frontier AI Governance", org: "BlueDot", rounds: ROUNDS };
+
+  beforeEach(async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+  });
+
+  it("creates a listing with rounds and lists it with them", async () => {
+    const response = await POST(request(COURSE));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ rounds: ROUNDS });
+
+    const [row] = await db.select().from(opportunities);
+    expect(row.rounds).toEqual(ROUNDS);
+    expect([row.deadline, row.startDate, row.endDate]).toEqual([null, null, null]);
+
+    const listed = await (await GET(listRequest())).json();
+    expect(listed).toMatchObject([{ slug: "bluedot-frontier-ai-governance", rounds: ROUNDS }]);
+  });
+
+  it("keeps a draft's rounds", async () => {
+    const response = await POST(request({ ...COURSE, status: "draft" }));
+    expect(await response.json()).toMatchObject({ status: "draft", rounds: ROUNDS });
+  });
+
+  it("returns no rounds for a listing with single dates", async () => {
+    const data = await (await POST(request({ ...VALID_BODY, deadline: "2026-11-15" }))).json();
+    expect(data).not.toHaveProperty("rounds");
+  });
+
+  it("is a 400 naming the round that is wrong, and saves nothing", async () => {
+    const response = await POST(request({ ...COURSE, rounds: [ROUNDS[0], { ...ROUNDS[1], endDate: "2026-12-01" }] }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Round 2: End date can't be before the start date" });
+    expect(await db.select().from(opportunities)).toEqual([]);
+  });
+
+  it("is a 400 for rounds alongside the listing's own dates", async () => {
+    const response = await POST(request({ ...COURSE, deadline: "2026-11-15" }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "A listing with rounds keeps its dates in its rounds: leave its own deadline, start date and end date blank",
+    });
+  });
+
+  it("is a 400 for rounds in the wrong shape", async () => {
+    const response = await POST(request({ ...COURSE, rounds: [{ closes: "2026-11-15" }] }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Round 1 has an unknown field "closes": a round takes label, deadline, startDate, endDate',
+    });
+  });
+});

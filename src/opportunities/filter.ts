@@ -1,6 +1,6 @@
 import { COUNTRIES } from "./countries";
 import { OPPORTUNITY_TYPES } from "./kinds";
-import type { Opportunity, OpportunityType } from "./types";
+import type { Opportunity, OpportunityRound, OpportunityType } from "./types";
 
 const COUNTRY_NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
 
@@ -163,28 +163,100 @@ export function countryName(code: string): string {
   return COUNTRY_NAME[code] ?? code;
 }
 
-export type ClosingFields = Pick<Opportunity, "type" | "deadline" | "startDate" | "endDate">;
+export type ClosingFields = Pick<Opportunity, "type" | "deadline" | "startDate" | "endDate" | "rounds">;
+/** One run's dates: a listing's own, or one of its rounds'. */
+export type RoundDates = Pick<OpportunityRound, "deadline" | "startDate" | "endDate">;
 
 /**
- * The last day a listing can be acted on: its deadline, or for an event with no separate
- * registration deadline, the event's own last day. Undefined means it never closes.
+ * The last day one run can be acted on: its deadline, or with no separate deadline, an event's
+ * own last day, or the day a course starts. Undefined means it never closes.
  */
-export function closingDate(opportunity: ClosingFields): string | undefined {
-  if (opportunity.deadline) return opportunity.deadline;
-  return opportunity.type === "event" ? (opportunity.endDate ?? opportunity.startDate) : undefined;
+function runClosingDate(type: OpportunityType, dates: RoundDates): string | undefined {
+  if (dates.deadline) return dates.deadline;
+  if (type === "event") return dates.endDate ?? dates.startDate;
+  if (type === "course") return dates.startDate;
+  return undefined;
+}
+
+/** Anywhere on Earth (UTC−12), the last time zone where a given day ends. */
+const ANYWHERE_ON_EARTH_OFFSET_MS = 12 * 60 * 60 * 1000;
+
+/** Whole days left until a closing day ends Anywhere on Earth; negative once it has passed. */
+function daysLeftUntil(closes: string | undefined, now: Date): number | undefined {
+  return closes === undefined ? undefined : daysUntil(closes, new Date(now.getTime() - ANYWHERE_ON_EARTH_OFFSET_MS));
+}
+
+export type RoundView = {
+  round: OpportunityRound;
+  /** Its place in `rounds` as entered, counting from 0. */
+  index: number;
+  closes: string | undefined;
+  closed: boolean;
+};
+
+/**
+ * A listing's rounds in the order they close, soonest first, each marked closed or not. A round
+ * that never closes goes last. Empty for a listing with single dates.
+ */
+export function roundsByClosing(opportunity: ClosingFields, now: Date): RoundView[] {
+  return (opportunity.rounds ?? [])
+    .map((round, index) => {
+      const closes = runClosingDate(opportunity.type, round);
+      const days = daysLeftUntil(closes, now);
+      return { round, index, closes, closed: days !== undefined && days < 0 };
+    })
+    .sort((a, b) => {
+      if (a.closes && b.closes) return a.closes.localeCompare(b.closes) || a.index - b.index;
+      if (a.closes) return -1;
+      if (b.closes) return 1;
+      return a.index - b.index;
+    });
+}
+
+export type CurrentRun = RoundDates & {
+  /** The round shown, when the listing has rounds. */
+  round?: RoundView;
+  /** How many open rounds come after it. */
+  moreRounds: number;
+};
+
+/**
+ * The dates the board goes by. For a listing with rounds, the round open now that closes
+ * soonest, or once every round has closed, the last to close; past rounds otherwise count for
+ * nothing. For any other listing, its own dates.
+ */
+export function currentRun(opportunity: ClosingFields, now: Date): CurrentRun {
+  const rounds = roundsByClosing(opportunity, now);
+  if (rounds.length === 0) {
+    const { deadline, startDate, endDate } = opportunity;
+    return { deadline, startDate, endDate, moreRounds: 0 };
+  }
+  const open = rounds.filter((view) => !view.closed);
+  const round = open[0] ?? rounds[rounds.length - 1];
+  const { deadline, startDate, endDate } = round.round;
+  return { deadline, startDate, endDate, round, moreRounds: Math.max(open.length - 1, 0) };
+}
+
+/**
+ * The last day a listing can be acted on, from `currentRun`: so a listing with rounds closes
+ * with its last round. Undefined means it never closes.
+ */
+export function closingDate(opportunity: ClosingFields, now: Date): string | undefined {
+  return runClosingDate(opportunity.type, currentRun(opportunity, now));
 }
 
 /**
  * Orders listings. By closing date, those with one come first, soonest first, then the rest
  * newest first. By newest, every listing goes by when it was published.
  */
-export function sortOpportunities<T extends Opportunity>(items: T[], sort: OpportunitySort = "closing"): T[] {
+export function sortOpportunities<T extends Opportunity>(items: T[], sort: OpportunitySort, now: Date): T[] {
   // A draft has no published date yet, so it sorts as the oldest.
   const newestFirst = (a: T, b: T) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
   if (sort === "newest") return [...items].sort(newestFirst);
+  const closes = new Map(items.map((item) => [item, closingDate(item, now)]));
   return [...items].sort((a, b) => {
-    const aCloses = closingDate(a);
-    const bCloses = closingDate(b);
+    const aCloses = closes.get(a);
+    const bCloses = closes.get(b);
     if (aCloses && bCloses) return aCloses.localeCompare(bCloses);
     if (aCloses) return -1;
     if (bCloses) return 1;
@@ -200,13 +272,9 @@ export function daysUntil(deadline: string, now: Date): number {
   return Math.round((target - today) / msPerDay);
 }
 
-/** Anywhere on Earth (UTC−12), the last time zone where a given day ends. */
-const ANYWHERE_ON_EARTH_OFFSET_MS = 12 * 60 * 60 * 1000;
-
 /** Whole days left until the listing's closing day ends Anywhere on Earth; negative once it has closed. */
 function daysLeft(opportunity: ClosingFields, now: Date): number | undefined {
-  const closes = closingDate(opportunity);
-  return closes === undefined ? undefined : daysUntil(closes, new Date(now.getTime() - ANYWHERE_ON_EARTH_OFFSET_MS));
+  return daysLeftUntil(closingDate(opportunity, now), now);
 }
 
 /** Still open, and closing within `withinDays`, on the same clock as `isClosed`. */
@@ -229,7 +297,7 @@ export function openOpportunities<T extends Opportunity>(items: T[], now: Date):
 }
 
 /** An event's date, or its first and last days for a multi-day event, e.g. "30 Oct 2026 – 1 Nov 2026". */
-export function formatEventDates(opportunity: Pick<Opportunity, "startDate" | "endDate">): string | undefined {
+export function formatEventDates(opportunity: Pick<RoundDates, "startDate" | "endDate">): string | undefined {
   const { startDate, endDate } = opportunity;
   if (!startDate) return undefined;
   return endDate && endDate !== startDate ? `${formatDate(startDate)} – ${formatDate(endDate)}` : formatDate(startDate);

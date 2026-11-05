@@ -7,6 +7,17 @@ export type CompPeriod = "year" | "month" | "week" | "day" | "hour";
 /** A draft is seen only in the admin, until an admin publishes it. */
 export type OpportunityStatus = "draft" | "published";
 
+/**
+ * One run of a listing that repeats, such as a course's cohort. Each round has at least one
+ * date; `label` tells rounds apart where their dates alone don't, e.g. "Intensive" or "Part-time".
+ */
+export type OpportunityRound = {
+  label?: string;
+  deadline?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
 export type Opportunity = {
   id: string;
   slug: string;
@@ -34,6 +45,11 @@ export type Opportunity = {
   startDate?: string;
   /** A multi-day event's last day; for anything else, when it ends. */
   endDate?: string;
+  /**
+   * A listing that runs more than once has its dates here, one entry per round, and leaves
+   * `deadline`, `startDate` and `endDate` unset.
+   */
+  rounds?: OpportunityRound[];
   tags?: string[];
   applyUrl: string;
   applyLabel?: string;

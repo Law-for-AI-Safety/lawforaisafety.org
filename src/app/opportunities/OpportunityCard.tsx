@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  currentRun,
   formatCommitment,
   formatCompensation,
   formatDate,
@@ -13,12 +14,26 @@ import type { Opportunity } from "@/opportunities/types";
 export default function OpportunityCard({ opportunity, now = new Date() }: { opportunity: Opportunity; now?: Date }) {
   const kind = OPPORTUNITY_KINDS[opportunity.type];
   const soon = isClosingSoon(opportunity, now);
+  // The round open now, for a listing with rounds; else the listing's own dates.
+  const run = currentRun(opportunity, now);
   const meta = [
-    opportunity.type === "event" ? formatEventDates(opportunity) : undefined,
+    run.round?.round.label,
+    opportunity.type === "event"
+      ? formatEventDates(run)
+      : run.round && run.startDate
+        ? `${kind.startLabel} ${formatDate(run.startDate)}`
+        : undefined,
     opportunity.remote ? "Remote" : formatLocation(opportunity),
     formatCommitment(opportunity),
     formatCompensation(opportunity),
   ].filter(Boolean);
+  const more = run.moreRounds > 0 ? `+${run.moreRounds} more round${run.moreRounds === 1 ? "" : "s"}` : undefined;
+  const closing = (
+    run.deadline
+      ? [soon ? "Closing soon" : undefined, `${kind.deadlineLabel} ${formatDate(run.deadline)}`, more]
+      : // With no deadline, only an event or a course closes (on its date), so this one is coming up.
+        [soon ? "Coming up" : undefined, more]
+  ).filter(Boolean);
 
   return (
     <Link
@@ -34,14 +49,10 @@ export default function OpportunityCard({ opportunity, now = new Date() }: { opp
 
       <p className="text-base font-light text-brand-navy/70">{meta.join(" · ")}</p>
 
-      {opportunity.deadline ? (
-        <p className="text-sm font-light text-brand-red">
-          {soon ? "Closing soon · " : ""}
-          {kind.deadlineLabel} {formatDate(opportunity.deadline)}
+      {closing.length > 0 && (
+        <p className={`text-sm font-light ${run.deadline || soon ? "text-brand-red" : "text-brand-navy/70"}`}>
+          {closing.join(" · ")}
         </p>
-      ) : (
-        // With no deadline, only an event closes (after its date), so this is an event coming up.
-        soon && <p className="text-sm font-light text-brand-red">Coming up</p>
       )}
 
       <p className="text-lg font-light text-brand-navy/85 leading-relaxed max-w-2xl">{opportunity.summary}</p>

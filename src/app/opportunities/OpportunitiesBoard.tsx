@@ -59,7 +59,7 @@ export default function OpportunitiesBoard({ opportunities, now }: { opportuniti
     const filters = parseFilters(new URLSearchParams(query));
     return {
       filters,
-      shown: sortOpportunities(filterOpportunities(opportunities, filters, now), filters.sort),
+      shown: sortOpportunities(filterOpportunities(opportunities, filters, now), filters.sort, now),
       // Counted under the other filters but not the location filter itself, so ticking one
       // country leaves the others' counts alone. Each count is how many listings are based
       // there; a remote one is counted under its country and under global and remote alike.

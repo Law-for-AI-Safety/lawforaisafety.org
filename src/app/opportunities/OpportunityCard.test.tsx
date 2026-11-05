@@ -81,4 +81,45 @@ describe("OpportunityCard", () => {
     render(<OpportunityCard opportunity={job} now={new Date("2026-10-25")} />);
     expect(screen.getByText("Closing soon · Apply by 30 Oct 2026")).toBeInTheDocument();
   });
+
+  describe("with rounds", () => {
+    const rounds: Opportunity = {
+      ...course,
+      rounds: [
+        { label: "Round 1", deadline: "2026-11-15", startDate: "2026-11-23", endDate: "2027-01-17" },
+        { label: "Round 2", deadline: "2026-12-06", startDate: "2026-12-14", endDate: "2027-02-07" },
+        { label: "Round 3", deadline: "2026-12-27", startDate: "2027-01-04", endDate: "2027-02-28" },
+      ],
+    };
+
+    it("shows the next round, and how many more are open", () => {
+      render(<OpportunityCard opportunity={rounds} now={new Date("2026-10-01T12:00:00Z")} />);
+      expect(screen.getByText(/Round 1 · Starts 23 Nov 2026/)).toBeInTheDocument();
+      expect(screen.getByText("Enrol by 15 Nov 2026 · +2 more rounds")).toBeInTheDocument();
+    });
+
+    it("moves on to the next round once one has closed", () => {
+      render(<OpportunityCard opportunity={rounds} now={new Date("2026-11-20T12:00:00Z")} />);
+      expect(screen.getByText(/Round 2 · Starts 14 Dec 2026/)).toBeInTheDocument();
+      expect(screen.getByText("Closing soon · Enrol by 6 Dec 2026 · +1 more round")).toBeInTheDocument();
+    });
+
+    it("hints at more rounds when the round shown has no deadline", () => {
+      const undated: Opportunity = { ...course, type: "job", rounds: [{ startDate: "2027-01-01" }, { startDate: "2027-06-01" }] };
+      render(<OpportunityCard opportunity={undated} now={new Date("2026-10-01T12:00:00Z")} />);
+      expect(screen.getByText("+1 more round")).toBeInTheDocument();
+    });
+
+    it("flags a course round with no deadline as coming up when it starts soon", () => {
+      const undated: Opportunity = { ...course, rounds: [{ startDate: "2026-10-10" }, { startDate: "2027-06-01" }] };
+      render(<OpportunityCard opportunity={undated} now={new Date("2026-10-01T12:00:00Z")} />);
+      expect(screen.getByText("Coming up · +1 more round")).toBeInTheDocument();
+    });
+
+    it("shows an event round's dates", () => {
+      const event: Opportunity = { ...course, type: "event", rounds: [{ label: "Berlin", startDate: "2026-12-10", endDate: "2026-12-11" }] };
+      render(<OpportunityCard opportunity={event} now={new Date("2026-10-01T12:00:00Z")} />);
+      expect(screen.getByText(/Berlin · 10 Dec 2026 – 11 Dec 2026/)).toBeInTheDocument();
+    });
+  });
 });

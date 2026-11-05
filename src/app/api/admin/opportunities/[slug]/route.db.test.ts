@@ -143,6 +143,59 @@ describe("PATCH /api/admin/opportunities/[slug]", () => {
   });
 });
 
+describe("editing a listing's rounds through PATCH", () => {
+  const ROUNDS = [{ label: "Intensive", deadline: "2026-11-15" }, { label: "Part-time", deadline: "2026-12-06" }];
+  const body = { ...EXISTING, type: "course" };
+
+  beforeEach(async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+  });
+
+  it("splits single dates into rounds, clearing the listing's own", async () => {
+    await db.update(opportunities).set({ deadline: "2026-11-15" });
+    const response = await PATCH(request("PATCH", { ...body, rounds: ROUNDS }), params);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ rounds: ROUNDS });
+    const [row] = await db.select().from(opportunities);
+    expect(row.deadline).toBeNull();
+
+    const [entry] = await db.select().from(opportunitiesAuditLog);
+    expect(entry.detail).toMatchObject({ rounds: { before: null, after: ROUNDS }, deadline: { before: "2026-11-15", after: null } });
+  });
+
+  it("returns the rounds from GET", async () => {
+    await db.update(opportunities).set({ type: "course", rounds: ROUNDS });
+    expect(await (await GET(request("GET"), params)).json()).toMatchObject({ rounds: ROUNDS });
+  });
+
+  it("clears the rounds when they are left out or empty", async () => {
+    for (const rounds of [undefined, []]) {
+      await db.update(opportunities).set({ type: "course", rounds: ROUNDS });
+      const response = await PATCH(request("PATCH", { ...body, rounds, deadline: "2026-12-01" }), params);
+      expect(response.status).toBe(200);
+      expect(await response.json()).not.toHaveProperty("rounds");
+      const [row] = await db.select().from(opportunities);
+      expect(row.rounds).toBeNull();
+      expect(row.deadline).toBe("2026-12-01");
+    }
+  });
+
+  it("is a 400 for a bad round, leaving the listing as it was", async () => {
+    await db.update(opportunities).set({ type: "course", rounds: ROUNDS });
+    const response = await PATCH(request("PATCH", { ...body, rounds: [...ROUNDS, { label: "Round 3" }] }), params);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Round 3: A round needs at least one date" });
+    const [row] = await db.select().from(opportunities);
+    expect(row.rounds).toEqual(ROUNDS);
+  });
+
+  it("saves a draft's rounds as it publishes it", async () => {
+    await db.update(opportunities).set({ status: "draft", publishedAt: null });
+    const response = await PATCH(request("PATCH", { ...body, publishedAt: undefined, rounds: ROUNDS, status: "published" }), params);
+    expect(await response.json()).toMatchObject({ status: "published", rounds: ROUNDS });
+  });
+});
+
 describe("publishing a draft through PATCH", () => {
   const DRAFT_SLUG = "draft-job";
   const draftParams = { params: Promise.resolve({ slug: DRAFT_SLUG }) };

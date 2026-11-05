@@ -12,16 +12,17 @@ type Props = { params: Promise<{ slug: string }> };
 
 /**
  * The listing, and whether it has closed. Decided once per request, so the metadata's `noindex`
- * and the page body can't fall either side of the closing moment.
+ * and the page body can't fall either side of the closing moment, or of a round's.
  */
-const load = cache(async (slug: string): Promise<{ opportunity: PublishedOpportunity; closed: boolean }> => {
+const load = cache(async (slug: string): Promise<{ opportunity: PublishedOpportunity; closed: boolean; now: Date }> => {
   // Rendered per request, never prerendered: Netlify builds have no database, and whether
   // the listing has closed depends on today's date. `connection()` makes the page dynamic while
   // leaving on the data cache the listing is read through.
   await connection();
   const found = await getCachedOpportunityBySlug(slug);
   if (!found) notFound();
-  return { opportunity: found, closed: isClosed(found, new Date()) };
+  const now = new Date();
+  return { opportunity: found, closed: isClosed(found, now), now };
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -38,10 +39,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function OpportunityPage({ params }: Props) {
   const { slug } = await params;
-  const { opportunity, closed } = await load(slug);
+  const { opportunity, closed, now } = await load(slug);
   return (
     <ContentPage gap={6}>
-      <OpportunityListing opportunity={opportunity} closed={closed} />
+      <OpportunityListing opportunity={opportunity} closed={closed} now={now} />
     </ContentPage>
   );
 }

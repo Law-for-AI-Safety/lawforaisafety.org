@@ -36,6 +36,7 @@ export function toOpportunity(row: OpportunityRow): Opportunity {
     deadline: row.deadline ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
+    rounds: row.rounds && row.rounds.length > 0 ? row.rounds : undefined,
     tags: row.tags && row.tags.length > 0 ? row.tags : undefined,
     applyUrl: row.applyUrl,
     applyLabel: row.applyLabel ?? undefined,

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   closingDate,
+  currentRun,
   daysUntil,
   DEFAULT_FILTERS,
   filterOpportunities,
@@ -15,6 +16,7 @@ import {
   locationOptions,
   openOpportunities,
   parseFilters,
+  roundsByClosing,
   serializeFilters,
   sortOpportunities,
 } from "./filter";
@@ -195,12 +197,14 @@ describe("locationOptions", () => {
 });
 
 describe("sortOpportunities", () => {
+  const NOW = new Date("2026-10-01T12:00:00Z");
+
   it("orders by soonest deadline first", () => {
     const items = [
       make({ slug: "later", deadline: "2026-12-01" }),
       make({ slug: "soon", deadline: "2026-11-01" }),
     ];
-    expect(sortOpportunities(items).map((i) => i.slug)).toEqual(["soon", "later"]);
+    expect(sortOpportunities(items, "closing", NOW).map((i) => i.slug)).toEqual(["soon", "later"]);
   });
 
   it("orders an event with no deadline by its date", () => {
@@ -208,12 +212,12 @@ describe("sortOpportunities", () => {
       make({ slug: "later", deadline: "2026-12-01" }),
       make({ slug: "event", type: "event", startDate: "2026-11-01" }),
     ];
-    expect(sortOpportunities(items).map((i) => i.slug)).toEqual(["event", "later"]);
+    expect(sortOpportunities(items, "closing", NOW).map((i) => i.slug)).toEqual(["event", "later"]);
   });
 
   it("puts undated items after dated ones", () => {
     const items = [make({ slug: "undated" }), make({ slug: "dated", deadline: "2026-11-01" })];
-    expect(sortOpportunities(items).map((i) => i.slug)).toEqual(["dated", "undated"]);
+    expect(sortOpportunities(items, "closing", NOW).map((i) => i.slug)).toEqual(["dated", "undated"]);
   });
 
   it("breaks undated ties by most recently published first", () => {
@@ -221,7 +225,7 @@ describe("sortOpportunities", () => {
       make({ slug: "older", publishedAt: "2026-01-01" }),
       make({ slug: "newer", publishedAt: "2026-06-01" }),
     ];
-    expect(sortOpportunities(items).map((i) => i.slug)).toEqual(["newer", "older"]);
+    expect(sortOpportunities(items, "closing", NOW).map((i) => i.slug)).toEqual(["newer", "older"]);
   });
 
   it("orders by most recently published first when asked for the newest, whatever the deadlines", () => {
@@ -230,15 +234,31 @@ describe("sortOpportunities", () => {
       make({ slug: "new-undated", publishedAt: "2026-09-01" }),
       make({ slug: "mid-later", publishedAt: "2026-05-01", deadline: "2026-12-01" }),
     ];
-    expect(sortOpportunities(items, "newest").map((i) => i.slug)).toEqual(["new-undated", "mid-later", "old-soon"]);
-    expect(sortOpportunities(items, "closing").map((i) => i.slug)).toEqual(["old-soon", "mid-later", "new-undated"]);
+    expect(sortOpportunities(items, "newest", NOW).map((i) => i.slug)).toEqual(["new-undated", "mid-later", "old-soon"]);
+    expect(sortOpportunities(items, "closing", NOW).map((i) => i.slug)).toEqual(["old-soon", "mid-later", "new-undated"]);
+  });
+
+  it("orders a listing with rounds by its next open round, not a past or later one", () => {
+    const items = [
+      make({ slug: "single", deadline: "2026-11-01" }),
+      make({
+        slug: "rounds",
+        type: "course",
+        rounds: [{ deadline: "2026-09-01" }, { deadline: "2026-10-15" }, { deadline: "2026-12-01" }],
+      }),
+    ];
+    expect(sortOpportunities(items, "closing", NOW).map((i) => i.slug)).toEqual(["rounds", "single"]);
+    expect(sortOpportunities(items, "closing", new Date("2026-10-20T12:00:00Z")).map((i) => i.slug)).toEqual([
+      "single",
+      "rounds",
+    ]);
   });
 
   it("does not mutate the input array", () => {
     const items = [make({ slug: "a", deadline: "2026-12-01" }), make({ slug: "b", deadline: "2026-01-01" })];
     const copy = [...items];
-    sortOpportunities(items);
-    sortOpportunities(items, "newest");
+    sortOpportunities(items, "closing", NOW);
+    sortOpportunities(items, "newest", NOW);
     expect(items).toEqual(copy);
   });
 });
@@ -336,18 +356,113 @@ describe("isClosed / openOpportunities", () => {
   });
 });
 
+describe("listings with rounds", () => {
+  const course = make({
+    type: "course",
+    rounds: [
+      { label: "Round 2", deadline: "2026-12-06", startDate: "2026-12-14", endDate: "2027-02-07" },
+      { label: "Round 1", deadline: "2026-11-15", startDate: "2026-11-23", endDate: "2027-01-17" },
+      { label: "Round 3", deadline: "2026-12-27", startDate: "2027-01-04", endDate: "2027-02-28" },
+    ],
+  });
+  const at = (iso: string) => new Date(`${iso}T12:00:00Z`);
+
+  it("lists rounds soonest closing first, each marked closed or not, keeping where each was entered", () => {
+    expect(roundsByClosing(course, at("2026-11-20")).map(({ round, index, closed }) => [round.label, index, closed])).toEqual([
+      ["Round 1", 1, true],
+      ["Round 2", 0, false],
+      ["Round 3", 2, false],
+    ]);
+  });
+
+  it("puts a round that never closes last, and keeps the entered order between ties", () => {
+    const job = make({ rounds: [{ label: "b", startDate: "2026-12-01" }, { label: "a", deadline: "2026-12-01" }, { label: "c", deadline: "2026-12-01" }] });
+    expect(roundsByClosing(job, at("2026-10-01")).map((view) => [view.round.label, view.closes, view.closed])).toEqual([
+      ["a", "2026-12-01", false],
+      ["c", "2026-12-01", false],
+      ["b", undefined, false],
+    ]);
+  });
+
+  it("has no rounds for a listing with single dates", () => {
+    expect(roundsByClosing(make({ deadline: "2026-12-01" }), at("2026-10-01"))).toEqual([]);
+  });
+
+  it("goes by the first round, with the others still to come, before any has closed", () => {
+    expect(currentRun(course, at("2026-10-01"))).toMatchObject({
+      deadline: "2026-11-15",
+      startDate: "2026-11-23",
+      endDate: "2027-01-17",
+      round: { index: 1 },
+      moreRounds: 2,
+    });
+    expect(isClosed(course, at("2026-10-01"))).toBe(false);
+    expect(isClosingSoon(course, at("2026-10-01"))).toBe(false);
+  });
+
+  it("moves on to the next round once one has closed, Anywhere on Earth", () => {
+    // 15 Nov ends Anywhere on Earth at 16 Nov 12:00 UTC.
+    expect(currentRun(course, new Date("2026-11-16T11:59:59Z")).deadline).toBe("2026-11-15");
+    expect(currentRun(course, new Date("2026-11-16T12:00:00Z"))).toMatchObject({ deadline: "2026-12-06", moreRounds: 1 });
+    expect(isClosingSoon(course, at("2026-11-20"))).toBe(true);
+  });
+
+  it("stays open until its last round has closed, then shows that round", () => {
+    expect(isClosed(course, at("2026-12-27"))).toBe(false);
+    expect(currentRun(course, at("2026-12-28"))).toMatchObject({ deadline: "2026-12-27", round: { index: 2 }, moreRounds: 0 });
+    expect(isClosed(course, at("2026-12-28"))).toBe(true);
+    expect(openOpportunities([course], at("2026-12-28"))).toEqual([]);
+  });
+
+  it("closes a course round with no deadline after it starts, and an event round after its last day", () => {
+    const undated = make({ type: "course", rounds: [{ startDate: "2026-10-05" }, { startDate: "2026-11-05" }] });
+    expect(currentRun(undated, at("2026-10-06")).startDate).toBe("2026-11-05");
+    const event = make({ type: "event", rounds: [{ startDate: "2026-10-05", endDate: "2026-10-07" }] });
+    expect(isClosed(event, at("2026-10-07"))).toBe(false);
+    expect(isClosed(event, at("2026-10-08"))).toBe(true);
+  });
+
+  it("never closes while one of its rounds has no closing date", () => {
+    const job = make({ rounds: [{ deadline: "2026-09-01" }, { startDate: "2026-09-01" }] });
+    expect(isClosed(job, at("2026-10-01"))).toBe(false);
+    expect(currentRun(job, at("2026-10-01"))).toMatchObject({ startDate: "2026-09-01", moreRounds: 0 });
+  });
+
+  it("goes by a listing's own dates when it has no rounds", () => {
+    expect(currentRun(make({ deadline: "2026-12-01", startDate: "2027-01-01" }), at("2026-10-01"))).toEqual({
+      deadline: "2026-12-01",
+      startDate: "2027-01-01",
+      endDate: undefined,
+      moreRounds: 0,
+    });
+  });
+});
+
 describe("closingDate", () => {
+  const NOW = new Date("2026-10-01T12:00:00Z");
+
   it("is the deadline when there is one", () => {
-    expect(closingDate(make({ type: "event", deadline: "2026-10-01", startDate: "2026-10-10" }))).toBe("2026-10-01");
+    expect(closingDate(make({ type: "event", deadline: "2026-10-01", startDate: "2026-10-10" }), NOW)).toBe("2026-10-01");
   });
 
   it("is an event's last day when it has no deadline", () => {
-    expect(closingDate(make({ type: "event", startDate: "2026-10-10", endDate: "2026-10-12" }))).toBe("2026-10-12");
-    expect(closingDate(make({ type: "event", startDate: "2026-10-10" }))).toBe("2026-10-10");
+    expect(closingDate(make({ type: "event", startDate: "2026-10-10", endDate: "2026-10-12" }), NOW)).toBe("2026-10-12");
+    expect(closingDate(make({ type: "event", startDate: "2026-10-10" }), NOW)).toBe("2026-10-10");
+  });
+
+  it("is a course's start date when it has no deadline", () => {
+    expect(closingDate(make({ type: "course", startDate: "2026-10-10", endDate: "2026-12-01" }), NOW)).toBe("2026-10-10");
   });
 
   it("is undefined for anything else with no deadline", () => {
-    expect(closingDate(make({ type: "course", startDate: "2026-10-10" }))).toBeUndefined();
+    expect(closingDate(make({ type: "fellowship", startDate: "2026-10-10" }), NOW)).toBeUndefined();
+    expect(closingDate(make({ type: "course", endDate: "2026-12-01" }), NOW)).toBeUndefined();
+  });
+
+  it("is the next open round's, and the last round's once every round has closed", () => {
+    const course = make({ type: "course", rounds: [{ deadline: "2026-11-15" }, { deadline: "2026-09-15" }] });
+    expect(closingDate(course, NOW)).toBe("2026-11-15");
+    expect(closingDate(course, new Date("2027-01-01T12:00:00Z"))).toBe("2026-11-15");
   });
 });
 

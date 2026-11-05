@@ -1,6 +1,6 @@
 import { OPPORTUNITY_TYPES } from "./kinds";
 import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, OPPORTUNITY_STATUSES } from "./schema";
-import type { Opportunity, OpportunityStatus } from "./types";
+import type { Opportunity, OpportunityRound, OpportunityStatus } from "./types";
 
 /**
  * Turning an admin form's raw JSON body into an opportunity's fields - shared by the create and
@@ -40,7 +40,7 @@ export async function readJsonObject(request: Request): Promise<Record<string, u
 const FIELD_KEYS = [
   "type", "title", "org", "orgUrl", "summary", "description", "locationCountry", "locationCity", "locationNote",
   "remote", "commitment", "compMin", "compMax", "compCurrency", "compPeriod", "compNote", "deadline", "startDate",
-  "endDate", "tags", "applyUrl", "applyLabel", "sourceUrl",
+  "endDate", "rounds", "tags", "applyUrl", "applyLabel", "sourceUrl",
 ] as const satisfies readonly (keyof OpportunityFields)[];
 // A compile-time check that FIELD_KEYS names every field.
 const _allFieldKeys: Exclude<keyof OpportunityFields, (typeof FIELD_KEYS)[number]> extends never ? true : never = true;
@@ -61,6 +61,41 @@ export function statusFromBody(body: Record<string, unknown>): ParsedStatus {
   return { ok: true, status };
 }
 
+const ROUND_KEYS = ["label", "deadline", "startDate", "endDate"] as const satisfies readonly (keyof OpportunityRound)[];
+const ROUND_SHAPE = "a list of rounds, each {label?, deadline?, startDate?, endDate?}";
+
+type ParsedRounds = { ok: true; rounds: OpportunityRound[] | undefined } | { ok: false; error: string };
+
+/**
+ * A body's `rounds`, each round's values trimmed and blanks dropped. Left out, null or an empty
+ * list, there are none: that is how an edit takes a listing back to single dates. The values
+ * are checked here only for being strings; the schema checks they are real dates.
+ */
+export function roundsFromBody(value: unknown): ParsedRounds {
+  if (value === undefined || value === null) return { ok: true, rounds: undefined };
+  if (!Array.isArray(value)) return { ok: false, error: `Rounds must be ${ROUND_SHAPE}` };
+  const rounds: OpportunityRound[] = [];
+  for (const [index, item] of value.entries()) {
+    const where = `Round ${index + 1}`;
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      return { ok: false, error: `${where} must be an object: rounds must be ${ROUND_SHAPE}` };
+    }
+    const unknown = Object.keys(item).find((key) => !(ROUND_KEYS as readonly string[]).includes(key));
+    if (unknown !== undefined) {
+      return { ok: false, error: `${where} has an unknown field "${unknown}": a round takes ${ROUND_KEYS.join(", ")}` };
+    }
+    const round: OpportunityRound = {};
+    for (const key of ROUND_KEYS) {
+      const field: unknown = (item as Record<string, unknown>)[key];
+      if (field === undefined || field === null) continue;
+      if (typeof field !== "string") return { ok: false, error: `${where}: ${key} must be a string` };
+      if (field.trim()) round[key] = field.trim();
+    }
+    rounds.push(round);
+  }
+  return { ok: true, rounds: rounds.length > 0 ? rounds : undefined };
+}
+
 export type ParsedOpportunityBody = { ok: true; fields: OpportunityFields } | { ok: false; error: string };
 
 export function opportunityFieldsFromBody(body: Record<string, unknown>): ParsedOpportunityBody {
@@ -75,6 +110,8 @@ export function opportunityFieldsFromBody(body: Record<string, unknown>): Parsed
   if (!type) {
     return { ok: false, error: `Type must be one of: ${OPPORTUNITY_TYPES.join(", ")}` };
   }
+  const rounds = roundsFromBody(body.rounds);
+  if (!rounds.ok) return rounds;
   return {
     ok: true,
     fields: {
@@ -97,6 +134,7 @@ export function opportunityFieldsFromBody(body: Record<string, unknown>): Parsed
       deadline: strOrUndefined(body.deadline),
       startDate: strOrUndefined(body.startDate),
       endDate: strOrUndefined(body.endDate),
+      rounds: rounds.rounds,
       tags: Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === "string" && t.trim() !== "") : undefined,
       applyUrl,
       applyLabel: strOrUndefined(body.applyLabel),
