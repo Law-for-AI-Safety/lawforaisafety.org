@@ -40,6 +40,8 @@ export default function EditOpportunityForm({
       const result = await sendJson(`/api/admin/opportunities/${opportunity.slug}`, "PATCH", body);
       if (result.status === "draft") {
         setDraftSaved(true);
+        // The form stays open: show the rounds in the order they were saved in, soonest closing first.
+        setState((s) => ({ ...s, rounds: opportunityFormFromExisting(result).rounds }));
         // The page's heading and the Remove prompt still name it as it was.
         router.refresh();
       } else {

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
@@ -83,6 +83,58 @@ describe("an opportunity's detail page", () => {
     render(await OpportunityPage(params("past-event")));
     expect(screen.getByText("Registration closed on 30 Oct 2026.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Register" })).not.toBeInTheDocument();
+  });
+
+  describe("with rounds", () => {
+    const ROUNDS = [
+      { label: "Round 2", deadline: "2026-12-06", startDate: "2026-12-14", endDate: "2027-02-07" },
+      { label: "Round 1", deadline: "2026-11-15", startDate: "2026-11-23" },
+      { deadline: "2026-12-27", startDate: "2027-01-04", endDate: "2027-02-28" },
+    ];
+
+    beforeEach(async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      await db.insert(opportunities).values({ ...COURSE, slug: "rounds-course", rounds: ROUNDS });
+    });
+
+    const roundItems = () => within(screen.getByRole("region", { name: "Rounds" })).getAllByRole("listitem");
+
+    it("lists every round in the order they close, each with its own dates", async () => {
+      vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+      render(await OpportunityPage(params("rounds-course")));
+      expect(roundItems().map((item) => item.textContent)).toEqual([
+        "Round 1NextEnrol by15 Nov 2026Starts23 Nov 2026",
+        "Round 2Enrol by6 Dec 2026Starts14 Dec 2026Ends7 Feb 2027",
+        "Round 3Enrol by27 Dec 2026Starts4 Jan 2027Ends28 Feb 2027",
+      ]);
+      expect(screen.getByRole("link", { name: "View course" })).toBeInTheDocument();
+    });
+
+    it("marks a past round closed, and the next one open, while a round is still open", async () => {
+      vi.setSystemTime(new Date("2026-11-20T12:00:00Z"));
+      render(await OpportunityPage(params("rounds-course")));
+      const [first, second] = roundItems();
+      expect(within(first).getByText("Closed")).toBeInTheDocument();
+      expect(within(second).getByText("Next")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "View course" })).toBeInTheDocument();
+      expect(await generateMetadata(params("rounds-course"))).not.toHaveProperty("robots");
+    });
+
+    it("closes after the last round, on that round's deadline", async () => {
+      vi.setSystemTime(new Date("2026-12-28T12:00:00Z"));
+      render(await OpportunityPage(params("rounds-course")));
+      expect(screen.getByText("Enrolment closed on 27 Dec 2026.")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "View course" })).not.toBeInTheDocument();
+      expect(roundItems().every((item) => within(item).queryByText("Closed"))).toBe(true);
+    });
+  });
+
+  it("closes a course with no deadline once it has started", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T12:00:00Z"));
+    await db.insert(opportunities).values({ ...COURSE, slug: "started-course", startDate: "2026-10-30" });
+    render(await OpportunityPage(params("started-course")));
+    expect(screen.getByText("Enrolment closed on 30 Oct 2026.")).toBeInTheDocument();
   });
 
   it("still shows the CTA on the deadline day", async () => {

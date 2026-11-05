@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { COUNTRIES } from "./countries";
 import { OPPORTUNITY_TYPES } from "./kinds";
-import type { Opportunity } from "./types";
+import type { Opportunity, OpportunityRound } from "./types";
 
 /**
  * The shape of an opportunity file, `content/opportunities/<slug>.json`. One file per listing,
@@ -22,7 +22,8 @@ export function isRealCalendarDate(value: string): boolean {
 const isoDate = (label: string) =>
   z
     .string()
-    .regex(ISO_DATE, `${label} must be an ISO date (YYYY-MM-DD)`)
+    // Stops there, so a value in the wrong format isn't also reported as not a real date.
+    .regex(ISO_DATE, { message: `${label} must be an ISO date (YYYY-MM-DD)`, abort: true })
     .refine(isRealCalendarDate, `${label} must be a real calendar date`);
 const url = (label: string) =>
   z
@@ -48,6 +49,35 @@ const COUNTRY_CODES = new Set(COUNTRIES.map((c) => c.code));
 const countryCode = () =>
   z.string().refine((v) => v === GLOBAL || COUNTRY_CODES.has(v), "Country must be a valid ISO country code, or GLOBAL");
 
+/** Most rounds a listing may have: more than any real course runs at once, few enough to list. */
+export const MAX_ROUNDS = 20;
+
+const roundSchema = z
+  .object({
+    label: text("Label", 50).optional(),
+    deadline: isoDate("Deadline").optional(),
+    startDate: isoDate("Start date").optional(),
+    endDate: isoDate("End date").optional(),
+  })
+  .strict();
+
+/** Every field a round takes, for the request body's parser to read and name. */
+export const ROUND_KEYS = roundSchema.keyof().options;
+
+/** The checks one round's dates need, reported under that round's place in `rounds`. */
+function checkRound(type: string | undefined, round: OpportunityRound, index: number, ctx: z.RefinementCtx) {
+  const path = ["rounds", index];
+  if (round.deadline === undefined && round.startDate === undefined && round.endDate === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A round needs at least one date", path });
+  }
+  if (type === "event" && round.startDate === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An event's round needs its date (start date)", path: [...path, "startDate"] });
+  }
+  if (round.startDate !== undefined && round.endDate !== undefined && round.endDate < round.startDate) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date can't be before the start date", path: [...path, "endDate"] });
+  }
+}
+
 /** Cross-field checks that a single field's own validator can't express. */
 function checkConsistency(
   val: {
@@ -58,8 +88,10 @@ function checkConsistency(
     locationCountry?: string;
     locationCity?: unknown;
     type?: string;
+    deadline?: string;
     startDate?: string;
     endDate?: string;
+    rounds?: OpportunityRound[];
   },
   ctx: z.RefinementCtx,
 ) {
@@ -76,8 +108,19 @@ function checkConsistency(
   if (val.locationCountry === GLOBAL && val.locationCity !== undefined) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A Global listing can't also have a city", path: ["locationCity"] });
   }
+  // With rounds, every date lives in a round, so there is one place to read when it closes.
+  if (val.rounds !== undefined) {
+    if (val.deadline !== undefined || val.startDate !== undefined || val.endDate !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A listing with rounds keeps its dates in its rounds: leave its own deadline, start date and end date blank",
+        path: ["rounds"],
+      });
+    }
+    val.rounds.forEach((round, index) => checkRound(val.type, round, index, ctx));
+  }
   // An event closes after its date, so without one it would stay on the board for good.
-  if (val.type === "event" && val.startDate === undefined) {
+  if (val.type === "event" && val.rounds === undefined && val.startDate === undefined) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An event needs its date (start date)", path: ["startDate"] });
   }
   if (val.startDate !== undefined && val.endDate !== undefined && val.endDate < val.startDate) {
@@ -108,6 +151,11 @@ const opportunityObjectSchema = z
     deadline: isoDate("Deadline").optional(),
     startDate: isoDate("Start date").optional(),
     endDate: isoDate("End date").optional(),
+    rounds: z
+      .array(roundSchema)
+      .min(1, "Rounds can't be an empty list: leave them out for a listing with single dates")
+      .max(MAX_ROUNDS, `A listing can have at most ${MAX_ROUNDS} rounds`)
+      .optional(),
     tags: z.array(text("Tag", 50)).optional(),
     applyUrl: url("Apply URL"),
     applyLabel: text("Apply label", 50).optional(),
@@ -143,6 +191,18 @@ type _AssertShapeMatches = z.infer<typeof opportunitySchema> extends Opportunity
   : never;
 const _shapeCheck: _AssertShapeMatches = true;
 void _shapeCheck;
+
+/**
+ * One readable line per problem. A problem with a round names which, counting from 1, since
+ * every round has the same fields.
+ */
+export function describeIssues(error: z.ZodError): string {
+  return error.issues
+    .map(({ path, message }) =>
+      path[0] === "rounds" && typeof path[1] === "number" ? `Round ${path[1] + 1}: ${message}` : message,
+    )
+    .join("; ");
+}
 
 /** Parses and validates an opportunity's full content. Throws a readable `ZodError` on failure. */
 export function parseOpportunity(value: unknown): Opportunity {

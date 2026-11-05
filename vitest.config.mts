@@ -98,8 +98,8 @@ export default defineConfig({
       reportsDirectory: "./coverage",
       thresholds: {
         // A floor for everything under src/: raise it as tests are added, never lower it.
-        lines: 65,
-        statements: 65.5,
+        lines: 66.5,
+        statements: 67,
         // The CMS is written test-first: every line and statement must run. It applies to
         // each file as soon as it exists under src/cms/.
         "src/cms/**": { lines: 100, statements: 100 },

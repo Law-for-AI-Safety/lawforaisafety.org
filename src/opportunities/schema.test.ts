@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { opportunitySchema, parseOpportunity } from "./schema";
+import { describeIssues, MAX_ROUNDS, opportunityFieldsSchema, opportunitySchema, parseOpportunity } from "./schema";
 
 function valid() {
   return {
@@ -148,5 +148,80 @@ describe("opportunitySchema", () => {
 
   it("rejects an unknown status", () => {
     expect(opportunitySchema.safeParse({ ...valid(), status: "archived" }).success).toBe(false);
+  });
+});
+
+describe("rounds", () => {
+  const issues = (value: unknown) => {
+    const result = opportunitySchema.safeParse(value);
+    return result.success ? "" : describeIssues(result.error);
+  };
+  const course = () => ({
+    ...valid(),
+    type: "course" as const,
+    rounds: [
+      { label: "Intensive", deadline: "2026-11-15", startDate: "2026-11-23", endDate: "2026-12-18" },
+      { deadline: "2026-12-06" },
+    ],
+  });
+
+  it("accepts a listing with rounds, each with a label or not", () => {
+    expect(parseOpportunity(course())).toEqual(course());
+  });
+
+  it("accepts a round with only one of its dates", () => {
+    expect(issues({ ...valid(), rounds: [{ startDate: "2027-01-04" }, { endDate: "2027-02-01" }] })).toBe("");
+  });
+
+  it("names the round a problem is in, counting from 1", () => {
+    expect(issues({ ...course(), rounds: [{ deadline: "2026-11-15" }, { deadline: "15/11/2026" }] })).toBe(
+      "Round 2: Deadline must be an ISO date (YYYY-MM-DD)",
+    );
+  });
+
+  it("rejects a round with no dates", () => {
+    expect(issues({ ...course(), rounds: [{ label: "Part-time" }] })).toBe("Round 1: A round needs at least one date");
+  });
+
+  it("rejects a round that ends before it starts", () => {
+    expect(issues({ ...course(), rounds: [{ startDate: "2026-12-01", endDate: "2026-11-01" }] })).toBe(
+      "Round 1: End date can't be before the start date",
+    );
+  });
+
+  it("rejects an event round with no date of its own", () => {
+    expect(issues({ ...valid(), type: "event", rounds: [{ startDate: "2026-12-01" }, { deadline: "2026-12-01" }] })).toBe(
+      "Round 2: An event's round needs its date (start date)",
+    );
+  });
+
+  it("takes an event's date from its rounds, so needs none of its own", () => {
+    expect(issues({ ...valid(), type: "event", rounds: [{ startDate: "2026-12-01" }] })).toBe("");
+  });
+
+  it("rejects the listing's own dates alongside rounds", () => {
+    for (const key of ["deadline", "startDate", "endDate"]) {
+      expect(issues({ ...course(), [key]: "2026-11-01" })).toBe(
+        "A listing with rounds keeps its dates in its rounds: leave its own deadline, start date and end date blank",
+      );
+    }
+  });
+
+  it("rejects an unknown key or a too-long label in a round", () => {
+    expect(issues({ ...course(), rounds: [{ deadline: "2026-11-01", cohort: "A" }] })).toMatch(/^Round 1: Unrecognized key/);
+    expect(issues({ ...course(), rounds: [{ deadline: "2026-11-01", label: "x".repeat(51) }] })).toBe("Round 1: Label is too long");
+  });
+
+  it("rejects an empty list of rounds, and more than the most allowed", () => {
+    expect(issues({ ...course(), rounds: [] })).toBe("Rounds can't be an empty list: leave them out for a listing with single dates");
+    const many = Array.from({ length: MAX_ROUNDS + 1 }, () => ({ deadline: "2026-11-01" }));
+    expect(issues({ ...course(), rounds: many })).toBe(`A listing can have at most ${MAX_ROUNDS} rounds`);
+  });
+
+  it("checks rounds in the editable fields too", () => {
+    const fields: Record<string, unknown> = course();
+    for (const key of ["id", "slug", "status", "publishedAt"]) delete fields[key];
+    expect(opportunityFieldsSchema.safeParse({ ...fields, rounds: [{}] }).success).toBe(false);
+    expect(opportunityFieldsSchema.safeParse(fields).success).toBe(true);
   });
 });

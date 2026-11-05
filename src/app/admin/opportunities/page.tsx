@@ -1,12 +1,26 @@
 import Link from "next/link";
 import { getOpportunities } from "@/opportunities/data";
-import { sortOpportunities } from "@/opportunities/filter";
+import { closingDate, currentRun, sortOpportunities } from "@/opportunities/filter";
 import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 import type { Opportunity } from "@/opportunities/types";
 import DraftBadge from "./DraftBadge";
 import { previewHref } from "./PublishedNotice";
 
-function OpportunityList({ opportunities }: { opportunities: Opportunity[] }) {
+/**
+ * When the listing closes, as the list is ordered by (for one with rounds, its next round), and
+ * how many rounds it has. A closing date that isn't a deadline is a course's start or an event's day.
+ */
+function datesNote(opportunity: Opportunity, now: Date): string {
+  const closes = closingDate(opportunity, now);
+  const label = currentRun(opportunity, now).deadline ? OPPORTUNITY_KINDS[opportunity.type].deadlineLabel : "Closes";
+  const rounds = opportunity.rounds?.length;
+  return [closes && `${label} ${closes}`, rounds && `${rounds} round${rounds === 1 ? "" : "s"}`]
+    .filter(Boolean)
+    .map((part) => ` · ${part}`)
+    .join("");
+}
+
+function OpportunityList({ opportunities, now }: { opportunities: Opportunity[]; now: Date }) {
   return (
     <ul className="flex flex-col divide-y divide-brand-black/10 border-y border-brand-black/10">
       {opportunities.map((opportunity) => (
@@ -19,7 +33,7 @@ function OpportunityList({ opportunities }: { opportunities: Opportunity[] }) {
           </div>
           <span className="text-sm text-brand-black/70">
             {OPPORTUNITY_KINDS[opportunity.type].label} · {opportunity.org}
-            {opportunity.deadline ? ` · ${OPPORTUNITY_KINDS[opportunity.type].deadlineLabel} ${opportunity.deadline}` : ""}
+            {datesNote(opportunity, now)}
             {opportunity.status === "draft" && (
               <>
                 {" · "}
@@ -36,7 +50,8 @@ function OpportunityList({ opportunities }: { opportunities: Opportunity[] }) {
 }
 
 export default async function OpportunitiesListPage() {
-  const all = sortOpportunities(await getOpportunities());
+  const now = new Date();
+  const all = sortOpportunities(await getOpportunities(), "closing", now);
   const drafts = all.filter((opportunity) => opportunity.status === "draft");
   const published = all.filter((opportunity) => opportunity.status === "published");
 
@@ -57,7 +72,7 @@ export default async function OpportunitiesListPage() {
             Drafts ({drafts.length})
           </h2>
           <p className="text-brand-black/70">Not on the public site. Open one to check it, then publish it.</p>
-          <OpportunityList opportunities={drafts} />
+          <OpportunityList opportunities={drafts} now={now} />
         </section>
       )}
 
@@ -68,7 +83,7 @@ export default async function OpportunitiesListPage() {
               Published
             </h2>
           )}
-          <OpportunityList opportunities={published} />
+          <OpportunityList opportunities={published} now={now} />
         </section>
       )}
     </main>

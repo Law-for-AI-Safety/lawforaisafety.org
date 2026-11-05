@@ -14,6 +14,7 @@ import {
   primaryKey,
   date,
 } from "drizzle-orm/pg-core";
+import type { OpportunityRound } from "@/opportunities/types";
 
 export const applicationStatus = pgEnum("application_status", [
   "draft",
@@ -526,6 +527,10 @@ export const opportunities = pgTable(
     deadline: date("deadline"),
     startDate: date("start_date"),
     endDate: date("end_date"),
+    // A listing that runs more than once (a course's cohorts, say): each round's own dates, in
+    // place of the three above, which stay null. Null for a listing with single dates. Kept
+    // in the row, not a table of its own, as rounds are only ever read and written with it.
+    rounds: jsonb("rounds").$type<OpportunityRound[]>(),
     tags: jsonb("tags").$type<string[]>().default([]),
     applyUrl: text("apply_url").notNull(),
     applyLabel: text("apply_label"),

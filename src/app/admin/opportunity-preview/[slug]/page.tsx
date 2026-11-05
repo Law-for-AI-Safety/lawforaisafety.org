@@ -28,6 +28,7 @@ export default async function OpportunityPreviewPage({ params }: { params: Promi
   const opportunity = await getOpportunityBySlug(slug);
   if (!opportunity) notFound();
 
+  const now = new Date();
   return (
     <ContentPage gap={6}>
       <p className="border border-brand-black/20 bg-brand-navy/5 px-4 py-3 text-brand-black">
@@ -39,7 +40,7 @@ export default async function OpportunityPreviewPage({ params }: { params: Promi
         </Link>
       </p>
       {/* The banner's link goes back to editing; the board's wouldn't show a draft. */}
-      <OpportunityListing opportunity={opportunity} closed={isClosed(opportunity, new Date())} backToBoard={false} />
+      <OpportunityListing opportunity={opportunity} closed={isClosed(opportunity, now)} now={now} backToBoard={false} />
     </ContentPage>
   );
 }

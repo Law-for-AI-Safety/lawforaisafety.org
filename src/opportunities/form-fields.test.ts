@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasOpportunityFields, opportunityFieldsFromBody, statusFromBody } from "./form-fields";
+import { hasOpportunityFields, opportunityFieldsFromBody, roundsFromBody, statusFromBody } from "./form-fields";
 
 describe("opportunityFieldsFromBody", () => {
   it("refuses a body missing title, org or applyUrl", () => {
@@ -63,5 +63,52 @@ describe("hasOpportunityFields", () => {
   it("is true once any editable field is there, even a blank one", () => {
     expect(hasOpportunityFields({ status: "published", title: "" })).toBe(true);
     expect(hasOpportunityFields({ remote: false })).toBe(true);
+  });
+});
+
+describe("roundsFromBody", () => {
+  it("has no rounds when they are left out, null or an empty list", () => {
+    for (const value of [undefined, null, []]) expect(roundsFromBody(value)).toEqual({ ok: true, rounds: undefined });
+  });
+
+  it("trims each round's values and drops blank or null ones", () => {
+    expect(
+      roundsFromBody([
+        { label: " Intensive ", deadline: "2026-11-15", startDate: "", endDate: null },
+        { deadline: " 2026-12-06 " },
+        {},
+      ]),
+    ).toEqual({ ok: true, rounds: [{ label: "Intensive", deadline: "2026-11-15" }, { deadline: "2026-12-06" }, {}] });
+  });
+
+  it("refuses anything but a list of objects", () => {
+    expect(roundsFromBody({ deadline: "2026-11-15" })).toEqual({
+      ok: false,
+      error: "Rounds must be a list of rounds, each {label?, deadline?, startDate?, endDate?}",
+    });
+    expect(roundsFromBody([{ deadline: "2026-11-15" }, "2026-12-06"])).toEqual({
+      ok: false,
+      error: "Round 2 must be an object: rounds must be a list of rounds, each {label?, deadline?, startDate?, endDate?}",
+    });
+    expect(roundsFromBody([null])).toMatchObject({ ok: false });
+    expect(roundsFromBody([[]])).toMatchObject({ ok: false });
+  });
+
+  it("names an unknown field and a value that isn't a string", () => {
+    expect(roundsFromBody([{ deadline: "2026-11-15", closes: "2026-11-15" }])).toEqual({
+      ok: false,
+      error: 'Round 1 has an unknown field "closes": a round takes label, deadline, startDate, endDate',
+    });
+    expect(roundsFromBody([{ deadline: 20261115 }])).toEqual({ ok: false, error: "Round 1: deadline must be a string" });
+  });
+
+  it("is read as one of a body's fields, and its error refuses the body", () => {
+    const base = { type: "course", title: "A", org: "B", applyUrl: "https://example.com" };
+    expect(hasOpportunityFields({ rounds: [] })).toBe(true);
+    expect(opportunityFieldsFromBody({ ...base, rounds: [{ deadline: "2026-11-15" }] })).toMatchObject({
+      ok: true,
+      fields: { rounds: [{ deadline: "2026-11-15" }] },
+    });
+    expect(opportunityFieldsFromBody({ ...base, rounds: "soon" })).toMatchObject({ ok: false });
   });
 });

@@ -1,11 +1,11 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, GLOBAL } from "@/opportunities/schema";
-import type { OpportunityFormState } from "@/opportunities/form-state";
+import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, GLOBAL, MAX_ROUNDS } from "@/opportunities/schema";
+import { roundForm, type OpportunityFormState, type RoundFormState } from "@/opportunities/form-state";
 import { COUNTRIES } from "@/opportunities/countries";
 import { OPPORTUNITY_KINDS, OPPORTUNITY_TYPES } from "@/opportunities/kinds";
-import type { CommitmentType, CompPeriod, OpportunityType } from "@/opportunities/types";
+import type { CommitmentType, CompPeriod, OpportunityRound, OpportunityType } from "@/opportunities/types";
 import CityPicker from "./CityPicker";
 import TagPicker from "./TagPicker";
 
@@ -21,6 +21,108 @@ const COMP_PERIOD_LABEL: Record<CompPeriod, string> = { year: "year", month: "mo
 const input = "border border-brand-black/30 bg-brand-white px-3 py-2";
 const label = "flex flex-col gap-1";
 const labelText = "font-sans text-brand-black";
+const secondaryButton = "w-fit border border-brand-navy px-4 py-1.5 text-brand-navy";
+
+/** A deadline, start and end date, labelled for the listing's kind. */
+function DateInputs({
+  type,
+  dates,
+  onChange,
+}: {
+  type: OpportunityType;
+  dates: Pick<RoundFormState, "deadline" | "startDate" | "endDate">;
+  onChange: (key: "deadline" | "startDate" | "endDate", value: string) => void;
+}) {
+  const kind = OPPORTUNITY_KINDS[type];
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      <label className={label}>
+        <span className={labelText}>{kind.deadlineLabel}</span>
+        <input type="date" value={dates.deadline} onChange={(e) => onChange("deadline", e.target.value)} className={input} />
+      </label>
+      <label className={label}>
+        <span className={labelText}>{kind.startLabel}</span>
+        <input type="date" value={dates.startDate} onChange={(e) => onChange("startDate", e.target.value)} className={input} />
+      </label>
+      <label className={label}>
+        <span className={labelText}>{kind.endLabel}</span>
+        <input type="date" value={dates.endDate} onChange={(e) => onChange("endDate", e.target.value)} className={input} />
+      </label>
+    </div>
+  );
+}
+
+/**
+ * The listing's dates: one set, or for a listing that runs more than once, one row per round.
+ * Splitting into rounds moves the dates already entered into the first round, and removing the
+ * last round moves its dates back, so switching either way loses nothing.
+ */
+function DateFields({
+  state,
+  setState,
+}: {
+  state: OpportunityFormState;
+  setState: Dispatch<SetStateAction<OpportunityFormState>>;
+}) {
+  const setRound = (index: number, key: keyof OpportunityRound, value: string) =>
+    setState((s) => ({ ...s, rounds: s.rounds.map((round, i) => (i === index ? { ...round, [key]: value } : round)) }));
+  const splitIntoRounds = () =>
+    setState((s) => ({
+      ...s,
+      rounds: [roundForm({ deadline: s.deadline, startDate: s.startDate, endDate: s.endDate }), roundForm()],
+      deadline: "",
+      startDate: "",
+      endDate: "",
+    }));
+  const addRound = () => setState((s) => ({ ...s, rounds: [...s.rounds, roundForm()] }));
+  const removeRound = (index: number) =>
+    setState((s) => {
+      if (s.rounds.length > 1) return { ...s, rounds: s.rounds.filter((_, i) => i !== index) };
+      const { deadline, startDate, endDate } = s.rounds[0];
+      return { ...s, rounds: [], deadline, startDate, endDate };
+    });
+
+  if (state.rounds.length === 0) {
+    return (
+      <div className="flex flex-col gap-2">
+        <DateInputs
+          type={state.type}
+          dates={state}
+          onChange={(key, value) => setState((s) => ({ ...s, [key]: value }))}
+        />
+        <button type="button" onClick={splitIntoRounds} className={secondaryButton}>
+          Runs in several rounds? Add rounds
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="font-sans text-brand-black">Rounds</p>
+      <p className="text-sm text-brand-black/70">
+        Each round has its own dates. The board shows the next open round, and the listing closes after the last.
+        Rounds are saved in the order they close.
+      </p>
+      {state.rounds.map((round, index) => (
+        <fieldset key={round.key} className="flex flex-col gap-3 border border-brand-black/20 p-3">
+          <legend className="px-1 font-sans text-brand-black">Round {index + 1}</legend>
+          <label className={label}>
+            <span className={labelText}>Label (optional, e.g. Intensive or Part-time)</span>
+            <input value={round.label} onChange={(e) => setRound(index, "label", e.target.value)} className={input} />
+          </label>
+          <DateInputs type={state.type} dates={round} onChange={(key, value) => setRound(index, key, value)} />
+          <button type="button" onClick={() => removeRound(index)} className={secondaryButton}>
+            Remove round {index + 1}
+          </button>
+        </fieldset>
+      ))}
+      <button type="button" onClick={addRound} disabled={state.rounds.length >= MAX_ROUNDS} className={`${secondaryButton} disabled:opacity-60`}>
+        Add round
+      </button>
+    </div>
+  );
+}
 
 export default function OpportunityFields({
   state,
@@ -173,20 +275,7 @@ export default function OpportunityFields({
         <input value={state.compNote} onChange={(e) => set("compNote")(e.target.value)} className={input} />
       </label>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <label className={label}>
-          <span className={labelText}>{kind.deadlineLabel}</span>
-          <input type="date" value={state.deadline} onChange={(e) => set("deadline")(e.target.value)} className={input} />
-        </label>
-        <label className={label}>
-          <span className={labelText}>{kind.startLabel}</span>
-          <input type="date" value={state.startDate} onChange={(e) => set("startDate")(e.target.value)} className={input} />
-        </label>
-        <label className={label}>
-          <span className={labelText}>{kind.endLabel}</span>
-          <input type="date" value={state.endDate} onChange={(e) => set("endDate")(e.target.value)} className={input} />
-        </label>
-      </div>
+      <DateFields state={state} setState={setState} />
 
       <TagPicker value={state.tags} onChange={set("tags")} suggestions={tagSuggestions} />
 

@@ -4,7 +4,8 @@ import { opportunities } from "@/drizzle/schema";
 import { revalidateTag } from "next/cache";
 import { OPPORTUNITIES_CACHE_TAG, toOpportunity, type OpportunityRow } from "@/opportunities/data";
 import type { OpportunityFields } from "@/opportunities/form-fields";
-import { opportunityFieldsSchema } from "@/opportunities/schema";
+import { describeIssues, opportunityFieldsSchema } from "@/opportunities/schema";
+import { sortRounds } from "@/opportunities/filter";
 import { slugify, uniqueSlug } from "@/opportunities/slug";
 import type { Opportunity, OpportunityStatus } from "@/opportunities/types";
 import { recordOpportunityAction } from "./opportunities-audit-log";
@@ -51,8 +52,9 @@ async function existingSlugs(base: string): Promise<Set<string>> {
 
 function parseFields(fields: OpportunityFields): OpportunityFields {
   const parsed = opportunityFieldsSchema.safeParse(fields);
-  if (!parsed.success) throw new ValidationError(parsed.error.issues.map((i) => i.message).join("; "));
-  return parsed.data;
+  if (!parsed.success) throw new ValidationError(describeIssues(parsed.error));
+  const { rounds } = parsed.data;
+  return rounds ? { ...parsed.data, rounds: sortRounds(parsed.data.type, rounds) } : parsed.data;
 }
 
 /**

@@ -2,7 +2,7 @@ import { count, desc, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
-import { isPublished, type Opportunity, type PublishedOpportunity } from "./types";
+import { isPublished, type Opportunity, type OpportunityRound, type PublishedOpportunity } from "./types";
 
 /**
  * Opportunities are plain DB rows, same trust level as the task-tracker's own CRUD
@@ -12,6 +12,19 @@ import { isPublished, type Opportunity, type PublishedOpportunity } from "./type
  */
 
 export type OpportunityRow = typeof opportunities.$inferSelect;
+
+/**
+ * A round's fields in the order the API documents, without the unset ones: Postgres keeps a
+ * jsonb object's keys in an order of its own.
+ */
+function toRound({ label, deadline, startDate, endDate }: OpportunityRound): OpportunityRound {
+  return {
+    ...(label !== undefined && { label }),
+    ...(deadline !== undefined && { deadline }),
+    ...(startDate !== undefined && { startDate }),
+    ...(endDate !== undefined && { endDate }),
+  };
+}
 
 export function toOpportunity(row: OpportunityRow): Opportunity {
   return {
@@ -36,6 +49,7 @@ export function toOpportunity(row: OpportunityRow): Opportunity {
     deadline: row.deadline ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
+    rounds: row.rounds && row.rounds.length > 0 ? row.rounds.map(toRound) : undefined,
     tags: row.tags && row.tags.length > 0 ? row.tags : undefined,
     applyUrl: row.applyUrl,
     applyLabel: row.applyLabel ?? undefined,
