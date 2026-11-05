@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { describeSubmission, getSubmission } from "@/lib/opportunity-submission-flow";
 import { getOpportunityTags } from "@/opportunities/data";
-import { opportunityFormFromSubmission } from "../OpportunityFields";
+import { opportunityFormFromSubmission } from "@/opportunities/form-state";
 import NewOpportunityForm from "./NewOpportunityForm";
 
 type Props = { searchParams: Promise<{ submission?: string }> };

@@ -8,7 +8,7 @@ import { getOpportunityBySlug } from "@/opportunities/data";
 import { cookieJar } from "../../../../test/next-headers";
 import EditOpportunityForm from "./[slug]/EditOpportunityForm";
 import NewOpportunityForm from "./new/NewOpportunityForm";
-import { emptyOpportunityForm, roundForm } from "./OpportunityFields";
+import { emptyOpportunityForm, roundForm } from "@/opportunities/form-state";
 import OpportunitiesListPage from "./page";
 
 vi.mock("next/headers", () => import("../../../../test/next-headers"));

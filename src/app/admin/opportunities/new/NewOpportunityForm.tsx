@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { sendJson } from "../api";
-import OpportunityFields, { emptyOpportunityForm, toOpportunityBody, type OpportunityFormState } from "../OpportunityFields";
+import OpportunityFields from "../OpportunityFields";
+import { emptyOpportunityForm, toOpportunityBody, type OpportunityFormState } from "@/opportunities/form-state";
 import PublishedNotice from "../PublishedNotice";
 import type { Opportunity, OpportunityStatus } from "@/opportunities/types";
 
