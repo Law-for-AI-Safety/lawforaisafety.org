@@ -20,7 +20,8 @@ export default function OpportunityCard({ opportunity, now = new Date() }: { opp
     run.round?.round.label,
     opportunity.type === "event"
       ? formatEventDates(run)
-      : run.round && run.startDate
+      : // A course closes on its start date when it has no deadline, so it shows it, as does a round.
+        run.startDate && (run.round || opportunity.type === "course")
         ? `${kind.startLabel} ${formatDate(run.startDate)}`
         : undefined,
     opportunity.remote ? "Remote" : formatLocation(opportunity),

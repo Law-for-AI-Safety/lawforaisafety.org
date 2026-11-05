@@ -17,11 +17,22 @@ const COMMITMENT_LABEL: Record<CommitmentType, string> = {
 };
 const COMP_PERIOD_LABEL: Record<CompPeriod, string> = { year: "year", month: "month", week: "week", day: "day", hour: "hour" };
 
-/** One round's row in the form: every field a plain string, blank for unset. */
-export type RoundFormState = Required<Record<keyof OpportunityRound, string>>;
+/**
+ * One round's row in the form: every field a plain string, blank for unset, and a `key` that
+ * stays with the row while others are added or removed. The key is never sent.
+ */
+export type RoundFormState = Required<Record<keyof OpportunityRound, string>> & { key: number };
 
-function roundForm(round: OpportunityRound = {}): RoundFormState {
-  return { label: round.label ?? "", deadline: round.deadline ?? "", startDate: round.startDate ?? "", endDate: round.endDate ?? "" };
+let lastRoundKey = 0;
+
+export function roundForm(round: OpportunityRound = {}): RoundFormState {
+  return {
+    key: ++lastRoundKey,
+    label: round.label ?? "",
+    deadline: round.deadline ?? "",
+    startDate: round.startDate ?? "",
+    endDate: round.endDate ?? "",
+  };
 }
 
 /** The admin form's working state: every field a plain string (or boolean), tags as one comma-separated input, comp amounts as text (parsed on submit). */
@@ -151,7 +162,7 @@ export function toOpportunityBody(state: OpportunityFormState): Record<string, u
     locationCity: state.locationCountry === GLOBAL ? undefined : state.locationCity.trim() || undefined,
     compMin: state.compMin.trim() || undefined,
     compMax: state.compMax.trim() || undefined,
-    rounds: state.rounds.length > 0 ? state.rounds : undefined,
+    rounds: state.rounds.length > 0 ? state.rounds.map(({ label, deadline, startDate, endDate }) => ({ label, deadline, startDate, endDate })) : undefined,
   };
 }
 
@@ -201,7 +212,7 @@ function DateFields({
   state: OpportunityFormState;
   setState: Dispatch<SetStateAction<OpportunityFormState>>;
 }) {
-  const setRound = (index: number, key: keyof RoundFormState, value: string) =>
+  const setRound = (index: number, key: keyof OpportunityRound, value: string) =>
     setState((s) => ({ ...s, rounds: s.rounds.map((round, i) => (i === index ? { ...round, [key]: value } : round)) }));
   const splitIntoRounds = () =>
     setState((s) => ({
@@ -239,9 +250,10 @@ function DateFields({
       <p className="font-sans text-brand-black">Rounds</p>
       <p className="text-sm text-brand-black/70">
         Each round has its own dates. The board shows the next open round, and the listing closes after the last.
+        Rounds are saved in the order they close.
       </p>
       {state.rounds.map((round, index) => (
-        <fieldset key={index} className="flex flex-col gap-3 border border-brand-black/20 p-3">
+        <fieldset key={round.key} className="flex flex-col gap-3 border border-brand-black/20 p-3">
           <legend className="px-1 font-sans text-brand-black">Round {index + 1}</legend>
           <label className={label}>
             <span className={labelText}>Label (optional, e.g. Intensive or Part-time)</span>

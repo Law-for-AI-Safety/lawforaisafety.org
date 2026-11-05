@@ -82,6 +82,11 @@ describe("OpportunityCard", () => {
     expect(screen.getByText("Closing soon · Apply by 30 Oct 2026")).toBeInTheDocument();
   });
 
+  it("shows a course's start date, which it closes on with no deadline", () => {
+    render(<OpportunityCard opportunity={{ ...course, startDate: "2026-12-01" }} now={new Date("2026-10-01T12:00:00Z")} />);
+    expect(screen.getByText(/Starts 1 Dec 2026/)).toBeInTheDocument();
+  });
+
   describe("with rounds", () => {
     const rounds: Opportunity = {
       ...course,

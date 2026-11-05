@@ -1,5 +1,5 @@
 import { OPPORTUNITY_TYPES } from "./kinds";
-import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, OPPORTUNITY_STATUSES } from "./schema";
+import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, OPPORTUNITY_STATUSES, ROUND_KEYS } from "./schema";
 import type { Opportunity, OpportunityRound, OpportunityStatus } from "./types";
 
 /**
@@ -61,8 +61,7 @@ export function statusFromBody(body: Record<string, unknown>): ParsedStatus {
   return { ok: true, status };
 }
 
-const ROUND_KEYS = ["label", "deadline", "startDate", "endDate"] as const satisfies readonly (keyof OpportunityRound)[];
-const ROUND_SHAPE = "a list of rounds, each {label?, deadline?, startDate?, endDate?}";
+const ROUND_SHAPE = `a list of rounds, each {${ROUND_KEYS.map((key) => `${key}?`).join(", ")}}`;
 
 type ParsedRounds = { ok: true; rounds: OpportunityRound[] | undefined } | { ok: false; error: string };
 

@@ -5,6 +5,7 @@ import { revalidateTag } from "next/cache";
 import { OPPORTUNITIES_CACHE_TAG, toOpportunity, type OpportunityRow } from "@/opportunities/data";
 import type { OpportunityFields } from "@/opportunities/form-fields";
 import { describeIssues, opportunityFieldsSchema } from "@/opportunities/schema";
+import { sortRounds } from "@/opportunities/filter";
 import { slugify, uniqueSlug } from "@/opportunities/slug";
 import type { Opportunity, OpportunityStatus } from "@/opportunities/types";
 import { recordOpportunityAction } from "./opportunities-audit-log";
@@ -52,7 +53,8 @@ async function existingSlugs(base: string): Promise<Set<string>> {
 function parseFields(fields: OpportunityFields): OpportunityFields {
   const parsed = opportunityFieldsSchema.safeParse(fields);
   if (!parsed.success) throw new ValidationError(describeIssues(parsed.error));
-  return parsed.data;
+  const { rounds } = parsed.data;
+  return rounds ? { ...parsed.data, rounds: sortRounds(parsed.data.type, rounds) } : parsed.data;
 }
 
 /**

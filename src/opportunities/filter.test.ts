@@ -19,6 +19,7 @@ import {
   roundsByClosing,
   serializeFilters,
   sortOpportunities,
+  sortRounds,
 } from "./filter";
 import type { Opportunity } from "./types";
 
@@ -381,6 +382,14 @@ describe("listings with rounds", () => {
       ["a", "2026-12-01", false],
       ["c", "2026-12-01", false],
       ["b", undefined, false],
+    ]);
+  });
+
+  it("puts rounds in the order they close, as they are saved", () => {
+    expect(sortRounds("course", course.rounds!).map((round) => round.label)).toEqual(["Round 1", "Round 2", "Round 3"]);
+    expect(sortRounds("job", [{ startDate: "2026-01-01" }, { deadline: "2026-12-01" }])).toEqual([
+      { deadline: "2026-12-01" },
+      { startDate: "2026-01-01" },
     ]);
   });
 

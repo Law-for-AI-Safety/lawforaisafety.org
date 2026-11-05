@@ -219,7 +219,8 @@ describe("rounds", () => {
   });
 
   it("checks rounds in the editable fields too", () => {
-    const { id: _id, slug: _slug, status: _status, publishedAt: _publishedAt, ...fields } = course();
+    const fields: Record<string, unknown> = course();
+    for (const key of ["id", "slug", "status", "publishedAt"]) delete fields[key];
     expect(opportunityFieldsSchema.safeParse({ ...fields, rounds: [{}] }).success).toBe(false);
     expect(opportunityFieldsSchema.safeParse(fields).success).toBe(true);
   });

@@ -8,7 +8,7 @@ import { getOpportunityBySlug } from "@/opportunities/data";
 import { cookieJar } from "../../../../test/next-headers";
 import EditOpportunityForm from "./[slug]/EditOpportunityForm";
 import NewOpportunityForm from "./new/NewOpportunityForm";
-import { emptyOpportunityForm } from "./OpportunityFields";
+import { emptyOpportunityForm, roundForm } from "./OpportunityFields";
 import OpportunitiesListPage from "./page";
 
 vi.mock("next/headers", () => import("../../../../test/next-headers"));
@@ -88,7 +88,7 @@ describe("rounds in the admin form", () => {
   });
 
   it("saves a draft with rounds", async () => {
-    render(<NewOpportunityForm initial={{ ...COURSE_FORM, rounds: [{ label: "", deadline: "2026-11-15", startDate: "", endDate: "" }] }} />);
+    render(<NewOpportunityForm initial={{ ...COURSE_FORM, rounds: [roundForm({ deadline: "2026-11-15" })] }} />);
     await userEvent.click(screen.getByRole("button", { name: "Save as draft" }));
     expect(await screen.findByText(/draft/i)).toBeInTheDocument();
     expect(await getOpportunityBySlug(DRAFT.slug)).toMatchObject({ status: "draft", rounds: [{ deadline: "2026-11-15" }] });
@@ -131,8 +131,21 @@ describe("rounds in the admin form", () => {
     expect(await getOpportunityBySlug(DRAFT.slug)).toMatchObject({ deadline: "2026-11-15", rounds: undefined });
   });
 
+  it("shows a draft's rounds in the order they were saved in, soonest closing first", async () => {
+    await db.insert(opportunities).values(DRAFT);
+    render(<EditOpportunityForm opportunity={(await getOpportunityBySlug(DRAFT.slug))!} />);
+    await userEvent.click(screen.getByRole("button", { name: "Add round" }));
+    setDate(round(3).getByLabelText("Enrol by"), "2026-11-08");
+    await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    expect(await screen.findByText(/Draft saved/)).toBeInTheDocument();
+    expect(round(1).getByLabelText("Enrol by")).toHaveValue("2026-11-08");
+    expect(round(2).getByLabelText(/^Label/)).toHaveValue("Intensive");
+    expect((await getOpportunityBySlug(DRAFT.slug))?.rounds?.[0]).toEqual({ deadline: "2026-11-08" });
+  });
+
   it("stops adding rounds at the most a listing may have", async () => {
-    const rounds = Array.from({ length: 20 }, () => ({ label: "", deadline: "2026-11-15", startDate: "", endDate: "" }));
+    const rounds = Array.from({ length: 20 }, () => roundForm({ deadline: "2026-11-15" }));
     render(<NewOpportunityForm initial={{ ...COURSE_FORM, rounds }} />);
     expect(screen.getByRole("button", { name: "Add round" })).toBeDisabled();
   });
@@ -143,5 +156,11 @@ describe("rounds in the admin list", () => {
     await db.insert(opportunities).values({ ...DRAFT, rounds: [{ deadline: "2026-11-01" }, ...DRAFT.rounds] });
     render(await OpportunitiesListPage());
     expect(screen.getByText(/Course · BlueDot · Enrol by 2026-11-15 · 3 rounds/)).toBeInTheDocument();
+  });
+
+  it("shows when a round with no deadline closes", async () => {
+    await db.insert(opportunities).values({ ...DRAFT, rounds: [{ startDate: "2026-11-20" }, { startDate: "2027-01-10" }] });
+    render(await OpportunitiesListPage());
+    expect(screen.getByText(/Course · BlueDot · Closes 2026-11-20 · 2 rounds/)).toBeInTheDocument();
   });
 });

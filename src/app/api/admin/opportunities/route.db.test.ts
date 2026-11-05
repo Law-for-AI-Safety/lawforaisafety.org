@@ -217,6 +217,13 @@ describe("listings with rounds", () => {
     expect(Object.keys(listed[0].rounds[0])).toEqual(["label", "deadline", "startDate", "endDate"]);
   });
 
+  it("saves the rounds in the order they close, whatever order they were sent in", async () => {
+    const response = await POST(request({ ...COURSE, rounds: [ROUNDS[2], ROUNDS[0], ROUNDS[1]] }));
+    expect((await response.json()).rounds).toEqual(ROUNDS);
+    const [row] = await db.select().from(opportunities);
+    expect(row.rounds).toEqual(ROUNDS);
+  });
+
   it("keeps a draft's rounds", async () => {
     const response = await POST(request({ ...COURSE, status: "draft" }));
     expect(await response.json()).toMatchObject({ status: "draft", rounds: ROUNDS });

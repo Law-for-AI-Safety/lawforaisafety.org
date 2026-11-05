@@ -194,23 +194,35 @@ export type RoundView = {
   closed: boolean;
 };
 
-/**
- * A listing's rounds in the order they close, soonest first, each marked closed or not. A round
- * that never closes goes last. Empty for a listing with single dates.
- */
-export function roundsByClosing(opportunity: ClosingFields, now: Date): RoundView[] {
-  return (opportunity.rounds ?? [])
-    .map((round, index) => {
-      const closes = runClosingDate(opportunity.type, round);
-      const days = daysLeftUntil(closes, now);
-      return { round, index, closes, closed: days !== undefined && days < 0 };
-    })
+/** Rounds in the order they close, soonest first; a round that never closes goes last, ties as entered. */
+function byClosing(type: OpportunityType, rounds: OpportunityRound[]) {
+  return rounds
+    .map((round, index) => ({ round, index, closes: runClosingDate(type, round) }))
     .sort((a, b) => {
       if (a.closes && b.closes) return a.closes.localeCompare(b.closes) || a.index - b.index;
       if (a.closes) return -1;
       if (b.closes) return 1;
       return a.index - b.index;
     });
+}
+
+/**
+ * A listing's rounds put in the order they close, as they are saved, so "Round 2" in the admin
+ * form is the second round to close on the public page too.
+ */
+export function sortRounds(type: OpportunityType, rounds: OpportunityRound[]): OpportunityRound[] {
+  return byClosing(type, rounds).map(({ round }) => round);
+}
+
+/**
+ * A listing's rounds in the order they close, soonest first, each marked closed or not. A round
+ * that never closes goes last. Empty for a listing with single dates.
+ */
+export function roundsByClosing(opportunity: ClosingFields, now: Date): RoundView[] {
+  return byClosing(opportunity.type, opportunity.rounds ?? []).map((view) => {
+    const days = daysLeftUntil(view.closes, now);
+    return { ...view, closed: days !== undefined && days < 0 };
+  });
 }
 
 export type CurrentRun = RoundDates & {

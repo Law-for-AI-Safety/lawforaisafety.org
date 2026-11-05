@@ -1,20 +1,22 @@
 import Link from "next/link";
 import { getOpportunities } from "@/opportunities/data";
-import { currentRun, sortOpportunities } from "@/opportunities/filter";
+import { closingDate, currentRun, sortOpportunities } from "@/opportunities/filter";
 import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 import type { Opportunity } from "@/opportunities/types";
 import DraftBadge from "./DraftBadge";
 import { previewHref } from "./PublishedNotice";
 
-/** The deadline the board goes by (for a listing with rounds, the next round's), and how many rounds it has. */
+/**
+ * When the listing closes, as the list is ordered by (for one with rounds, its next round), and
+ * how many rounds it has. A closing date that isn't a deadline is a course's start or an event's day.
+ */
 function datesNote(opportunity: Opportunity, now: Date): string {
-  const { deadline } = currentRun(opportunity, now);
+  const closes = closingDate(opportunity, now);
+  const label = currentRun(opportunity, now).deadline ? OPPORTUNITY_KINDS[opportunity.type].deadlineLabel : "Closes";
   const rounds = opportunity.rounds?.length;
-  return [
-    deadline ? `${OPPORTUNITY_KINDS[opportunity.type].deadlineLabel} ${deadline}` : undefined,
-    rounds ? `${rounds} round${rounds === 1 ? "" : "s"}` : undefined,
-  ]
-    .map((part) => (part ? ` · ${part}` : ""))
+  return [closes && `${label} ${closes}`, rounds && `${rounds} round${rounds === 1 ? "" : "s"}`]
+    .filter(Boolean)
+    .map((part) => ` · ${part}`)
     .join("");
 }
 

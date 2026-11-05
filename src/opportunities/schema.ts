@@ -61,6 +61,9 @@ const roundSchema = z
   })
   .strict();
 
+/** Every field a round takes, for the request body's parser to read and name. */
+export const ROUND_KEYS = roundSchema.keyof().options;
+
 /** The checks one round's dates need, reported under that round's place in `rounds`. */
 function checkRound(type: string | undefined, round: OpportunityRound, index: number, ctx: z.RefinementCtx) {
   const path = ["rounds", index];

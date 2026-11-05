@@ -51,11 +51,12 @@ function Rounds({ opportunity, now }: { opportunity: Opportunity; now: Date }) {
         Rounds
       </h2>
       <ol className="flex flex-col divide-y divide-brand-black/10 border-y border-brand-black/10">
-        {rounds.map((view, position) => (
+        {rounds.map((view) => (
           <li key={view.index} className={`flex flex-col gap-2 py-3 ${view.closed ? "text-brand-navy/50" : ""}`}>
             <div className="flex flex-wrap items-center gap-3">
               <h3 className={`text-lg font-light ${view.closed ? "" : "text-brand-black"}`}>
-                {view.round.label ?? `Round ${position + 1}`}
+                {/* Numbered as in the admin form, which saves rounds in the order they close. */}
+                {view.round.label ?? `Round ${view.index + 1}`}
               </h3>
               {view.closed && <span className="px-2 py-0.5 text-sm bg-brand-black/10 text-brand-black">Closed</span>}
               {!view.closed && view.index === next?.index && (

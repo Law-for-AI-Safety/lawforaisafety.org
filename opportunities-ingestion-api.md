@@ -58,13 +58,31 @@ From `src/opportunities/schema.ts`:
 | `compCurrency` | `"GBP" \| "USD" \| "EUR"` | required if `compMin`/`compMax` is set |
 | `compPeriod` | `"year" \| "month" \| "week" \| "day" \| "hour"` | required if `compMin`/`compMax` is set |
 | `compNote` | string, ≤200 | optional |
-| `deadline`, `startDate`, `endDate` | `YYYY-MM-DD` | optional, except that an `event` needs `startDate`, its date; `endDate` is its last day if it runs over several. `endDate` can't be before `startDate`. An event with no `deadline` closes once its last day has passed |
+| `deadline`, `startDate`, `endDate` | `YYYY-MM-DD` | optional, except that an `event` needs `startDate`, its date; `endDate` is its last day if it runs over several. `endDate` can't be before `startDate`. With no `deadline`, an event closes once its last day has passed and a course on its start date; anything else never closes. Leave all three out when sending `rounds` |
+| `rounds` | list of rounds, ≤20 | optional, for a listing that runs more than once (a course's cohorts, say). See [Rounds](#rounds) |
 | `tags` | string[], each ≤50 | optional |
 | `applyUrl` | URL | required |
 | `applyLabel` | string, ≤50 | optional |
 | `sourceUrl` | URL | optional; where the listing was found, use it to dedupe on re-ingestion |
 | `status` | `"draft" \| "published"` | optional, default `"published"`. See [Drafts](#drafts) |
 | `submissionId` | uuid | `POST` only, optional; publishes an outside submission (`/admin/opportunities/submissions`) as this listing and emails its submitter. 409 if it isn't pending. Can't be combined with `"status": "draft"` (400), since the submitter's email links to the public listing |
+
+### Rounds
+
+A listing that runs several times, each with its own dates, sends them as `rounds` instead of its own `deadline`/`startDate`/`endDate`, which must then be left out (sending both is a `400`):
+
+```json
+"rounds": [
+  { "label": "Round 1", "deadline": "2026-11-15", "startDate": "2026-11-23", "endDate": "2027-01-02" },
+  { "label": "Round 2", "deadline": "2026-12-06" }
+]
+```
+
+- Each round takes only `label` (string, ≤50, e.g. `"Intensive"` or `"Part-time"`), `deadline`, `startDate` and `endDate` (`YYYY-MM-DD`). Every one is optional, but a round needs at least one date, and its `endDate` can't be before its `startDate`. An `event`'s every round needs its `startDate`.
+- Any other key in a round, or a value that isn't a string, is a `400`. Errors name the round, counting from 1: `Round 2: End date can't be before the start date`.
+- A round closes the way a listing does (its `deadline`; with none, an event's last day or a course's start date). The board shows the open round that closes soonest, and the listing closes after its last round.
+- Rounds are saved in the order they close, soonest first (a round that never closes goes last, ties as sent), so `GET` returns them in that order, each with its fields in the order above and unset ones left out. A listing with single dates has no `rounds` key.
+- `rounds` left out, `null` or `[]` means none. Like every field, a `PATCH` that leaves it out clears it, turning the listing back into one with single dates.
 
 ### Choosing a type
 
@@ -75,7 +93,7 @@ There is no default: a listing without a valid `type` is refused rather than fil
 | `job` | a paid role, permanent or fixed-term | Apply now | `deadline` to apply; `startDate`/`endDate` of the role |
 | `fellowship` | a fellowship, residency or paid research programme with a cohort | Apply now | `deadline` to apply; `startDate`/`endDate` of the programme |
 | `project` | volunteering or a collaboration to join, unpaid or ad hoc | Get involved | `deadline` to apply; `startDate`/`endDate` of the project |
-| `course` | a course or training programme | View course | `deadline` to enrol; `startDate`/`endDate` of the course |
+| `course` | a course or training programme | View course | `deadline` to enrol; `startDate`/`endDate` of the course. With no `deadline` it closes on its `startDate`. A course with several cohorts sends [`rounds`](#rounds) |
 | `event` | a conference, workshop, talk or other dated event | Register | `startDate` (required) is its date; `deadline` to register, if any |
 
 ## Prompting an ingestion agent
