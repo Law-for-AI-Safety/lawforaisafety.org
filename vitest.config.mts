@@ -65,6 +65,7 @@ function project(
         "./test/setup-env.ts",
         ...(db ? ["./test/setup-db.ts"] : []),
         ...(dom ? ["./test/setup-dom.ts"] : []),
+        ...(dom && db ? ["./test/setup-dom-db.ts"] : []),
       ],
       // Form tests run a real route handler against Postgres; a busy CI runner is slow.
       ...(dom && db ? { testTimeout: 30_000 } : {}),
