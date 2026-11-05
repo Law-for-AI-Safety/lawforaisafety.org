@@ -213,6 +213,8 @@ describe("listings with rounds", () => {
 
     const listed = await (await GET(listRequest())).json();
     expect(listed).toMatchObject([{ slug: "bluedot-frontier-ai-governance", rounds: ROUNDS }]);
+    // In the documented order, whatever order Postgres keeps them in.
+    expect(Object.keys(listed[0].rounds[0])).toEqual(["label", "deadline", "startDate", "endDate"]);
   });
 
   it("keeps a draft's rounds", async () => {
