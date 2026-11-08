@@ -8,7 +8,14 @@ import {
   updateOpportunity,
   ValidationError,
 } from "@/lib/opportunities-flow";
-import { hasOpportunityFields, opportunityFieldsFromBody, readJsonObject, statusFromBody } from "@/opportunities/form-fields";
+import {
+  bodyOverExisting,
+  hasOpportunityFields,
+  opportunityFieldsFromBody,
+  type ParsedOpportunityBody,
+  readJsonObject,
+  statusFromBody,
+} from "@/opportunities/form-fields";
 import { getOpportunityBySlug } from "@/opportunities/data";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -28,8 +35,9 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 /**
- * Edits an existing opportunity; an edit to a published one is live immediately. The form
- * resends every field; the slug never changes. `"status": "published"` publishes a draft, dated
+ * Edits an existing opportunity; an edit to a published one is live immediately. Fields left out
+ * keep their values and null or blank clears one (see `bodyOverExisting`), so a script can send
+ * only what changes; the admin form sends every field. The slug never changes. `"status": "published"` publishes a draft, dated
  * today: with no fields it publishes without editing, alongside them it saves and publishes
  * in one write.
  * A published listing can't go back to being a draft.
@@ -45,8 +53,13 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!status.ok) return NextResponse.json({ error: status.error }, { status: 400 });
   const publish = status.status === "published";
   // With no editable fields (say `{"status": "published", "slug": ...}`), it only publishes.
-  const parsed = publish && !hasOpportunityFields(body) ? null : opportunityFieldsFromBody(body);
-  if (parsed && !parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  let parsed: ParsedOpportunityBody | null = null;
+  if (!publish || hasOpportunityFields(body)) {
+    const existing = await getOpportunityBySlug(slug);
+    if (!existing) return NextResponse.json(NOT_FOUND, { status: 404 });
+    parsed = opportunityFieldsFromBody(bodyOverExisting(existing, body));
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
 
   try {
     const opportunity = parsed

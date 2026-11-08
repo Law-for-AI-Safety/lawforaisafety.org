@@ -21,6 +21,10 @@ Each account signs in on its own localhost subdomain of the dev server's port, b
 
 For example `http://publish.localhost:3001/api/admin/dev-login` (add `?next=/admin/cms` to land elsewhere). Cookies are kept per subdomain, so several accounts can be open side by side, and plain `localhost` stays signed out. `?as=publish` signs in on any host. The route answers 404 anywhere but `next dev`.
 
+## Opportunity listings on the live site
+
+To see or change the live board's listings, drafts included, use `npm run opportunities -- <command>` (`list --status draft`, `get <slug>`, `create <file>`, `update <slug> <file>`, `publish <slug>`). It signs requests with `OPPORTUNITIES_API_KEY` from `.env.local` without printing it, so never read the key yourself. `update` changes only the fields in its file. Publishing is public: confirm with the user first. The API itself is documented in `opportunities-ingestion-api.md`.
+
 ## Testing
 
 `npm run check-all` runs typecheck, lint and every test with coverage; run it before raising a PR. CI runs the same on every PR and push to `main`, against a Postgres service container.

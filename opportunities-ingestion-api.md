@@ -18,11 +18,23 @@ The comparison is constant-time (`src/lib/timing-safe-equal.ts`). With no key co
 
 | Method | Path | Does |
 | --- | --- | --- |
-| `GET` | `/api/admin/opportunities` | Every listing, drafts included, each with its `status`. Check this before creating, to avoid duplicates. |
+| `GET` | `/api/admin/opportunities` | Every listing, drafts included, each with its `status`. `?status=draft` or `?status=published` lists only those. Check this before creating, to avoid duplicates. |
 | `POST` | `/api/admin/opportunities` | Creates a listing: live immediately, or a draft with `"status": "draft"`. Slug is computed server-side from `org` and `title`; don't send `id`, `slug`, or `publishedAt`. |
 | `GET` | `/api/admin/opportunities/<slug>` | One listing, draft or published. 404 if it doesn't exist. |
-| `PATCH` | `/api/admin/opportunities/<slug>` | Updates a listing. Send every field you want kept — an omitted optional field is cleared, not left as-is. `{"status": "published"}` on its own publishes a draft without editing it. |
+| `PATCH` | `/api/admin/opportunities/<slug>` | Updates a listing. Send only the fields that change: a field left out keeps its value, and `null` or `""` clears one. Sending non-empty `rounds` without `deadline`, `startDate` or `endDate` clears the listing's own dates, and sending a date without `rounds` clears its rounds, since a listing has one or the other. `{"status": "published"}` on its own publishes a draft without editing it. |
 | `DELETE` | `/api/admin/opportunities/<slug>` | Removes a listing. |
+
+## From the command line
+
+`npm run opportunities -- <command>` calls these endpoints with `OPPORTUNITIES_API_KEY` from the environment or `.env.local`, and never prints the key. It talks to the live site unless `OPPORTUNITIES_API_URL` names another (for example `http://localhost:3001`).
+
+```
+npm run opportunities -- list --status draft      # every draft: status, slug, title
+npm run opportunities -- get <slug>               # one listing as JSON
+npm run opportunities -- create listing.json      # a new listing; "status": "draft" keeps it off the site
+npm run opportunities -- update <slug> edit.json  # only the fields in edit.json change
+npm run opportunities -- publish <slug>           # publishes a draft
+```
 
 ## Drafts
 
@@ -100,6 +112,6 @@ There is no default: a listing without a valid `type` is refused rather than fil
 
 Point it at this file, or give it the equivalent directly: base URL, the bearer header, the field table above, and explicit instructions to:
 
-- `GET /api/admin/opportunities` first and match on `sourceUrl` before creating, `PATCH`-ing an existing match instead of creating a duplicate.
+- `GET /api/admin/opportunities` first and match on `sourceUrl` before creating, `PATCH`-ing an existing match with only the fields that changed instead of creating a duplicate.
 - Always send `type`, chosen with the table in [Choosing a type](#choosing-a-type), and skip a listing it can't place rather than guessing.
 - On a `400`, read `error` and fix the field it names before retrying.

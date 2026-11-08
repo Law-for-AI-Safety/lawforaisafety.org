@@ -145,13 +145,17 @@ export function opportunityFormFromSubmission(submission: {
   };
 }
 
-/** The request body the create/update routes expect, from the form's working state. */
+/**
+ * The request body the create/update routes expect, from the form's working state. Every field is
+ * in it, a cleared one as null or blank rather than left out, since the update route keeps the
+ * current value of a field its body leaves out.
+ */
 export function toOpportunityBody(state: OpportunityFormState): Record<string, unknown> {
   return {
     ...state,
-    locationCity: state.locationCountry === GLOBAL ? undefined : state.locationCity.trim() || undefined,
-    compMin: state.compMin.trim() || undefined,
-    compMax: state.compMax.trim() || undefined,
-    rounds: state.rounds.length > 0 ? state.rounds.map(({ label, deadline, startDate, endDate }) => ({ label, deadline, startDate, endDate })) : undefined,
+    locationCity: state.locationCountry === GLOBAL ? null : state.locationCity.trim() || null,
+    compMin: state.compMin.trim() || null,
+    compMax: state.compMax.trim() || null,
+    rounds: state.rounds.length > 0 ? state.rounds.map(({ label, deadline, startDate, endDate }) => ({ label, deadline, startDate, endDate })) : null,
   };
 }

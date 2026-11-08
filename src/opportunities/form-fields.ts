@@ -51,6 +51,30 @@ export function hasOpportunityFields(body: Record<string, unknown>): boolean {
   return FIELD_KEYS.some((key) => key in body);
 }
 
+const DATE_KEYS = ["deadline", "startDate", "endDate"] as const;
+
+/**
+ * An update's body laid over the listing it edits, for `opportunityFieldsFromBody` to parse as a
+ * whole: a field left out of the body keeps its current value, and one sent as null or blank
+ * clears it. A listing keeps its dates either in its rounds or in its own deadline, start date and
+ * end date, never both, so a body that switches from one to the other without mentioning the
+ * other side clears it: non-empty `rounds` with no top-level dates drops the listing's own dates,
+ * and a top-level date with no `rounds` drops its rounds.
+ */
+export function bodyOverExisting(existing: Opportunity, body: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  for (const key of FIELD_KEYS) merged[key] = existing[key];
+
+  const setsRounds = Array.isArray(body.rounds) && body.rounds.length > 0;
+  const mentionsDates = DATE_KEYS.some((key) => key in body);
+  if (setsRounds && !mentionsDates) for (const key of DATE_KEYS) merged[key] = undefined;
+  const setsDate = DATE_KEYS.some((key) => typeof body[key] === "string" && body[key].trim() !== "");
+  if (setsDate && !("rounds" in body)) merged.rounds = undefined;
+
+  for (const key of FIELD_KEYS) if (key in body) merged[key] = body[key];
+  return merged;
+}
+
 export type ParsedStatus = { ok: true; status: OpportunityStatus | undefined } | { ok: false; error: string };
 
 /** A body's optional `status`. Left out, it is undefined, for the route to choose its default. */

@@ -13,13 +13,19 @@ import { getOpportunities } from "@/opportunities/data";
 
 /**
  * Every listing, drafts included, each with its `status`, for the admin UI and for an ingestion
- * script to check what's already there before creating more.
+ * script to check what's already there before creating more. `?status=draft` or
+ * `?status=published` lists only those.
  */
 export async function GET(request: Request) {
   const session = await requireOpportunitiesOrApiKey(request);
   if (session instanceof NextResponse) return session;
 
-  return NextResponse.json(await getOpportunities());
+  const wanted = new URL(request.url).searchParams.get("status");
+  const status = statusFromBody({ status: wanted ?? undefined });
+  if (!status.ok) return NextResponse.json({ error: status.error }, { status: 400 });
+
+  const all = await getOpportunities();
+  return NextResponse.json(status.status ? all.filter((o) => o.status === status.status) : all);
 }
 
 /**

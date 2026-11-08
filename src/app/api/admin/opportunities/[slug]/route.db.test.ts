@@ -113,13 +113,13 @@ describe("PATCH /api/admin/opportunities/[slug]", () => {
     expect(response.status).toBe(400);
   });
 
-  it("clears an optional field left out of the resubmitted form", async () => {
+  it("clears an optional field sent as null or blank, as the form sends a cleared one", async () => {
     await db.delete(opportunities);
     await db.insert(opportunities).values(WITH_COMP);
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
 
     const response = await PATCH(
-      request("PATCH", { ...EXISTING, locationCountry: "GLOBAL" }),
+      request("PATCH", { ...EXISTING, locationCountry: "GLOBAL", locationCity: null, compMin: null, compCurrency: "", compPeriod: "" }),
       params,
     );
     expect(response.status).toBe(200);
@@ -128,6 +128,33 @@ describe("PATCH /api/admin/opportunities/[slug]", () => {
     expect(row.locationCity).toBeNull();
     expect(row.compMin).toBeNull();
     expect(row.compCurrency).toBeNull();
+  });
+
+  it("keeps every field left out of the body, so a script can send only what changes", async () => {
+    await db.delete(opportunities);
+    await db.insert(opportunities).values({ ...WITH_COMP, tags: ["Policy"], deadline: "2026-12-01" });
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+
+    const response = await PATCH(request("PATCH", { title: "New Title" }), params);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      title: "New Title",
+      org: EXISTING.org,
+      applyUrl: EXISTING.applyUrl,
+      locationCity: "London",
+      compMin: 50_000,
+      compCurrency: "GBP",
+      tags: ["Policy"],
+      deadline: "2026-12-01",
+      remote: true,
+    });
+  });
+
+  it("still requires the listing's required fields when one is blanked", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await PATCH(request("PATCH", { org: null }), params);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Title, organisation and apply URL are required" });
   });
 
   it("saves via a valid API key, with no session", async () => {
@@ -178,6 +205,31 @@ describe("editing a listing's rounds through PATCH", () => {
       expect(row.rounds).toBeNull();
       expect(row.deadline).toBe("2026-12-01");
     }
+  });
+
+  it("takes only the rounds, dropping the listing's own dates for them", async () => {
+    await db.update(opportunities).set({ type: "course", deadline: "2026-11-15", startDate: "2026-11-23" });
+    const response = await PATCH(request("PATCH", { rounds: ROUNDS }), params);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data).toMatchObject({ title: EXISTING.title, rounds: ROUNDS });
+    expect(data).not.toHaveProperty("deadline");
+    expect(data).not.toHaveProperty("startDate");
+  });
+
+  it("takes only a deadline, dropping the listing's rounds for it", async () => {
+    await db.update(opportunities).set({ type: "course", rounds: ROUNDS });
+    const response = await PATCH(request("PATCH", { deadline: "2026-12-01" }), params);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data).toMatchObject({ deadline: "2026-12-01" });
+    expect(data).not.toHaveProperty("rounds");
+  });
+
+  it("is still a 400 for rounds sent alongside the listing's own dates", async () => {
+    const response = await PATCH(request("PATCH", { rounds: ROUNDS, deadline: "2026-11-15" }), params);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/keeps its dates in its rounds/);
   });
 
   it("is a 400 for a bad round, leaving the listing as it was", async () => {
