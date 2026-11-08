@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { hasOpportunityFields, opportunityFieldsFromBody, roundsFromBody, statusFromBody } from "./form-fields";
+import { bodyOverExisting, hasOpportunityFields, opportunityFieldsFromBody, roundsFromBody, statusFromBody } from "./form-fields";
+import type { Opportunity } from "./types";
 
 describe("opportunityFieldsFromBody", () => {
   it("refuses a body missing title, org or applyUrl", () => {
@@ -110,5 +111,57 @@ describe("roundsFromBody", () => {
       fields: { rounds: [{ deadline: "2026-11-15" }] },
     });
     expect(opportunityFieldsFromBody({ ...base, rounds: "soon" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("bodyOverExisting", () => {
+  const EXISTING: Opportunity = {
+    id: "1",
+    slug: "acme-role",
+    status: "published",
+    type: "course",
+    title: "Role",
+    org: "Acme",
+    summary: "",
+    description: "",
+    locationCountry: "GB",
+    locationCity: "London",
+    remote: false,
+    deadline: "2026-11-15",
+    startDate: "2026-11-23",
+    applyUrl: "https://example.com",
+  };
+  const ROUNDS = [{ deadline: "2026-12-06" }];
+
+  it("keeps fields left out and takes the ones sent, null and blank included", () => {
+    const merged = bodyOverExisting(EXISTING, { title: "New", locationCity: null, summary: "" });
+    expect(merged).toMatchObject({ title: "New", org: "Acme", locationCity: null, summary: "", deadline: "2026-11-15" });
+  });
+
+  it("never carries over id, slug or status", () => {
+    const merged = bodyOverExisting(EXISTING, {});
+    expect(merged).not.toHaveProperty("id");
+    expect(merged).not.toHaveProperty("slug");
+    expect(merged).not.toHaveProperty("status");
+  });
+
+  it("drops the listing's own dates for rounds sent without them", () => {
+    const merged = bodyOverExisting(EXISTING, { rounds: ROUNDS });
+    expect(merged).toMatchObject({ rounds: ROUNDS, deadline: undefined, startDate: undefined, endDate: undefined });
+  });
+
+  it("keeps the dates sent alongside rounds, for the schema to refuse", () => {
+    expect(bodyOverExisting(EXISTING, { rounds: ROUNDS, deadline: "2026-12-01" })).toMatchObject({ rounds: ROUNDS, deadline: "2026-12-01", startDate: "2026-11-23" });
+  });
+
+  it("keeps the listing's own dates for empty rounds", () => {
+    expect(bodyOverExisting(EXISTING, { rounds: [] })).toMatchObject({ rounds: [], deadline: "2026-11-15" });
+  });
+
+  it("drops the listing's rounds for a date sent without them", () => {
+    const withRounds = { ...EXISTING, deadline: undefined, startDate: undefined, rounds: ROUNDS };
+    expect(bodyOverExisting(withRounds, { deadline: "2026-12-01" })).toMatchObject({ deadline: "2026-12-01", rounds: undefined });
+    expect(bodyOverExisting(withRounds, { deadline: "  " })).toMatchObject({ rounds: ROUNDS });
+    expect(bodyOverExisting(withRounds, { deadline: "2026-12-01", rounds: ROUNDS })).toMatchObject({ rounds: ROUNDS });
   });
 });

@@ -35,7 +35,8 @@
     "db:down": "docker compose --env-file .env.local down",
     "db:reset": "docker compose --env-file .env.local down -v && docker compose --env-file .env.local up -d db",
     "predemo": "npm install --prefix demo --no-audit --no-fund",
-    "demo": "tsx demo/index.ts"
+    "demo": "tsx demo/index.ts",
+    "opportunities": "node --import tsx scripts/opportunities.ts"
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.11",

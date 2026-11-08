@@ -195,6 +195,12 @@ describe("rounds", () => {
     );
   });
 
+  it("gives an event round with no dates at all one error, not two", () => {
+    expect(issues({ ...valid(), type: "event", rounds: [{ startDate: "2026-12-01" }, { label: "Day 2" }] })).toBe(
+      "Round 2: An event's round needs its date (start date)",
+    );
+  });
+
   it("takes an event's date from its rounds, so needs none of its own", () => {
     expect(issues({ ...valid(), type: "event", rounds: [{ startDate: "2026-12-01" }] })).toBe("");
   });

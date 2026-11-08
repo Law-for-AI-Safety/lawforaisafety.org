@@ -16,6 +16,7 @@ import {
   locationOptions,
   openOpportunities,
   parseFilters,
+  isRunClosingSoon,
   roundsByClosing,
   serializeFilters,
   sortOpportunities,
@@ -377,7 +378,7 @@ describe("listings with rounds", () => {
   });
 
   it("puts a round that never closes last, and keeps the entered order between ties", () => {
-    const job = make({ rounds: [{ label: "b", startDate: "2026-12-01" }, { label: "a", deadline: "2026-12-01" }, { label: "c", deadline: "2026-12-01" }] });
+    const job = make({ rounds: [{ label: "b", endDate: "2026-12-01" }, { label: "a", deadline: "2026-12-01" }, { label: "c", deadline: "2026-12-01" }] });
     expect(roundsByClosing(job, at("2026-10-01")).map((view) => [view.round.label, view.closes, view.closed])).toEqual([
       ["a", "2026-12-01", false],
       ["c", "2026-12-01", false],
@@ -387,9 +388,9 @@ describe("listings with rounds", () => {
 
   it("puts rounds in the order they close, as they are saved", () => {
     expect(sortRounds("course", course.rounds!).map((round) => round.label)).toEqual(["Round 1", "Round 2", "Round 3"]);
-    expect(sortRounds("job", [{ startDate: "2026-01-01" }, { deadline: "2026-12-01" }])).toEqual([
+    expect(sortRounds("job", [{ endDate: "2026-01-01" }, { deadline: "2026-12-01" }])).toEqual([
       { deadline: "2026-12-01" },
-      { startDate: "2026-01-01" },
+      { endDate: "2026-01-01" },
     ]);
   });
 
@@ -431,10 +432,25 @@ describe("listings with rounds", () => {
     expect(isClosed(event, at("2026-10-08"))).toBe(true);
   });
 
+  it("closes any round with no deadline once it starts, so a past round isn't shown as next", () => {
+    const fellowship = make({ type: "fellowship", rounds: [{ startDate: "2026-01-10" }, { startDate: "2027-03-01" }] });
+    expect(currentRun(fellowship, at("2026-10-01"))).toMatchObject({ startDate: "2027-03-01", closes: "2027-03-01", moreRounds: 0 });
+    expect(roundsByClosing(fellowship, at("2026-10-01")).map((view) => view.closed)).toEqual([true, false]);
+    expect(isClosed(fellowship, at("2027-03-02"))).toBe(true);
+  });
+
   it("never closes while one of its rounds has no closing date", () => {
-    const job = make({ rounds: [{ deadline: "2026-09-01" }, { startDate: "2026-09-01" }] });
+    const job = make({ rounds: [{ deadline: "2026-09-01" }, { endDate: "2026-09-01" }] });
     expect(isClosed(job, at("2026-10-01"))).toBe(false);
-    expect(currentRun(job, at("2026-10-01"))).toMatchObject({ startDate: "2026-09-01", moreRounds: 0 });
+    expect(currentRun(job, at("2026-10-01"))).toMatchObject({ endDate: "2026-09-01", closes: undefined, moreRounds: 0 });
+  });
+
+  it("says when the run closes, and whether that is soon, from one currentRun", () => {
+    const run = currentRun(course, at("2026-11-01"));
+    expect(run.closes).toBe("2026-11-15");
+    expect(isRunClosingSoon(run, at("2026-11-01"))).toBe(true);
+    expect(isRunClosingSoon(run, at("2026-11-01"), 7)).toBe(false);
+    expect(isRunClosingSoon({ closes: undefined }, at("2026-11-01"))).toBe(false);
   });
 
   it("goes by a listing's own dates when it has no rounds", () => {
@@ -442,6 +458,7 @@ describe("listings with rounds", () => {
       deadline: "2026-12-01",
       startDate: "2027-01-01",
       endDate: undefined,
+      closes: "2026-12-01",
       moreRounds: 0,
     });
   });

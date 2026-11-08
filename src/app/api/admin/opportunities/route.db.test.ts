@@ -15,8 +15,8 @@ function request(body: unknown, headers?: HeadersInit) {
   });
 }
 
-function listRequest(headers?: HeadersInit) {
-  return new Request("http://localhost:3001/api/admin/opportunities", { headers });
+function listRequest(headers?: HeadersInit, query = "") {
+  return new Request(`http://localhost:3001/api/admin/opportunities${query}`, { headers });
 }
 
 const VALID_BODY = {
@@ -62,6 +62,23 @@ describe("GET /api/admin/opportunities", () => {
       ["Acme Senior Role", "published"],
       ["Drafted Role", "draft"],
     ]);
+  });
+
+  it("lists only drafts, or only published listings, by ?status", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    await POST(request(VALID_BODY));
+    await POST(request({ ...VALID_BODY, title: "Drafted Role", status: "draft" }));
+    const titles = async (query: string) =>
+      ((await (await GET(listRequest(undefined, query))).json()) as { title: string }[]).map((o) => o.title);
+    expect(await titles("?status=draft")).toEqual(["Drafted Role"]);
+    expect(await titles("?status=published")).toEqual(["Acme Senior Role"]);
+  });
+
+  it("is a 400 for an unknown ?status", async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+    const response = await GET(listRequest(undefined, "?status=closed"));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Status must be one of: draft, published" });
   });
 
   it("lists every opportunity for a valid API key, with no session", async () => {

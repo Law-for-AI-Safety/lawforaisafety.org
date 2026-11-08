@@ -6,21 +6,21 @@ import {
   formatDate,
   formatEventDates,
   formatLocation,
-  isClosingSoon,
+  isRunClosingSoon,
 } from "@/opportunities/filter";
 import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 import type { Opportunity } from "@/opportunities/types";
 
 export default function OpportunityCard({ opportunity, now = new Date() }: { opportunity: Opportunity; now?: Date }) {
   const kind = OPPORTUNITY_KINDS[opportunity.type];
-  const soon = isClosingSoon(opportunity, now);
   // The round open now, for a listing with rounds; else the listing's own dates.
   const run = currentRun(opportunity, now);
+  const soon = isRunClosingSoon(run, now);
   const meta = [
     run.round?.round.label,
     opportunity.type === "event"
       ? formatEventDates(run)
-      : // A course closes on its start date when it has no deadline, so it shows it, as does a round.
+      : // A course's start date is when it begins (and, with no deadline, when it closes), so it shows it, as does a round.
         run.startDate && (run.round || opportunity.type === "course")
         ? `${kind.startLabel} ${formatDate(run.startDate)}`
         : undefined,
@@ -32,7 +32,7 @@ export default function OpportunityCard({ opportunity, now = new Date() }: { opp
   const closing = (
     run.deadline
       ? [soon ? "Closing soon" : undefined, `${kind.deadlineLabel} ${formatDate(run.deadline)}`, more]
-      : // With no deadline, only an event or a course closes (on its date), so this one is coming up.
+      : // With no deadline, a run closes on its own date (an event's day, a course's or a round's start), if at all.
         [soon ? "Coming up" : undefined, more]
   ).filter(Boolean);
 

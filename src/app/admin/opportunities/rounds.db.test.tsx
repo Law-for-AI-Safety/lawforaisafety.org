@@ -94,10 +94,21 @@ describe("rounds in the admin form", () => {
     expect(await getOpportunityBySlug(DRAFT.slug)).toMatchObject({ status: "draft", rounds: [{ deadline: "2026-11-15" }] });
   });
 
+  it("leaves out a round added and never filled in, so splitting and saving at once works", async () => {
+    render(<NewOpportunityForm initial={COURSE_FORM} />);
+    setDate(screen.getByLabelText("Enrol by"), "2026-11-15");
+    await userEvent.click(screen.getByRole("button", { name: "Runs in several rounds? Add rounds" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create opportunity" }));
+
+    expect(await screen.findByText(/live now/)).toBeInTheDocument();
+    expect((await getOpportunityBySlug(DRAFT.slug))?.rounds).toEqual([{ deadline: "2026-11-15" }]);
+  });
+
   it("shows which round is wrong, and saves nothing", async () => {
     render(<NewOpportunityForm initial={COURSE_FORM} />);
     await userEvent.click(screen.getByRole("button", { name: "Runs in several rounds? Add rounds" }));
     setDate(round(1).getByLabelText("Enrol by"), "2026-11-15");
+    await userEvent.type(round(2).getByLabelText(/^Label/), "Part-time");
     await userEvent.click(screen.getByRole("button", { name: "Create opportunity" }));
     expect(await screen.findByText("Round 2: A round needs at least one date")).toBeInTheDocument();
     expect(await db.select().from(opportunities)).toEqual([]);
