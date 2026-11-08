@@ -194,10 +194,19 @@ export type RoundView = {
   closed: boolean;
 };
 
+/**
+ * The last day one round can be acted on. As for a listing's own dates, but a round with no
+ * deadline that would otherwise never close closes on its start date, since a round that has
+ * begun is behind the listing's next one.
+ */
+function roundClosingDate(type: OpportunityType, round: RoundDates): string | undefined {
+  return runClosingDate(type, round) ?? round.startDate;
+}
+
 /** Rounds in the order they close, soonest first; a round that never closes goes last, ties as entered. */
 function byClosing(type: OpportunityType, rounds: OpportunityRound[]) {
   return rounds
-    .map((round, index) => ({ round, index, closes: runClosingDate(type, round) }))
+    .map((round, index) => ({ round, index, closes: roundClosingDate(type, round) }))
     .sort((a, b) => {
       if (a.closes && b.closes) return a.closes.localeCompare(b.closes) || a.index - b.index;
       if (a.closes) return -1;
@@ -226,6 +235,8 @@ export function roundsByClosing(opportunity: ClosingFields, now: Date): RoundVie
 }
 
 export type CurrentRun = RoundDates & {
+  /** The last day this run can be acted on; undefined when it never closes. */
+  closes: string | undefined;
   /** The round shown, when the listing has rounds. */
   round?: RoundView;
   /** How many open rounds come after it. */
@@ -239,14 +250,11 @@ export type CurrentRun = RoundDates & {
  */
 export function currentRun(opportunity: ClosingFields, now: Date): CurrentRun {
   const rounds = roundsByClosing(opportunity, now);
-  if (rounds.length === 0) {
-    const { deadline, startDate, endDate } = opportunity;
-    return { deadline, startDate, endDate, moreRounds: 0 };
-  }
+  const run = ({ deadline, startDate, endDate }: RoundDates, closes: string | undefined) => ({ deadline, startDate, endDate, closes });
+  if (rounds.length === 0) return { ...run(opportunity, runClosingDate(opportunity.type, opportunity)), moreRounds: 0 };
   const open = rounds.filter((view) => !view.closed);
   const round = open[0] ?? rounds[rounds.length - 1];
-  const { deadline, startDate, endDate } = round.round;
-  return { deadline, startDate, endDate, round, moreRounds: Math.max(open.length - 1, 0) };
+  return { ...run(round.round, round.closes), round, moreRounds: Math.max(open.length - 1, 0) };
 }
 
 /**
@@ -254,7 +262,7 @@ export function currentRun(opportunity: ClosingFields, now: Date): CurrentRun {
  * with its last round. Undefined means it never closes.
  */
 export function closingDate(opportunity: ClosingFields, now: Date): string | undefined {
-  return runClosingDate(opportunity.type, currentRun(opportunity, now));
+  return currentRun(opportunity, now).closes;
 }
 
 /**
@@ -291,7 +299,12 @@ function daysLeft(opportunity: ClosingFields, now: Date): number | undefined {
 
 /** Still open, and closing within `withinDays`, on the same clock as `isClosed`. */
 export function isClosingSoon(opportunity: ClosingFields, now: Date, withinDays = 30): boolean {
-  const days = daysLeft(opportunity, now);
+  return isRunClosingSoon(currentRun(opportunity, now), now, withinDays);
+}
+
+/** `isClosingSoon` for a run already worked out with `currentRun`. */
+export function isRunClosingSoon(run: Pick<CurrentRun, "closes">, now: Date, withinDays = 30): boolean {
+  const days = daysLeftUntil(run.closes, now);
   return days !== undefined && days >= 0 && days <= withinDays;
 }
 

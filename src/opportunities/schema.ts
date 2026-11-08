@@ -67,11 +67,11 @@ export const ROUND_KEYS = roundSchema.keyof().options;
 /** The checks one round's dates need, reported under that round's place in `rounds`. */
 function checkRound(type: string | undefined, round: OpportunityRound, index: number, ctx: z.RefinementCtx) {
   const path = ["rounds", index];
-  if (round.deadline === undefined && round.startDate === undefined && round.endDate === undefined) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A round needs at least one date", path });
-  }
   if (type === "event" && round.startDate === undefined) {
+    // An event's round needs its date whatever else it has, which also covers one with no dates.
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An event's round needs its date (start date)", path: [...path, "startDate"] });
+  } else if (round.deadline === undefined && round.startDate === undefined && round.endDate === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A round needs at least one date", path });
   }
   if (round.startDate !== undefined && round.endDate !== undefined && round.endDate < round.startDate) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date can't be before the start date", path: [...path, "endDate"] });

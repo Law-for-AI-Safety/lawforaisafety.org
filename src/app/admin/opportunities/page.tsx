@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getOpportunities } from "@/opportunities/data";
-import { closingDate, currentRun, sortOpportunities } from "@/opportunities/filter";
+import { currentRun, sortOpportunities } from "@/opportunities/filter";
 import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 import type { Opportunity } from "@/opportunities/types";
 import DraftBadge from "./DraftBadge";
@@ -11,8 +11,8 @@ import { previewHref } from "./PublishedNotice";
  * how many rounds it has. A closing date that isn't a deadline is a course's start or an event's day.
  */
 function datesNote(opportunity: Opportunity, now: Date): string {
-  const closes = closingDate(opportunity, now);
-  const label = currentRun(opportunity, now).deadline ? OPPORTUNITY_KINDS[opportunity.type].deadlineLabel : "Closes";
+  const { closes, deadline } = currentRun(opportunity, now);
+  const label = deadline ? OPPORTUNITY_KINDS[opportunity.type].deadlineLabel : "Closes";
   const rounds = opportunity.rounds?.length;
   return [closes && `${label} ${closes}`, rounds && `${rounds} round${rounds === 1 ? "" : "s"}`]
     .filter(Boolean)

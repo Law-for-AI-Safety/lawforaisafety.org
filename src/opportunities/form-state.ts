@@ -146,6 +146,34 @@ export function opportunityFormFromSubmission(submission: {
 }
 
 /**
+ * The form's round rows put in the order a save returned them in. Each row keeps its key, so
+ * React moves its fieldset rather than remounting it; a saved round matches the first unused row
+ * with the same values once trimmed. Rows not sent, being blank, drop out.
+ */
+export function roundRowsInSavedOrder(rows: RoundFormState[], saved: OpportunityRound[]): RoundFormState[] {
+  const unused = [...rows];
+  return saved.map((round) => {
+    const fresh = roundForm(round);
+    const same = (row: RoundFormState) => ROUND_FIELDS.every((key) => row[key].trim() === fresh[key]);
+    const index = unused.findIndex(same);
+    return index === -1 ? fresh : unused.splice(index, 1)[0];
+  });
+}
+
+const ROUND_FIELDS = ["label", "deadline", "startDate", "endDate"] as const satisfies readonly (keyof OpportunityRound)[];
+
+/**
+ * The rounds to send, leaving out any the admin added and never filled in, such as the second
+ * one that splitting into rounds starts with; null when none are left.
+ */
+function roundsBody(rounds: RoundFormState[]): Record<keyof OpportunityRound, string>[] | null {
+  const filled = rounds
+    .map(({ label, deadline, startDate, endDate }) => ({ label, deadline, startDate, endDate }))
+    .filter((round) => Object.values(round).some((value) => value.trim() !== ""));
+  return filled.length > 0 ? filled : null;
+}
+
+/**
  * The request body the create/update routes expect, from the form's working state. Every field is
  * in it, a cleared one as null or blank rather than left out, since the update route keeps the
  * current value of a field its body leaves out.
@@ -156,6 +184,6 @@ export function toOpportunityBody(state: OpportunityFormState): Record<string, u
     locationCity: state.locationCountry === GLOBAL ? null : state.locationCity.trim() || null,
     compMin: state.compMin.trim() || null,
     compMax: state.compMax.trim() || null,
-    rounds: state.rounds.length > 0 ? state.rounds.map(({ label, deadline, startDate, endDate }) => ({ label, deadline, startDate, endDate })) : null,
+    rounds: roundsBody(state.rounds),
   };
 }

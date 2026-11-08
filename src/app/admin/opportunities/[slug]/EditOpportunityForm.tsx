@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { sendJson } from "../api";
 import OpportunityFields from "../OpportunityFields";
-import { opportunityFormFromExisting, toOpportunityBody, type OpportunityFormState } from "@/opportunities/form-state";
+import { opportunityFormFromExisting, roundRowsInSavedOrder, toOpportunityBody, type OpportunityFormState } from "@/opportunities/form-state";
 import PublishedNotice from "../PublishedNotice";
 import type { Opportunity } from "@/opportunities/types";
 
@@ -37,11 +37,13 @@ export default function EditOpportunityForm({
     setDraftSaved(false);
     try {
       const body = { ...toOpportunityBody(state), ...(publish && { status: "published" }) };
+      const sentRounds = state.rounds;
       const result = await sendJson(`/api/admin/opportunities/${opportunity.slug}`, "PATCH", body);
       if (result.status === "draft") {
         setDraftSaved(true);
-        // The form stays open: show the rounds in the order they were saved in, soonest closing first.
-        setState((s) => ({ ...s, rounds: opportunityFormFromExisting(result).rounds }));
+        // The form stays open: show the rounds in the order they were saved in, soonest closing
+        // first, unless the admin has changed them since, which a reorder would overwrite.
+        setState((s) => (s.rounds === sentRounds ? { ...s, rounds: roundRowsInSavedOrder(s.rounds, result.rounds ?? []) } : s));
         // The page's heading and the Remove prompt still name it as it was.
         router.refresh();
       } else {

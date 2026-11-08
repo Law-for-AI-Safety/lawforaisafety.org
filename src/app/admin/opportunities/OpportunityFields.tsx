@@ -55,7 +55,8 @@ function DateInputs({
 /**
  * The listing's dates: one set, or for a listing that runs more than once, one row per round.
  * Splitting into rounds moves the dates already entered into the first round, and removing the
- * last round moves its dates back, so switching either way loses nothing.
+ * last round moves its dates back. Single dates have no label, so that round's label goes.
+ * A round left blank isn't sent (`toOpportunityBody`), so splitting and saving at once works.
  */
 function DateFields({
   state,
