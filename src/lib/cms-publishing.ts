@@ -5,7 +5,7 @@ import { pagePath } from "@/cms/pages";
 import { editorState, isDeployed, type EditorState } from "@/cms/publish-status";
 import { recordAdminAction } from "@/lib/audit-log";
 import type { CmsPage } from "@/lib/cms-pages";
-import { notifyIndexNow } from "@/lib/indexnow";
+import { notifyIndexNowLater } from "@/lib/indexnow";
 import { deleteMergedDraft, getDraft, latestSubmission, unlockDraft, updateSubmission, type SubmissionRow } from "@/lib/cms-store";
 
 /**
@@ -80,7 +80,7 @@ export async function refreshPublishing(slug: string, fileHash: string, viewerEm
   if (latest?.state === "merged" && lockedAt <= latest.submittedAt) {
     if (isDeployed({ deployedHash: fileHash, baseHash: latest.baseHash ?? "", mergedHash: latest.mergedHash })) {
       const sent = { baseHash: latest.baseHash ?? "", draftVersion: latest.draftVersion ?? -1, submittedAt: latest.submittedAt };
-      if (await deleteMergedDraft(slug, sent)) await notifyIndexNow([pagePath(slug)]);
+      if (await deleteMergedDraft(slug, sent)) notifyIndexNowLater([pagePath(slug)]);
     }
     return { checked: true };
   }

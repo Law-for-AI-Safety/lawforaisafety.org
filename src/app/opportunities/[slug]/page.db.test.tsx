@@ -50,20 +50,25 @@ describe("an opportunity's detail page", () => {
   });
 
   it("marks a job up as a JobPosting for search engines", async () => {
-    const { container } = render(await OpportunityPage(params(JOB.slug)));
+    await db.insert(opportunities).values({ ...JOB, slug: "brussels-job", locationCountry: "BE" });
+    const { container } = render(await OpportunityPage(params("brussels-job")));
     const script = container.querySelector('script[type="application/ld+json"]');
     expect(JSON.parse(script?.innerHTML ?? "null")).toMatchObject({
       "@type": "JobPosting",
       title: JOB.title,
       hiringOrganization: { "@type": "Organization", name: JOB.org },
       datePosted: JOB.publishedAt,
+      jobLocation: { address: { addressCountry: "BE" } },
       jobLocationType: "TELECOMMUTE",
     });
   });
 
-  it("gives a course no JobPosting", async () => {
-    const { container } = render(await OpportunityPage(params(COURSE.slug)));
-    expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
+  it("gives a course, or a job with no base country, no JobPosting", async () => {
+    for (const slug of [COURSE.slug, JOB.slug]) {
+      const { container } = render(await OpportunityPage(params(slug)));
+      expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
+      cleanup();
+    }
   });
 
   it("renders a course's View course CTA", async () => {

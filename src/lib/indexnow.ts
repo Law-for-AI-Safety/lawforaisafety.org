@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { SITE_URL } from "@/cms/site";
 import { isProductionDeploy } from "@/lib/deploy-context";
 
@@ -55,4 +56,12 @@ export async function notifyIndexNow(paths: string[]): Promise<void> {
   } catch (e) {
     console.error("[indexnow] Ping failed", e);
   }
+}
+
+/**
+ * `notifyIndexNow` once the response has been sent, so the person or script whose change it
+ * announces never waits on the engines. For use while handling a request.
+ */
+export function notifyIndexNowLater(paths: string[]): void {
+  after(() => notifyIndexNow(paths));
 }

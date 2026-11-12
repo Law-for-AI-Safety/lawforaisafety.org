@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function OpportunityPage({ params }: Props) {
   const { slug } = await params;
   const { opportunity, closed, now } = await load(slug);
-  const jobPosting = jobPostingJsonLd(opportunity, now);
+  const jobPosting = jobPostingJsonLd(opportunity, now, closed);
   return (
     <ContentPage gap={6}>
       {jobPosting && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jobPosting) }} />}

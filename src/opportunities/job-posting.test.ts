@@ -52,12 +52,6 @@ describe("jobPostingJsonLd", () => {
     expect(posting?.jobLocation).not.toHaveProperty("address.addressLocality");
   });
 
-  it("marks a remote job with no base country as telecommute alone", () => {
-    const posting = jobPostingJsonLd({ ...JOB, remote: true, locationCountry: "GLOBAL", locationCity: undefined }, NOW);
-    expect(posting).toMatchObject({ jobLocationType: "TELECOMMUTE" });
-    expect(posting).not.toHaveProperty("jobLocation");
-    expect(posting).not.toHaveProperty("applicantLocationRequirements");
-  });
 
   it("leaves out what the listing doesn't have", () => {
     const posting = jobPostingJsonLd({ ...JOB, orgUrl: undefined, commitment: undefined, deadline: undefined }, NOW);
@@ -73,12 +67,16 @@ describe("jobPostingJsonLd", () => {
     expect(types).toEqual(["FULL_TIME", "PART_TIME", "CONTRACTOR", "INTERN", "OTHER"]);
   });
 
-  it("is valid through the open round's closing day, for a listing with rounds", () => {
-    const posting = jobPostingJsonLd(
-      { ...JOB, type: "fellowship", deadline: undefined, rounds: [{ deadline: "2026-11-01" }, { deadline: "2027-02-01" }] },
-      NOW,
-    );
+  it("is valid through the last round's closing day, for a listing with rounds", () => {
+    const rounds = [{ deadline: "2026-12-01" }, { deadline: "2027-02-01" }, { deadline: "2026-11-01" }];
+    const posting = jobPostingJsonLd({ ...JOB, type: "fellowship", deadline: undefined, rounds }, NOW);
     expect(posting?.validThrough).toBe("2027-02-01T23:59:59-12:00");
+  });
+
+  it("has no validThrough when a round never closes", () => {
+    const rounds = [{ deadline: "2026-12-01" }, { label: "Rolling", endDate: "2027-06-01" }];
+    const posting = jobPostingJsonLd({ ...JOB, type: "fellowship", deadline: undefined, rounds }, NOW);
+    expect(posting).not.toHaveProperty("validThrough");
   });
 
   it("is given only to jobs and fellowships", () => {
@@ -88,12 +86,15 @@ describe("jobPostingJsonLd", () => {
     }
   });
 
-  it("is dropped once the listing has closed", () => {
+  it("is dropped once the listing has closed, or the page has decided it has", () => {
     expect(jobPostingJsonLd({ ...JOB, deadline: "2026-11-10" }, NOW)).toBeNull();
+    expect(jobPostingJsonLd(JOB, NOW, true)).toBeNull();
   });
 
-  it("is not given to an on-site listing with no base country, which has no location to state", () => {
-    expect(jobPostingJsonLd({ ...JOB, locationCountry: "GLOBAL", locationCity: undefined }, NOW)).toBeNull();
+  it("is not given to a listing with no base country, remote or not, which has no country to state", () => {
+    for (const remote of [false, true]) {
+      expect(jobPostingJsonLd({ ...JOB, remote, locationCountry: "GLOBAL", locationCity: undefined }, NOW)).toBeNull();
+    }
   });
 });
 

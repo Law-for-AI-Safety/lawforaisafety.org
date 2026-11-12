@@ -7,6 +7,7 @@ import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
 import { indexNow } from "./fakes/indexnow";
 import { dataCache } from "./next-cache";
+import { afterTasks } from "./next-after";
 
 /**
  * Runs first in every test file. Settings get dummy values, none of them a real credential
@@ -37,10 +38,12 @@ process.env.DATABASE_URL = "postgres://no-database-in-unit-tests.invalid:5432/no
 delete process.env.NETLIFY_DB_URL;
 
 vi.mock("next/cache", () => import("./next-cache"));
-// `connection()` needs Next's request scope; a test always runs at "request time".
+// `connection()` and `after()` need Next's request scope; a test always runs at "request time".
+// `after` tasks run at once; `afterTasks.settled()` waits for them (test/next-after.ts).
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   connection: async () => {},
+  after: (await import("./next-after")).after,
 }));
 
 // The outside world is faked at `fetch`; see test/fakes/network.ts.
@@ -55,6 +58,7 @@ beforeEach(() => {
   oauthProviders.reset();
   slack.reset();
   indexNow.reset();
+  afterTasks.reset();
 });
 
 afterEach(() => {

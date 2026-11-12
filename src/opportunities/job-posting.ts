@@ -1,5 +1,5 @@
 import { SITE_URL } from "@/cms/site";
-import { closingDate, isClosed } from "./filter";
+import { closingDate, isClosed, roundsByClosing } from "./filter";
 import type { CommitmentType, PublishedOpportunity } from "./types";
 
 /**
@@ -8,9 +8,10 @@ import type { CommitmentType, PublishedOpportunity } from "./types";
  *
  * Only jobs and fellowships get one: Google takes job postings only, and courses, events and
  * projects are not jobs. A listing gets none once it has closed (Google requires an expired
- * posting to drop its markup or carry a past `validThrough`), nor when it names no place at
- * all, since Google then requires a location the listing doesn't have. `baseSalary` is left
- * out: Google takes it only from the employer, and the board lists other organisations' roles.
+ * posting to drop its markup or carry a past `validThrough`), nor when it has no base country:
+ * Google requires a workplace's country, or for a remote job the countries applicants may be
+ * in. `baseSalary` is left out: Google takes it only from the employer, and the board lists
+ * other organisations' roles.
  */
 
 export type JobPostingJsonLd = Record<string, unknown> & { "@type": "JobPosting" };
@@ -40,40 +41,52 @@ function descriptionHtml(description: string): string {
 }
 
 /**
- * Where the work is. A listing based in a country is located there; a remote one is marked
- * `TELECOMMUTE` as well, open to applicants in that country. A remote listing with no single
- * base country is `TELECOMMUTE` alone, applicants anywhere. Null for one that is neither.
+ * Where the work is: the listing's base country, and for a remote one `TELECOMMUTE` as well,
+ * open to applicants in that country. Null for a listing with no base country.
  */
 function location(opportunity: PublishedOpportunity): Record<string, unknown> | null {
   const { locationCountry, locationCity, remote } = opportunity;
-  const global = locationCountry === "GLOBAL";
-  if (global && !remote) return null;
+  if (locationCountry === "GLOBAL") return null;
   return {
-    ...(!global && {
-      jobLocation: {
-        "@type": "Place",
-        address: {
-          "@type": "PostalAddress",
-          ...(locationCity && { addressLocality: locationCity }),
-          addressCountry: locationCountry,
-        },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        ...(locationCity && { addressLocality: locationCity }),
+        addressCountry: locationCountry,
       },
-    }),
+    },
     ...(remote && {
       jobLocationType: "TELECOMMUTE",
-      ...(!global && { applicantLocationRequirements: { "@type": "Country", name: locationCountry } }),
+      applicantLocationRequirements: { "@type": "Country", name: locationCountry },
     }),
   };
 }
 
-/** The listing's `JobPosting`, or null when it should carry none (see above). */
-export function jobPostingJsonLd(opportunity: PublishedOpportunity, now: Date): JobPostingJsonLd | null {
+/**
+ * The last day anyone can apply: for a listing with rounds the last round's closing day, since
+ * the posting stays open through every round, or undefined when a round never closes.
+ */
+function finalClosingDate(opportunity: PublishedOpportunity, now: Date): string | undefined {
+  const rounds = roundsByClosing(opportunity, now);
+  return rounds.length === 0 ? closingDate(opportunity, now) : rounds[rounds.length - 1].closes;
+}
+
+/**
+ * The listing's `JobPosting`, or null when it should carry none (see above). `closed` is the
+ * page's own decision, made once per request, so the markup and the page's noindex agree.
+ */
+export function jobPostingJsonLd(
+  opportunity: PublishedOpportunity,
+  now: Date,
+  closed = isClosed(opportunity, now),
+): JobPostingJsonLd | null {
   if (opportunity.type !== "job" && opportunity.type !== "fellowship") return null;
-  if (isClosed(opportunity, now)) return null;
+  if (closed) return null;
   const place = location(opportunity);
   if (!place) return null;
 
-  const closes = closingDate(opportunity, now);
+  const closes = finalClosingDate(opportunity, now);
   return {
     "@context": "https://schema.org/",
     "@type": "JobPosting",

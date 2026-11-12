@@ -8,10 +8,12 @@ import { sweepRateLimitHits } from "@/lib/rate-limit";
 import { hasBearerSecret } from "@/lib/timing-safe-equal";
 
 /**
- * How often netlify/functions/sweep-expired-data.mts calls this route, so each run announces
- * the opportunities that closed since the one before.
+ * How far back each run looks for opportunities that closed: twice the 6 hours between runs of
+ * netlify/functions/sweep-expired-data.mts, so a run that fails or fires early loses no
+ * closure, at the cost of some being announced twice, which IndexNow accepts. Keep it at least
+ * twice that schedule if the schedule changes.
  */
-const SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const CLOSED_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Deletes everything that has outlived the retention periods the privacy
@@ -19,7 +21,7 @@ const SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
  * confirmed (24 hours), newsletter signups never confirmed (7 days), opportunity submissions
  * decided and Red Lines Dialogues applications rejected over a year ago, and rate-limit
  * counters (1 hour). It also tells the search engines about opportunities that have closed since
- * the last run (see `announceRecentlyClosed`).
+ * recent runs (see `announceRecentlyClosed`).
  *
  * Called every 6 hours by netlify/functions/sweep-expired-data.mts. The sweeps also
  * run opportunistically when someone submits a form, but on a quiet site
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
     sweepDecidedSubmissions(),
     sweepUnconfirmedSignups(),
     sweepRateLimitHits(),
-    announceRecentlyClosed(new Date(), SWEEP_INTERVAL_MS),
+    announceRecentlyClosed(new Date(), CLOSED_WINDOW_MS),
   ]);
 
   const result = {

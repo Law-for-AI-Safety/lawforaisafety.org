@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities, opportunitiesAuditLog } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import { indexNow, INDEXNOW_KEY } from "../../test/fakes/indexnow";
+import { afterTasks } from "../../test/next-after";
 import {
   announceRecentlyClosed,
   createOpportunity,
@@ -106,18 +107,30 @@ describe("telling the search engines (IndexNow)", () => {
 
   it("announces a listing created public, and the board", async () => {
     const created = await createOpportunity(FIELDS, "admin@example.com");
+    await afterTasks.settled();
     expect(indexNow.urls()).toEqual(listingUrls(created.slug));
   });
 
   it("announces nothing about a draft until it is published", async () => {
     const draft = await createOpportunity(FIELDS, "admin@example.com", "draft");
     await updateOpportunity(draft.slug, { ...FIELDS, title: "Staff Engineer" }, "admin@example.com", "draft");
+    await afterTasks.settled();
     expect(indexNow.urls()).toEqual([]);
 
     await publishOpportunity(draft.slug, "admin@example.com");
+    await afterTasks.settled();
     expect(indexNow.urls()).toEqual(listingUrls(draft.slug));
     // Publishing again changes nothing, so it says nothing.
     await publishOpportunity(draft.slug, "admin@example.com");
+    await afterTasks.settled();
+    expect(indexNow.pings).toHaveLength(1);
+  });
+
+  it("announces nothing for a save that changed nothing", async () => {
+    const created = await createOpportunity(FIELDS, "admin@example.com");
+    await updateOpportunity(created.slug, FIELDS, "admin@example.com");
+    await updateOpportunity(created.slug, FIELDS, "admin@example.com", "published");
+    await afterTasks.settled();
     expect(indexNow.pings).toHaveLength(1);
   });
 
@@ -126,6 +139,7 @@ describe("telling the search engines (IndexNow)", () => {
     await updateOpportunity(created.slug, { ...FIELDS, title: "Staff Engineer" }, "admin@example.com");
     const draft = await createOpportunity({ ...FIELDS, org: "Other" }, "admin@example.com", "draft");
     await updateOpportunity(draft.slug, { ...FIELDS, org: "Other" }, "admin@example.com", "published");
+    await afterTasks.settled();
     expect(indexNow.pings.map((ping) => ping.urlList)).toEqual([listingUrls(created.slug), listingUrls(created.slug), listingUrls(draft.slug)]);
   });
 
@@ -134,6 +148,7 @@ describe("telling the search engines (IndexNow)", () => {
     const draft = await createOpportunity(FIELDS, "admin@example.com", "draft");
     await deleteOpportunity(draft.slug, "admin@example.com");
     await deleteOpportunity(created.slug, "admin@example.com");
+    await afterTasks.settled();
     expect(indexNow.pings.map((ping) => ping.urlList)).toEqual([listingUrls(created.slug), listingUrls(created.slug)]);
   });
 
@@ -143,6 +158,8 @@ describe("telling the search engines (IndexNow)", () => {
     const created = await createOpportunity(FIELDS, "admin@example.com");
     expect(await db.select().from(opportunities)).toHaveLength(1);
     expect(created.slug).toBe("acme-senior-engineer");
+    await afterTasks.settled();
+    expect(indexNow.pings).toHaveLength(1);
   });
 
   it("announces the public listings that closed within the window, once", async () => {
@@ -152,6 +169,7 @@ describe("telling the search engines (IndexNow)", () => {
     await createOpportunity({ ...FIELDS, org: "Long closed", deadline: "2026-11-01" }, "admin@example.com");
     await createOpportunity({ ...FIELDS, org: "Still open", deadline: "2026-12-01" }, "admin@example.com");
     await createOpportunity({ ...FIELDS, org: "Draft", deadline: "2026-11-10" }, "admin@example.com", "draft");
+    await afterTasks.settled();
     indexNow.reset();
 
     // The closing day ends Anywhere on Earth (UTC-12) at noon UTC the next day.
@@ -159,6 +177,7 @@ describe("telling the search engines (IndexNow)", () => {
     expect(await announceRecentlyClosed(new Date("2026-11-11T11:00:00Z"), sixHours)).toBe(0);
     expect(await announceRecentlyClosed(new Date("2026-11-11T13:00:00Z"), sixHours)).toBe(1);
     expect(await announceRecentlyClosed(new Date("2026-11-11T19:00:00Z"), sixHours)).toBe(0);
+    await afterTasks.settled();
     expect(indexNow.pings.map((ping) => ping.urlList)).toEqual([listingUrls(closing.slug)]);
   });
 });
