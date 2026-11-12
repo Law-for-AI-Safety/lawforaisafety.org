@@ -7,7 +7,9 @@ import type { OpportunityFields } from "@/opportunities/form-fields";
 import { describeIssues, opportunityFieldsSchema } from "@/opportunities/schema";
 import { isClosed, sortRounds } from "@/opportunities/filter";
 import { slugify, uniqueSlug } from "@/opportunities/slug";
-import type { Opportunity, OpportunityStatus } from "@/opportunities/types";
+import { jobPostingJsonLd } from "@/opportunities/job-posting";
+import { isPublished, type Opportunity, type OpportunityStatus } from "@/opportunities/types";
+import { notifyGoogleIndexing, notifyGoogleIndexingLater } from "./google-indexing";
 import { notifyIndexNow, notifyIndexNowLater } from "./indexnow";
 import { recordOpportunityAction } from "./opportunities-audit-log";
 
@@ -44,6 +46,30 @@ function clearPublicCache() {
  */
 function announceChange(slug: string): void {
   notifyIndexNowLater([`/opportunities/${slug}`, "/opportunities"]);
+}
+
+/**
+ * Whether the listing's page carries `JobPosting` markup at `now`: public, a job or fellowship
+ * with a base country, and still open. Only such pages may go to Google's Indexing API.
+ */
+function carriesJobPosting(opportunity: Opportunity, now: Date): boolean {
+  return isPublished(opportunity) && jobPostingJsonLd(opportunity, now) !== null;
+}
+
+/**
+ * Tells Google's Indexing API about a write to a listing, given the listing before and after
+ * it (null for one that didn't exist), once the response has been sent: `URL_UPDATED` when its
+ * page carries a job posting now, `URL_DELETED` when it carried one and no longer does (it was
+ * deleted, closed by an edit, or stopped being a job posting). Anything else is not Google's
+ * to hear about. A failed notification is only logged (see `notifyGoogleIndexing`).
+ */
+function announceJobPosting(before: Opportunity | null, after: Opportunity | null): void {
+  const now = new Date();
+  if (after && carriesJobPosting(after, now)) {
+    notifyGoogleIndexingLater([{ path: `/opportunities/${after.slug}`, type: "URL_UPDATED" }]);
+  } else if (before && carriesJobPosting(before, now)) {
+    notifyGoogleIndexingLater([{ path: `/opportunities/${before.slug}`, type: "URL_DELETED" }]);
+  }
 }
 
 function todayISO(): string {
@@ -101,7 +127,9 @@ export async function createOpportunity(
     detail: { slug: row.slug, title: row.title, org: row.org },
   });
   if (row.status === "published") announceChange(row.slug);
-  return toOpportunity(row);
+  const created = toOpportunity(row);
+  announceJobPosting(null, created);
+  return created;
 }
 
 /**
@@ -168,8 +196,10 @@ export async function updateOpportunity(
   if (publishing) await recordPublish(actorEmail, row);
   // A save that changed nothing, such as a script's retry, has nothing to announce.
   if (row.status === "published" && (publishing || changedKeys.length > 0)) announceChange(row.slug);
+  const updated = toOpportunity(row);
+  if (publishing || changedKeys.length > 0) announceJobPosting(toOpportunity(existing), updated);
 
-  return toOpportunity(row);
+  return updated;
 }
 
 function recordPublish(actorEmail: string, row: OpportunityRow): Promise<void> {
@@ -199,7 +229,9 @@ export async function publishOpportunity(slug: string, actorEmail: string): Prom
   clearPublicCache();
   await recordPublish(actorEmail, row);
   announceChange(row.slug);
-  return toOpportunity(row);
+  const published = toOpportunity(row);
+  announceJobPosting(null, published);
+  return published;
 }
 
 /** Removes a listing. A snapshot of the row is kept in the audit log, since deleting otherwise loses it entirely. */
@@ -210,20 +242,28 @@ export async function deleteOpportunity(slug: string, actorEmail: string): Promi
   await recordOpportunityAction({ actorEmail, action: "delete", entityId: row.id, detail: row });
   // The engines find the page gone (a 404) when they recrawl it.
   if (row.status === "published") announceChange(row.slug);
-  return toOpportunity(row);
+  const deleted = toOpportunity(row);
+  announceJobPosting(deleted, null);
+  return deleted;
 }
 
 /**
  * A listing closes when its closing day ends, with no write to mark it, so the scheduled sweep
  * calls this to tell the search engines about every public listing that closed in the
- * `withinMs` before `now`: its page has turned noindex and it has left the board. Waits for
- * the ping, since no one is waiting on the sweep. Returns how many closed.
+ * `withinMs` before `now`: its page has turned noindex and it has left the board. Those whose
+ * page carried a job posting until then are also sent to Google's Indexing API as
+ * `URL_DELETED`. Waits for both, since no one is waiting on the sweep. Returns how many closed.
  */
 export async function announceRecentlyClosed(now: Date, withinMs: number): Promise<number> {
   const before = new Date(now.getTime() - withinMs);
   const closed = (await getPublishedOpportunities()).filter((o) => isClosed(o, now) && !isClosed(o, before));
   if (closed.length > 0) {
     await notifyIndexNow([...closed.map((o) => `/opportunities/${o.slug}`), "/opportunities"]);
+    await notifyGoogleIndexing(
+      closed
+        .filter((o) => carriesJobPosting(o, before))
+        .map((o) => ({ path: `/opportunities/${o.slug}`, type: "URL_DELETED" as const })),
+    );
   }
   return closed.length;
 }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities, opportunitiesAuditLog } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import { indexNow, INDEXNOW_KEY } from "../../test/fakes/indexnow";
+import { GOOGLE_INDEXING_SERVICE_ACCOUNT, googleIndexing } from "../../test/fakes/google-indexing";
 import { afterTasks } from "../../test/next-after";
 import {
   announceRecentlyClosed,
@@ -179,5 +180,98 @@ describe("telling the search engines (IndexNow)", () => {
     expect(await announceRecentlyClosed(new Date("2026-11-11T19:00:00Z"), sixHours)).toBe(0);
     await afterTasks.settled();
     expect(indexNow.pings.map((ping) => ping.urlList)).toEqual([listingUrls(closing.slug)]);
+  });
+});
+
+describe("telling Google (Indexing API)", () => {
+  /** A job its page marks up as a JobPosting: it has a base country. */
+  const JOB = { ...FIELDS, locationCountry: "BE", remote: false };
+  const url = (slug: string) => `https://lawforaisafety.org/opportunities/${slug}`;
+  const sent = async () => {
+    await afterTasks.settled();
+    return googleIndexing.notifications.map(({ url, type }) => `${type} ${url}`);
+  };
+
+  beforeEach(() => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    vi.stubEnv("GOOGLE_INDEXING_SERVICE_ACCOUNT", GOOGLE_INDEXING_SERVICE_ACCOUNT);
+  });
+
+  it("announces a job posting when it goes public, and each change to it", async () => {
+    const created = await createOpportunity(JOB, "admin@example.com");
+    await updateOpportunity(created.slug, { ...JOB, title: "Staff Engineer" }, "admin@example.com");
+    // A save that changed nothing says nothing.
+    await updateOpportunity(created.slug, { ...JOB, title: "Staff Engineer" }, "admin@example.com");
+    const draft = await createOpportunity({ ...JOB, type: "fellowship", org: "Other" }, "admin@example.com", "draft");
+    await updateOpportunity(draft.slug, { ...JOB, type: "fellowship", org: "Other", title: "Fellow" }, "admin@example.com", "draft");
+    await publishOpportunity(draft.slug, "admin@example.com");
+    const editedLive = await createOpportunity({ ...JOB, org: "Third" }, "admin@example.com", "draft");
+    await updateOpportunity(editedLive.slug, { ...JOB, org: "Third" }, "admin@example.com", "published");
+
+    expect(await sent()).toEqual([
+      `URL_UPDATED ${url(created.slug)}`,
+      `URL_UPDATED ${url(created.slug)}`,
+      `URL_UPDATED ${url(draft.slug)}`,
+      `URL_UPDATED ${url(editedLive.slug)}`,
+    ]);
+  });
+
+  it("never announces a listing whose page carries no job posting", async () => {
+    const global = await createOpportunity(FIELDS, "admin@example.com");
+    await updateOpportunity(global.slug, { ...FIELDS, title: "Staff Engineer" }, "admin@example.com");
+    await deleteOpportunity(global.slug, "admin@example.com");
+    const course = await createOpportunity({ ...JOB, type: "course", org: "School" }, "admin@example.com");
+    await deleteOpportunity(course.slug, "admin@example.com");
+    const draft = await createOpportunity(JOB, "admin@example.com", "draft");
+    await deleteOpportunity(draft.slug, "admin@example.com");
+    const closed = await createOpportunity({ ...JOB, org: "Closed", deadline: "2020-01-01" }, "admin@example.com");
+    await updateOpportunity(closed.slug, { ...JOB, org: "Closed", deadline: "2020-01-01", title: "Typo fixed" }, "admin@example.com");
+    expect(await sent()).toEqual([]);
+  });
+
+  it("announces a job posting's removal when it is deleted, closed by an edit or stops being one", async () => {
+    const deleted = await createOpportunity(JOB, "admin@example.com");
+    await deleteOpportunity(deleted.slug, "admin@example.com");
+    const closed = await createOpportunity({ ...JOB, org: "Closes" }, "admin@example.com");
+    await updateOpportunity(closed.slug, { ...JOB, org: "Closes", deadline: "2020-01-01" }, "admin@example.com");
+    const moved = await createOpportunity({ ...JOB, org: "Moves" }, "admin@example.com");
+    await updateOpportunity(moved.slug, { ...JOB, org: "Moves", locationCountry: "GLOBAL" }, "admin@example.com");
+    // Reopened by a later deadline, it is a job posting again.
+    await updateOpportunity(closed.slug, { ...JOB, org: "Closes", deadline: "2099-01-01" }, "admin@example.com");
+
+    expect(await sent()).toEqual([
+      `URL_UPDATED ${url(deleted.slug)}`,
+      `URL_DELETED ${url(deleted.slug)}`,
+      `URL_UPDATED ${url(closed.slug)}`,
+      `URL_DELETED ${url(closed.slug)}`,
+      `URL_UPDATED ${url(moved.slug)}`,
+      `URL_DELETED ${url(moved.slug)}`,
+      `URL_UPDATED ${url(closed.slug)}`,
+    ]);
+  });
+
+  it("still saves the change when Google can't be reached", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    googleIndexing.failNextToken("network");
+    const created = await createOpportunity(JOB, "admin@example.com");
+    expect(created.status).toBe("published");
+    expect(await db.select().from(opportunities)).toHaveLength(1);
+    expect(await sent()).toEqual([]);
+  });
+
+  it("announces the removal of job postings that closed within the window", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-10T00:00:00Z"));
+    const closing = await createOpportunity({ ...JOB, deadline: "2026-11-10" }, "admin@example.com");
+    await createOpportunity({ ...FIELDS, org: "Global", deadline: "2026-11-10" }, "admin@example.com");
+    await createOpportunity({ ...JOB, type: "course", org: "Course", deadline: "2026-11-10" }, "admin@example.com");
+    await createOpportunity({ ...JOB, org: "Still open", deadline: "2026-12-01" }, "admin@example.com");
+    await afterTasks.settled();
+    googleIndexing.notifications.length = 0;
+
+    const sixHours = 6 * 60 * 60 * 1000;
+    expect(await announceRecentlyClosed(new Date("2026-11-11T13:00:00Z"), sixHours)).toBe(3);
+    expect(await announceRecentlyClosed(new Date("2026-11-11T19:00:00Z"), sixHours)).toBe(0);
+    expect(await sent()).toEqual([`URL_DELETED ${url(closing.slug)}`]);
   });
 });
