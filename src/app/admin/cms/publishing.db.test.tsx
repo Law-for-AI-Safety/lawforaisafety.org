@@ -11,6 +11,8 @@ import { refreshPublishing } from "@/lib/cms-publishing";
 import { insertSubmission, setStoredCmsPermission } from "@/lib/cms-store";
 import { startAdminSession } from "@/lib/session";
 import { BOT_LOGIN, github, githubEnv } from "../../../../test/fakes/github";
+import { indexNow, INDEXNOW_KEY } from "../../../../test/fakes/indexnow";
+import { afterTasks } from "../../../../test/next-after";
 import { cookieJar } from "../../../../test/next-headers";
 import { discardDraft, publishDraft, saveDraft, withdrawPublish } from "./actions";
 import CmsPagesPage from "./page";
@@ -412,12 +414,30 @@ describe("resetting the draft after a merge", () => {
     expect(merged.state).toBe("merged");
   });
 
+  it("tells the search engines about the page once it is live, and only then", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY);
+    const merged = await mergedNotDeployed();
+    // This deployment still serves the file the draft started from.
+    await refreshPublishing(SLUG, merged.baseHash ?? "", EMAIL.publish);
+    await afterTasks.settled();
+    expect(indexNow.urls()).toEqual([]);
+    await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
+    await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
+    await afterTasks.settled();
+    expect(indexNow.urls()).toEqual([`https://lawforaisafety.org/${SLUG}`]);
+  });
+
   it("keeps a draft a newer publish has locked, even when it read the merged state first", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY);
     await mergedNotDeployed();
     // A newer publish of the same draft locks it after the merged submission was made.
     await db.update(cmsDrafts).set({ lockedAt: new Date(NOW.getTime() + 60_000) });
     await refreshPublishing(SLUG, "a-newer-file", EMAIL.publish);
     expect(await draftRow()).toBeDefined();
+    await afterTasks.settled();
+    expect(indexNow.urls()).toEqual([]);
   });
 
   it("keeps a draft started afresh from another file", async () => {

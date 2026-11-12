@@ -5,7 +5,9 @@ import { emails } from "./fakes/email";
 import { turnstile } from "./fakes/turnstile";
 import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
+import { indexNow } from "./fakes/indexnow";
 import { dataCache } from "./next-cache";
+import { afterTasks } from "./next-after";
 
 /**
  * Runs first in every test file. Settings get dummy values, none of them a real credential
@@ -24,6 +26,8 @@ Object.assign(process.env, {
   TURNSTILE_SECRET_KEY: "test-turnstile-secret",
 });
 delete process.env.DEPLOY_CONTEXT;
+// IndexNow pings only go out once a test sets a key (`vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY)`).
+delete process.env.INDEXNOW_KEY;
 // Publishing is not set up unless a test points it at the fake GitHub (`githubEnv()`).
 for (const name of ["GITHUB_APP_ID", "GITHUB_APP_INSTALLATION_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME", "GITHUB_API_URL", "CMS_PREVIEW_SITE_NAME"]) {
   delete process.env[name];
@@ -34,10 +38,12 @@ process.env.DATABASE_URL = "postgres://no-database-in-unit-tests.invalid:5432/no
 delete process.env.NETLIFY_DB_URL;
 
 vi.mock("next/cache", () => import("./next-cache"));
-// `connection()` needs Next's request scope; a test always runs at "request time".
+// `connection()` and `after()` need Next's request scope; a test always runs at "request time".
+// `after` tasks run at once; `afterTasks.settled()` waits for them (test/next-after.ts).
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   connection: async () => {},
+  after: (await import("./next-after")).after,
 }));
 
 // The outside world is faked at `fetch`; see test/fakes/network.ts.
@@ -51,6 +57,8 @@ beforeEach(() => {
   github.reset();
   oauthProviders.reset();
   slack.reset();
+  indexNow.reset();
+  afterTasks.reset();
 });
 
 afterEach(() => {
