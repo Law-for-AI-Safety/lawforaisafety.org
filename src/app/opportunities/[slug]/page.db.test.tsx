@@ -49,6 +49,23 @@ describe("an opportunity's detail page", () => {
     expect(cta).toHaveAttribute("href", JOB.applyUrl);
   });
 
+  it("marks a job up as a JobPosting for search engines", async () => {
+    const { container } = render(await OpportunityPage(params(JOB.slug)));
+    const script = container.querySelector('script[type="application/ld+json"]');
+    expect(JSON.parse(script?.innerHTML ?? "null")).toMatchObject({
+      "@type": "JobPosting",
+      title: JOB.title,
+      hiringOrganization: { "@type": "Organization", name: JOB.org },
+      datePosted: JOB.publishedAt,
+      jobLocationType: "TELECOMMUTE",
+    });
+  });
+
+  it("gives a course no JobPosting", async () => {
+    const { container } = render(await OpportunityPage(params(COURSE.slug)));
+    expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
+  });
+
   it("renders a course's View course CTA", async () => {
     render(await OpportunityPage(params(COURSE.slug)));
     expect(screen.getByRole("link", { name: "View course" })).toHaveAttribute("href", COURSE.applyUrl);

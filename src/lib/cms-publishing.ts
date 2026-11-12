@@ -1,9 +1,11 @@
 import { gitHubClientFor, type GitHubClient } from "@/cms/github";
 import { gitHubSetup } from "@/cms/github-config";
 import { isStaleLock, readOutcome } from "@/cms/publish";
+import { pagePath } from "@/cms/pages";
 import { editorState, isDeployed, type EditorState } from "@/cms/publish-status";
 import { recordAdminAction } from "@/lib/audit-log";
 import type { CmsPage } from "@/lib/cms-pages";
+import { notifyIndexNow } from "@/lib/indexnow";
 import { deleteMergedDraft, getDraft, latestSubmission, unlockDraft, updateSubmission, type SubmissionRow } from "@/lib/cms-store";
 
 /**
@@ -21,6 +23,9 @@ import { deleteMergedDraft, getDraft, latestSubmission, unlockDraft, updateSubmi
  * once it is older than `STALE_LOCK_MS`, by when that publish cannot still be running: a
  * pending submission whose pull request was opened is recorded as open, any other is marked
  * failed (its branch deleted) and the draft unlocked.
+ *
+ * The load that deletes the merged draft, the page now being live, also tells the search
+ * engines about it (IndexNow).
  */
 
 /** The GitHub client for this site, or null when publishing is not set up. */
@@ -74,7 +79,8 @@ export async function refreshPublishing(slug: string, fileHash: string, viewerEm
   }
   if (latest?.state === "merged" && lockedAt <= latest.submittedAt) {
     if (isDeployed({ deployedHash: fileHash, baseHash: latest.baseHash ?? "", mergedHash: latest.mergedHash })) {
-      await deleteMergedDraft(slug, { baseHash: latest.baseHash ?? "", draftVersion: latest.draftVersion ?? -1, submittedAt: latest.submittedAt });
+      const sent = { baseHash: latest.baseHash ?? "", draftVersion: latest.draftVersion ?? -1, submittedAt: latest.submittedAt };
+      if (await deleteMergedDraft(slug, sent)) await notifyIndexNow([pagePath(slug)]);
     }
     return { checked: true };
   }

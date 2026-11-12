@@ -1,7 +1,16 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities, opportunitiesAuditLog } from "@/drizzle/schema";
 import { db } from "@/lib/db";
-import { createOpportunity, deleteOpportunity, NotFoundError, updateOpportunity, ValidationError } from "./opportunities-flow";
+import { indexNow, INDEXNOW_KEY } from "../../test/fakes/indexnow";
+import {
+  announceRecentlyClosed,
+  createOpportunity,
+  deleteOpportunity,
+  NotFoundError,
+  publishOpportunity,
+  updateOpportunity,
+  ValidationError,
+} from "./opportunities-flow";
 
 const FIELDS = {
   type: "job" as const,
@@ -83,5 +92,73 @@ describe("deleteOpportunity", () => {
 
   it("refuses an unknown slug", async () => {
     await expect(deleteOpportunity("no-such-slug", "admin@example.com")).rejects.toThrow(NotFoundError);
+  });
+});
+
+describe("telling the search engines (IndexNow)", () => {
+  const SITE = "https://lawforaisafety.org";
+  const listingUrls = (slug: string) => [`${SITE}/opportunities/${slug}`, `${SITE}/opportunities`];
+
+  beforeEach(() => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY);
+  });
+
+  it("announces a listing created public, and the board", async () => {
+    const created = await createOpportunity(FIELDS, "admin@example.com");
+    expect(indexNow.urls()).toEqual(listingUrls(created.slug));
+  });
+
+  it("announces nothing about a draft until it is published", async () => {
+    const draft = await createOpportunity(FIELDS, "admin@example.com", "draft");
+    await updateOpportunity(draft.slug, { ...FIELDS, title: "Staff Engineer" }, "admin@example.com", "draft");
+    expect(indexNow.urls()).toEqual([]);
+
+    await publishOpportunity(draft.slug, "admin@example.com");
+    expect(indexNow.urls()).toEqual(listingUrls(draft.slug));
+    // Publishing again changes nothing, so it says nothing.
+    await publishOpportunity(draft.slug, "admin@example.com");
+    expect(indexNow.pings).toHaveLength(1);
+  });
+
+  it("announces an edit to a public listing, and a draft published by its edit", async () => {
+    const created = await createOpportunity(FIELDS, "admin@example.com");
+    await updateOpportunity(created.slug, { ...FIELDS, title: "Staff Engineer" }, "admin@example.com");
+    const draft = await createOpportunity({ ...FIELDS, org: "Other" }, "admin@example.com", "draft");
+    await updateOpportunity(draft.slug, { ...FIELDS, org: "Other" }, "admin@example.com", "published");
+    expect(indexNow.pings.map((ping) => ping.urlList)).toEqual([listingUrls(created.slug), listingUrls(created.slug), listingUrls(draft.slug)]);
+  });
+
+  it("announces a public listing's removal, but not a draft's", async () => {
+    const created = await createOpportunity(FIELDS, "admin@example.com");
+    const draft = await createOpportunity(FIELDS, "admin@example.com", "draft");
+    await deleteOpportunity(draft.slug, "admin@example.com");
+    await deleteOpportunity(created.slug, "admin@example.com");
+    expect(indexNow.pings.map((ping) => ping.urlList)).toEqual([listingUrls(created.slug), listingUrls(created.slug)]);
+  });
+
+  it("still saves the change when the ping fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    indexNow.failNext("network");
+    const created = await createOpportunity(FIELDS, "admin@example.com");
+    expect(await db.select().from(opportunities)).toHaveLength(1);
+    expect(created.slug).toBe("acme-senior-engineer");
+  });
+
+  it("announces the public listings that closed within the window, once", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-10T00:00:00Z"));
+    const closing = await createOpportunity({ ...FIELDS, deadline: "2026-11-10" }, "admin@example.com");
+    await createOpportunity({ ...FIELDS, org: "Long closed", deadline: "2026-11-01" }, "admin@example.com");
+    await createOpportunity({ ...FIELDS, org: "Still open", deadline: "2026-12-01" }, "admin@example.com");
+    await createOpportunity({ ...FIELDS, org: "Draft", deadline: "2026-11-10" }, "admin@example.com", "draft");
+    indexNow.reset();
+
+    // The closing day ends Anywhere on Earth (UTC-12) at noon UTC the next day.
+    const sixHours = 6 * 60 * 60 * 1000;
+    expect(await announceRecentlyClosed(new Date("2026-11-11T11:00:00Z"), sixHours)).toBe(0);
+    expect(await announceRecentlyClosed(new Date("2026-11-11T13:00:00Z"), sixHours)).toBe(1);
+    expect(await announceRecentlyClosed(new Date("2026-11-11T19:00:00Z"), sixHours)).toBe(0);
+    expect(indexNow.pings.map((ping) => ping.urlList)).toEqual([listingUrls(closing.slug)]);
   });
 });

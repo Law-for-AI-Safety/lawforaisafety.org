@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import ContentPage from "@/app/ContentPage";
 import { getCachedOpportunityBySlug } from "@/opportunities/data";
 import { isClosed } from "@/opportunities/filter";
+import { jobPostingJsonLd, jsonLdScript } from "@/opportunities/job-posting";
 import type { PublishedOpportunity } from "@/opportunities/types";
 import OpportunityListing from "./OpportunityListing";
 
@@ -40,8 +41,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function OpportunityPage({ params }: Props) {
   const { slug } = await params;
   const { opportunity, closed, now } = await load(slug);
+  const jobPosting = jobPostingJsonLd(opportunity, now);
   return (
     <ContentPage gap={6}>
+      {jobPosting && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jobPosting) }} />}
       <OpportunityListing opportunity={opportunity} closed={closed} now={now} />
     </ContentPage>
   );

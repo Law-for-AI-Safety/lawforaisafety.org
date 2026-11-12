@@ -2,12 +2,13 @@ import { and, eq, like } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opportunities } from "@/drizzle/schema";
 import { revalidateTag } from "next/cache";
-import { OPPORTUNITIES_CACHE_TAG, toOpportunity, type OpportunityRow } from "@/opportunities/data";
+import { getPublishedOpportunities, OPPORTUNITIES_CACHE_TAG, toOpportunity, type OpportunityRow } from "@/opportunities/data";
 import type { OpportunityFields } from "@/opportunities/form-fields";
 import { describeIssues, opportunityFieldsSchema } from "@/opportunities/schema";
-import { sortRounds } from "@/opportunities/filter";
+import { isClosed, sortRounds } from "@/opportunities/filter";
 import { slugify, uniqueSlug } from "@/opportunities/slug";
 import type { Opportunity, OpportunityStatus } from "@/opportunities/types";
+import { notifyIndexNow } from "./indexnow";
 import { recordOpportunityAction } from "./opportunities-audit-log";
 
 /**
@@ -35,6 +36,14 @@ function isUniqueSlugViolation(e: unknown): boolean {
  */
 function clearPublicCache() {
   revalidateTag(OPPORTUNITIES_CACHE_TAG, { expire: 0 });
+}
+
+/**
+ * Tells the search engines a public listing has changed, along with the board it appears on.
+ * Only after the write is saved, and a failed ping is only logged (see `notifyIndexNow`).
+ */
+function announceChange(slug: string): Promise<void> {
+  return notifyIndexNow([`/opportunities/${slug}`, "/opportunities"]);
 }
 
 function todayISO(): string {
@@ -91,6 +100,7 @@ export async function createOpportunity(
     entityId: row.id,
     detail: { slug: row.slug, title: row.title, org: row.org },
   });
+  if (row.status === "published") await announceChange(row.slug);
   return toOpportunity(row);
 }
 
@@ -156,6 +166,7 @@ export async function updateOpportunity(
   const detail = Object.fromEntries(changedKeys.map((key) => [key, { before: existing[key], after: row[key] }]));
   await recordOpportunityAction({ actorEmail, action: "update", entityId: row.id, detail });
   if (publishing) await recordPublish(actorEmail, row);
+  if (row.status === "published") await announceChange(row.slug);
 
   return toOpportunity(row);
 }
@@ -186,6 +197,7 @@ export async function publishOpportunity(slug: string, actorEmail: string): Prom
   }
   clearPublicCache();
   await recordPublish(actorEmail, row);
+  await announceChange(row.slug);
   return toOpportunity(row);
 }
 
@@ -195,5 +207,22 @@ export async function deleteOpportunity(slug: string, actorEmail: string): Promi
   if (!row) throw new NotFoundError();
   if (row.status === "published") clearPublicCache();
   await recordOpportunityAction({ actorEmail, action: "delete", entityId: row.id, detail: row });
+  // The engines find the page gone (a 404) when they recrawl it.
+  if (row.status === "published") await announceChange(row.slug);
   return toOpportunity(row);
+}
+
+/**
+ * A listing closes when its closing day ends, with no write to mark it, so the scheduled sweep
+ * calls this to tell the search engines about every public listing that closed in the
+ * `withinMs` before `now`: its page has turned noindex and it has left the board. Returns how
+ * many closed.
+ */
+export async function announceRecentlyClosed(now: Date, withinMs: number): Promise<number> {
+  const before = new Date(now.getTime() - withinMs);
+  const closed = (await getPublishedOpportunities()).filter((o) => isClosed(o, now) && !isClosed(o, before));
+  if (closed.length > 0) {
+    await notifyIndexNow([...closed.map((o) => `/opportunities/${o.slug}`), "/opportunities"]);
+  }
+  return closed.length;
 }

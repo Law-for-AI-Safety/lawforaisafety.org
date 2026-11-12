@@ -5,6 +5,7 @@ import { emails } from "./fakes/email";
 import { turnstile } from "./fakes/turnstile";
 import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
+import { indexNow } from "./fakes/indexnow";
 import { dataCache } from "./next-cache";
 
 /**
@@ -24,6 +25,8 @@ Object.assign(process.env, {
   TURNSTILE_SECRET_KEY: "test-turnstile-secret",
 });
 delete process.env.DEPLOY_CONTEXT;
+// IndexNow pings only go out once a test sets a key (`vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY)`).
+delete process.env.INDEXNOW_KEY;
 // Publishing is not set up unless a test points it at the fake GitHub (`githubEnv()`).
 for (const name of ["GITHUB_APP_ID", "GITHUB_APP_INSTALLATION_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME", "GITHUB_API_URL", "CMS_PREVIEW_SITE_NAME"]) {
   delete process.env[name];
@@ -51,6 +54,7 @@ beforeEach(() => {
   github.reset();
   oauthProviders.reset();
   slack.reset();
+  indexNow.reset();
 });
 
 afterEach(() => {
