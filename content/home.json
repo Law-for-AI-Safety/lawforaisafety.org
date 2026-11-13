@@ -199,36 +199,36 @@
       "members": [
         {
           "name": "Katalina Hernandez",
-          "role": "TBC",
-          "bio": "TBC.",
+          "role": "Head of Legal, EquiStamp",
+          "bio": "AI safety lawyer. Co-lead of ML4Good's European Seminar on Frontier AI and Law. Former Responsible AI Lead at VOIS, leading EU AI Act implementation across ten jurisdictions.",
           "linkedin": "https://www.linkedin.com/in/katalina-hernandez/",
           "group": "Legal"
         },
         {
-          "name": "privacat",
-          "role": "TBC",
-          "bio": "TBC.",
+          "name": "Carey Lening",
+          "role": "Data Protection and Tech Policy Consultant",
+          "bio": "Former lawyer with over 20 years in privacy and tech, including at Palantir and Meta. Author of the Privacat Insights newsletter.",
           "linkedin": "https://www.linkedin.com/in/privacat/",
           "group": "Legal"
         },
         {
           "name": "Martin Radzaj",
-          "role": "TBC",
-          "bio": "TBC.",
+          "role": "Barrister and Co-founder, Safe AI in Law",
+          "bio": "Barrister with over a decade's experience in law and government policy. AI safety researcher working on mechanistic interpretability of legally relevant features in LLMs.",
           "linkedin": "https://www.linkedin.com/in/martinradzaj/",
           "group": "Legal"
         },
         {
-          "name": "Radu Anca",
-          "role": "TBC",
-          "bio": "TBC.",
+          "name": "Anca Radu",
+          "role": "Researcher in AI and Law",
+          "bio": "PhD from the European University Institute on the use of AI in the judiciary. Has advised the Council of Europe's CEPEJ and UNESCO as an independent expert.",
           "linkedin": "https://www.linkedin.com/in/raduanca/",
           "group": "Legal"
         },
         {
           "name": "Margot Stakenborg",
-          "role": "TBC",
-          "bio": "TBC.",
+          "role": "AI Safety Researcher",
+          "bio": "Background in theoretical physics and philosophy of physics. Research fellow at Dovetail, working on formalising world models.",
           "linkedin": "https://www.linkedin.com/in/margotstakenborg/",
           "group": "Technical"
         }
