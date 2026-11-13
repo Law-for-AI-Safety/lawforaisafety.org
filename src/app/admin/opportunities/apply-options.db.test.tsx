@@ -58,7 +58,7 @@ beforeEach(async () => {
 describe("rolling applications and email apply links in the admin form", () => {
   it("creates a rolling listing applied to by email, leaving out the deadline typed before ticking rolling", async () => {
     render(<NewOpportunityForm initial={PROJECT_FORM} />);
-    const deadline = screen.getByLabelText("Apply by");
+    const deadline = screen.getByLabelText("Deadline");
     setDate(deadline, "2026-12-01");
     await userEvent.click(screen.getByLabelText("Rolling applications (no deadline)"));
     expect(deadline).toBeDisabled();
@@ -78,11 +78,11 @@ describe("rolling applications and email apply links in the admin form", () => {
 
   it("keeps a deadline typed before rolling was ticked, for when it is turned off again", async () => {
     render(<NewOpportunityForm initial={PROJECT_FORM} />);
-    setDate(screen.getByLabelText("Apply by"), "2026-12-01");
+    setDate(screen.getByLabelText("Deadline"), "2026-12-01");
     const rolling = screen.getByLabelText("Rolling applications (no deadline)");
     await userEvent.click(rolling);
     await userEvent.click(rolling);
-    expect(screen.getByLabelText("Apply by")).toHaveValue("2026-12-01");
+    expect(screen.getByLabelText("Deadline")).toHaveValue("2026-12-01");
   });
 
   it("shows a rolling listing's email as just the address, and turns rolling off for a deadline", async () => {
@@ -92,7 +92,7 @@ describe("rolling applications and email apply links in the admin form", () => {
     const rolling = screen.getByLabelText("Rolling applications (no deadline)");
     expect(rolling).toBeChecked();
     await userEvent.click(rolling);
-    setDate(screen.getByLabelText("Apply by"), "2026-12-01");
+    setDate(screen.getByLabelText("Deadline"), "2026-12-01");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(await screen.findByText(/Saved/)).toBeInTheDocument();
@@ -107,9 +107,9 @@ describe("rolling applications and email apply links in the admin form", () => {
     const rounds = [roundForm({ startDate: "2027-01-10" }), roundForm({ deadline: "2027-03-01", startDate: "2027-04-10" })];
     render(<NewOpportunityForm initial={{ ...PROJECT_FORM, type: "course", rounds }} />);
     const second = within(screen.getByRole("group", { name: "Round 2" }));
-    expect(second.getByLabelText("Enrol by")).toHaveValue("2027-03-01");
+    expect(second.getByLabelText("Deadline")).toHaveValue("2027-03-01");
     await userEvent.click(screen.getByLabelText("Rolling enrolment (no deadline)"));
-    expect(second.getByLabelText("Enrol by")).toBeDisabled();
+    expect(second.getByLabelText("Deadline")).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Create opportunity" }));
 
     expect(await screen.findByText(/live now/)).toBeInTheDocument();

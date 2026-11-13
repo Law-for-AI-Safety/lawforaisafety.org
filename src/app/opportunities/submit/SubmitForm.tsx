@@ -211,7 +211,7 @@ export default function SubmitForm() {
           />
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="flex flex-col gap-2">
-              <span className={LABEL_CLASSES}>{kind?.deadlineLabel ?? "Apply by"}</span>
+              <span className={LABEL_CLASSES}>{kind?.deadlineLabel ?? "Deadline"}</span>
               <input
                 type="date"
                 name="deadline"

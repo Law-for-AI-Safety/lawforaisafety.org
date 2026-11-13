@@ -147,9 +147,9 @@ describe("an opportunity's detail page", () => {
       vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
       render(await OpportunityPage(params("rounds-course")));
       expect(roundItems().map((item) => item.textContent)).toEqual([
-        "Round 1NextEnrol by15 Nov 2026Starts23 Nov 2026",
-        "Round 2Enrol by6 Dec 2026Starts14 Dec 2026Ends7 Feb 2027",
-        "Round 3Enrol by27 Dec 2026Starts4 Jan 2027Ends28 Feb 2027",
+        "Round 1NextDeadline15 Nov 2026Starts23 Nov 2026",
+        "Round 2Deadline6 Dec 2026Starts14 Dec 2026Ends7 Feb 2027",
+        "Round 3Deadline27 Dec 2026Starts4 Jan 2027Ends28 Feb 2027",
       ]);
       expect(screen.getByRole("link", { name: "View course" })).toBeInTheDocument();
     });

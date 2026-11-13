@@ -90,7 +90,7 @@ describe("OpportunitiesBoard", () => {
     render(<OpportunitiesBoard opportunities={items} now={NOW} />);
     await userEvent.click(screen.getByRole("checkbox", { name: "Closing soon" }));
     expect(shownTitles()).toEqual(["Paris Course"]);
-    expect(screen.getByText(/Closing soon · Enrol by/)).toBeInTheDocument();
+    expect(screen.getByText(/Closing soon · Deadline/)).toBeInTheDocument();
   });
 
   it("shows everything again once the last type is unticked, with a clean URL", async () => {

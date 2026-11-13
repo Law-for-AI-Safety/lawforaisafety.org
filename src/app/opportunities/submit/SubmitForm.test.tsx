@@ -32,7 +32,7 @@ describe("SubmitForm", () => {
     render(<SubmitForm />);
     await userEvent.click(screen.getByText("Fill in the details"));
     expect(screen.getByLabelText("Title")).toBeInTheDocument();
-    expect(screen.getByLabelText("Apply by")).toBeInTheDocument();
+    expect(screen.getByLabelText("Deadline")).toBeInTheDocument();
 
     await userEvent.click(screen.getByText("Event"));
     expect(screen.getByLabelText(/^Link or email to register/)).toBeInTheDocument();
@@ -43,9 +43,9 @@ describe("SubmitForm", () => {
   it("greys out the deadline once rolling applications are ticked", async () => {
     render(<SubmitForm />);
     await userEvent.click(screen.getByText("Fill in the details"));
-    expect(screen.getByLabelText("Apply by")).toBeEnabled();
+    expect(screen.getByLabelText("Deadline")).toBeEnabled();
     await userEvent.click(screen.getByLabelText(/rolling basis/));
-    expect(screen.getByLabelText("Apply by")).toBeDisabled();
+    expect(screen.getByLabelText("Deadline")).toBeDisabled();
   });
 
   it("brings back rolling applications, greying out the deadline, after a refused submission", () => {
@@ -54,7 +54,7 @@ describe("SubmitForm", () => {
     window.sessionStorage.setItem("kept-form-input:opportunity-submit", JSON.stringify(kept));
     render(<SubmitForm />);
     expect(screen.getByLabelText(/rolling basis/)).toBeChecked();
-    expect(screen.getByLabelText("Apply by")).toBeDisabled();
+    expect(screen.getByLabelText("Deadline")).toBeDisabled();
   });
 
   it("asks for the link before sending", async () => {

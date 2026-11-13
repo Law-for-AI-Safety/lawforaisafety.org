@@ -100,7 +100,7 @@ A listing that runs several times, each with its own dates, sends them as `round
 
 ### Choosing a type
 
-There is no default: a listing without a valid `type` is refused rather than filed under the wrong tab. Each type sets the listing's tab, badge, button and date labels (`src/opportunities/kinds.ts`).
+There is no default: a listing without a valid `type` is refused rather than filed under the wrong tab. Each type sets the listing's tab, badge, button and date labels (`src/opportunities/kinds.ts`); every type shows its `deadline` as "Deadline".
 
 | `type` | For | Button | Dates |
 | --- | --- | --- | --- |
@@ -108,7 +108,7 @@ There is no default: a listing without a valid `type` is refused rather than fil
 | `fellowship` | a fellowship, residency or paid research programme with a cohort | Apply now | `deadline` to apply; `startDate`/`endDate` of the programme |
 | `project` | volunteering or a collaboration to join, unpaid or ad hoc | Get involved | `deadline` to apply; `startDate`/`endDate` of the project |
 | `course` | a course or training programme | View course | `deadline` to enrol; `startDate`/`endDate` of the course. With no `deadline` it closes on its `startDate`. A course with several cohorts sends [`rounds`](#rounds) |
-| `event` | a conference, workshop, talk or other dated event | Register | `startDate` (required) is its date; `deadline` to register, if any, shown as "Deadline" |
+| `event` | a conference, workshop, talk or other dated event | Register | `startDate` (required) is its date; `deadline` to register, if any |
 
 ## Prompting an ingestion agent
 

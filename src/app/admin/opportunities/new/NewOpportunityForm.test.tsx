@@ -14,7 +14,7 @@ describe("NewOpportunityForm", () => {
 
   it("labels the dates and button for the chosen type", async () => {
     render(<NewOpportunityForm />);
-    expect(screen.getByLabelText("Apply by")).toBeInTheDocument();
+    expect(screen.getByLabelText("Deadline")).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Type"), "event");
     expect(screen.getByLabelText("Deadline")).toBeInTheDocument();
     expect(screen.getByLabelText("Date")).toBeInTheDocument();

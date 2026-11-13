@@ -61,19 +61,19 @@ beforeEach(async () => {
 describe("rounds in the admin form", () => {
   it("splits the dates already entered into the first round, and creates the listing with every round", async () => {
     render(<NewOpportunityForm initial={COURSE_FORM} />);
-    setDate(screen.getByLabelText("Enrol by"), "2026-11-15");
+    setDate(screen.getByLabelText("Deadline"), "2026-11-15");
     await userEvent.click(screen.getByRole("button", { name: "Runs in several rounds? Add rounds" }));
 
     // Only the two rounds' own: the listing's single dates are gone.
-    expect(screen.getAllByLabelText("Enrol by")).toHaveLength(2);
-    expect(round(1).getByLabelText("Enrol by")).toHaveValue("2026-11-15");
+    expect(screen.getAllByLabelText("Deadline")).toHaveLength(2);
+    expect(round(1).getByLabelText("Deadline")).toHaveValue("2026-11-15");
     await userEvent.type(round(1).getByLabelText(/^Label/), "Round 1");
     setDate(round(1).getByLabelText("Starts"), "2026-11-23");
     await userEvent.type(round(2).getByLabelText(/^Label/), "Round 2");
-    setDate(round(2).getByLabelText("Enrol by"), "2026-12-06");
+    setDate(round(2).getByLabelText("Deadline"), "2026-12-06");
     await userEvent.click(screen.getByRole("button", { name: "Add round" }));
     await userEvent.type(round(3).getByLabelText(/^Label/), "Round 3");
-    setDate(round(3).getByLabelText("Enrol by"), "2026-12-27");
+    setDate(round(3).getByLabelText("Deadline"), "2026-12-27");
     await userEvent.click(screen.getByRole("button", { name: "Create opportunity" }));
 
     expect(await screen.findByText(/live now/)).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe("rounds in the admin form", () => {
 
   it("leaves out a round added and never filled in, so splitting and saving at once works", async () => {
     render(<NewOpportunityForm initial={COURSE_FORM} />);
-    setDate(screen.getByLabelText("Enrol by"), "2026-11-15");
+    setDate(screen.getByLabelText("Deadline"), "2026-11-15");
     await userEvent.click(screen.getByRole("button", { name: "Runs in several rounds? Add rounds" }));
     await userEvent.click(screen.getByRole("button", { name: "Create opportunity" }));
 
@@ -107,7 +107,7 @@ describe("rounds in the admin form", () => {
   it("shows which round is wrong, and saves nothing", async () => {
     render(<NewOpportunityForm initial={COURSE_FORM} />);
     await userEvent.click(screen.getByRole("button", { name: "Runs in several rounds? Add rounds" }));
-    setDate(round(1).getByLabelText("Enrol by"), "2026-11-15");
+    setDate(round(1).getByLabelText("Deadline"), "2026-11-15");
     await userEvent.type(round(2).getByLabelText(/^Label/), "Part-time");
     await userEvent.click(screen.getByRole("button", { name: "Create opportunity" }));
     expect(await screen.findByText("Round 2: A round needs at least one date")).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe("rounds in the admin form", () => {
     render(<EditOpportunityForm opportunity={(await getOpportunityBySlug(DRAFT.slug))!} />);
     expect(round(2).getByLabelText(/^Label/)).toHaveValue("Part-time");
     await userEvent.click(screen.getByRole("button", { name: "Add round" }));
-    setDate(round(3).getByLabelText("Enrol by"), "2026-12-27");
+    setDate(round(3).getByLabelText("Deadline"), "2026-12-27");
     await userEvent.click(round(1).getByRole("button", { name: "Remove round 1" }));
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
 
@@ -135,7 +135,7 @@ describe("rounds in the admin form", () => {
     render(<EditOpportunityForm opportunity={(await getOpportunityBySlug(DRAFT.slug))!} />);
     await userEvent.click(screen.getByRole("button", { name: "Remove round 1" }));
     expect(screen.queryByRole("group", { name: "Round 1" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Enrol by")).toHaveValue("2026-11-15");
+    expect(screen.getByLabelText("Deadline")).toHaveValue("2026-11-15");
     await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
     expect(await screen.findByText(/Draft saved/)).toBeInTheDocument();
@@ -146,11 +146,11 @@ describe("rounds in the admin form", () => {
     await db.insert(opportunities).values(DRAFT);
     render(<EditOpportunityForm opportunity={(await getOpportunityBySlug(DRAFT.slug))!} />);
     await userEvent.click(screen.getByRole("button", { name: "Add round" }));
-    setDate(round(3).getByLabelText("Enrol by"), "2026-11-08");
+    setDate(round(3).getByLabelText("Deadline"), "2026-11-08");
     await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
     expect(await screen.findByText(/Draft saved/)).toBeInTheDocument();
-    expect(round(1).getByLabelText("Enrol by")).toHaveValue("2026-11-08");
+    expect(round(1).getByLabelText("Deadline")).toHaveValue("2026-11-08");
     expect(round(2).getByLabelText(/^Label/)).toHaveValue("Intensive");
     expect((await getOpportunityBySlug(DRAFT.slug))?.rounds?.[0]).toEqual({ deadline: "2026-11-08" });
   });
@@ -166,7 +166,7 @@ describe("rounds in the admin list", () => {
   it("shows the next round's deadline and how many rounds there are", async () => {
     await db.insert(opportunities).values({ ...DRAFT, rounds: [{ deadline: "2026-11-01" }, ...DRAFT.rounds] });
     render(await OpportunitiesListPage());
-    expect(screen.getByText(/Course · BlueDot · Enrol by 2026-11-15 · 3 rounds/)).toBeInTheDocument();
+    expect(screen.getByText(/Course · BlueDot · Deadline 2026-11-15 · 3 rounds/)).toBeInTheDocument();
   });
 
   it("shows when a round with no deadline closes", async () => {
