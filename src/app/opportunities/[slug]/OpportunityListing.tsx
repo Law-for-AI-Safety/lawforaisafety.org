@@ -11,6 +11,7 @@ import {
   roundsByClosing,
   type RoundDates,
 } from "@/opportunities/filter";
+import { applyEmail } from "@/opportunities/apply-link";
 import { OPPORTUNITY_KINDS } from "@/opportunities/kinds";
 import type { Opportunity } from "@/opportunities/types";
 
@@ -33,6 +34,8 @@ function facts(opportunity: Opportunity): Fact[] {
     { label: "Location", value: formatLocation(opportunity) },
     { label: "Commitment", value: formatCommitment(opportunity) },
     { label: "Compensation", value: formatCompensation(opportunity) },
+    // In place of a deadline, which a rolling listing has nowhere, its rounds included.
+    { label: "Deadline", value: opportunity.rolling ? OPPORTUNITY_KINDS[opportunity.type].rollingLabel : undefined },
   ]
     .filter((fact): fact is Fact => Boolean(fact.value))
     .concat(dateFacts(opportunity, opportunity));
@@ -97,6 +100,7 @@ export default function OpportunityListing({
 }) {
   const kind = OPPORTUNITY_KINDS[opportunity.type];
   const closedOn = closed ? closingDate(opportunity, now) : undefined;
+  const email = applyEmail(opportunity.applyUrl);
 
   return (
     <>
@@ -155,9 +159,20 @@ export default function OpportunityListing({
           {kind.closedLabel} {formatDate(closedOn)}.
         </p>
       ) : (
-        <WipeButton href={opportunity.applyUrl} className={FILLED} hoverBg="rgba(255,255,255,0.15)">
-          {opportunity.applyLabel ?? kind.applyLabel}
-        </WipeButton>
+        <div className="flex flex-col gap-3">
+          <WipeButton href={opportunity.applyUrl} className={`${FILLED} w-fit`} hoverBg="rgba(255,255,255,0.15)">
+            {opportunity.applyLabel ?? kind.applyLabel}
+          </WipeButton>
+          {/* A mail link does nothing without a mail app set up, so the address is shown to copy. */}
+          {email && (
+            <p className="text-lg font-light text-brand-navy/70">
+              By email to{" "}
+              <a href={opportunity.applyUrl} className="underline [overflow-wrap:anywhere]">
+                {email}
+              </a>
+            </p>
+          )}
+        </div>
       )}
     </>
   );

@@ -64,7 +64,15 @@ describe("OpportunityCard", () => {
     );
     expect(screen.getByText("Event")).toBeInTheDocument();
     expect(screen.getByText(/20 Nov 2026 – 21 Nov 2026/)).toBeInTheDocument();
-    expect(screen.getByText(/Register by 10 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Deadline 10 Nov 2026/)).toBeInTheDocument();
+  });
+
+  it("says a rolling listing has no deadline, worded for its kind", () => {
+    const { unmount } = render(<OpportunityCard opportunity={{ ...job, deadline: undefined, rolling: true }} />);
+    expect(screen.getByText("Rolling applications")).toBeInTheDocument();
+    unmount();
+    render(<OpportunityCard opportunity={{ ...course, rolling: true, startDate: "2026-10-10" }} now={new Date("2026-10-01")} />);
+    expect(screen.getByText("Coming up · Rolling enrolment")).toBeInTheDocument();
   });
 
   it("flags an event with no deadline as coming up when its date is near", () => {

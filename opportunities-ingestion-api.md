@@ -21,7 +21,7 @@ The comparison is constant-time (`src/lib/timing-safe-equal.ts`). With no key co
 | `GET` | `/api/admin/opportunities` | Every listing, drafts included, each with its `status`. `?status=draft` or `?status=published` lists only those. Check this before creating, to avoid duplicates. |
 | `POST` | `/api/admin/opportunities` | Creates a listing: live immediately, or a draft with `"status": "draft"`. Slug is computed server-side from `org` and `title`; don't send `id`, `slug`, or `publishedAt`. |
 | `GET` | `/api/admin/opportunities/<slug>` | One listing, draft or published. 404 if it doesn't exist. |
-| `PATCH` | `/api/admin/opportunities/<slug>` | Updates a listing. Send only the fields that change: a field left out keeps its value, and `null` or `""` clears one. Sending non-empty `rounds` without `deadline`, `startDate` or `endDate` clears the listing's own dates, and sending a date without `rounds` clears its rounds, since a listing has one or the other. `{"status": "published"}` on its own publishes a draft without editing it. |
+| `PATCH` | `/api/admin/opportunities/<slug>` | Updates a listing. Send only the fields that change: a field left out keeps its value, and `null` or `""` clears one. Sending non-empty `rounds` without `deadline`, `startDate` or `endDate` clears the listing's own dates, and sending a date without `rounds` clears its rounds, since a listing has one or the other. In the same way, `"rolling": true` without `deadline` clears the listing's deadline, and a deadline (its own or a round's) without `rolling` turns rolling off. `{"status": "published"}` on its own publishes a draft without editing it. |
 | `DELETE` | `/api/admin/opportunities/<slug>` | Removes a listing. |
 
 ## From the command line
@@ -71,11 +71,12 @@ From `src/opportunities/schema.ts`:
 | `compPeriod` | `"year" \| "month" \| "week" \| "day" \| "hour"` | required if `compMin`/`compMax` is set |
 | `compNote` | string, ≤200 | optional |
 | `deadline`, `startDate`, `endDate` | `YYYY-MM-DD` | optional, except that an `event` needs `startDate`, its date; `endDate` is its last day if it runs over several. `endDate` can't be before `startDate`. With no `deadline`, an event closes once its last day has passed and a course on its start date; anything else never closes. Leave all three out when sending `rounds` |
+| `rolling` | boolean | optional, default `false`. `true` for a listing that takes applications on a rolling basis, with no deadline: it then shows "Rolling applications" (a course "Rolling enrolment", an event "Rolling registration") where a deadline would be. It can't have a `deadline`, nor can any of its `rounds` (`400`). It closes as any listing with no deadline does: an event after its last day, a course or round on its start date, anything else never. A listing with no deadline that isn't `rolling` shows no deadline at all. `GET` leaves it out unless it is `true` |
 | `rounds` | list of rounds, ≤20 | optional, for a listing that runs more than once (a course's cohorts, say). See [Rounds](#rounds) |
 | `tags` | string[], each ≤50 | optional |
-| `applyUrl` | URL | required |
+| `applyUrl` | URL or email address | required. A web address (`http://` or `https://`), or for applications by email an email address, which is saved as `mailto:` and the address (`GET` returns it that way) and shown on the listing as the apply button and the address itself. `mailto:name@example.org` is taken as well. Only a single address: no `?subject=` or second recipient |
 | `applyLabel` | string, ≤50 | optional |
-| `sourceUrl` | URL | optional; where the listing was found, use it to dedupe on re-ingestion |
+| `sourceUrl` | URL | optional; where the listing was found, use it to dedupe on re-ingestion. For a listing applied to by email, this is the page that describes it, if there is one |
 | `status` | `"draft" \| "published"` | optional, default `"published"`. See [Drafts](#drafts) |
 | `submissionId` | uuid | `POST` only, optional; publishes an outside submission (`/admin/opportunities/submissions`) as this listing and emails its submitter. 409 if it isn't pending. Can't be combined with `"status": "draft"` (400), since the submitter's email links to the public listing |
 
@@ -94,7 +95,8 @@ A listing that runs several times, each with its own dates, sends them as `round
 - Any other key in a round, or a value that isn't a string, is a `400`. Errors name the round, counting from 1: `Round 2: End date can't be before the start date`.
 - A round closes the way a listing does (its `deadline`; with none, an event's last day or a course's start date). The board shows the open round that closes soonest, and the listing closes after its last round.
 - Rounds are saved in the order they close, soonest first (a round that never closes goes last, ties as sent), so `GET` returns them in that order, each with its fields in the order above and unset ones left out. A listing with single dates has no `rounds` key.
-- `rounds` left out, `null` or `[]` means none. Like every field, a `PATCH` that leaves it out clears it, turning the listing back into one with single dates.
+- `rounds` left out, `null` or `[]` means none. A `PATCH` that sends `null` or `[]` clears them, turning the listing back into one with single dates; one that leaves `rounds` out keeps them, unless it sends a top-level date.
+- With `"rolling": true`, no round may have a `deadline`: each round closes as one with no deadline does, so a course's cohorts each take applications until they start.
 
 ### Choosing a type
 
@@ -106,7 +108,7 @@ There is no default: a listing without a valid `type` is refused rather than fil
 | `fellowship` | a fellowship, residency or paid research programme with a cohort | Apply now | `deadline` to apply; `startDate`/`endDate` of the programme |
 | `project` | volunteering or a collaboration to join, unpaid or ad hoc | Get involved | `deadline` to apply; `startDate`/`endDate` of the project |
 | `course` | a course or training programme | View course | `deadline` to enrol; `startDate`/`endDate` of the course. With no `deadline` it closes on its `startDate`. A course with several cohorts sends [`rounds`](#rounds) |
-| `event` | a conference, workshop, talk or other dated event | Register | `startDate` (required) is its date; `deadline` to register, if any |
+| `event` | a conference, workshop, talk or other dated event | Register | `startDate` (required) is its date; `deadline` to register, if any, shown as "Deadline" |
 
 ## Prompting an ingestion agent
 
@@ -114,4 +116,6 @@ Point it at this file, or give it the equivalent directly: base URL, the bearer 
 
 - `GET /api/admin/opportunities` first and match on `sourceUrl` before creating, `PATCH`-ing an existing match with only the fields that changed instead of creating a duplicate.
 - Always send `type`, chosen with the table in [Choosing a type](#choosing-a-type), and skip a listing it can't place rather than guessing.
+- Send `"rolling": true` for a posting that says applications are rolling or open until filled, rather than guessing a deadline; leave `deadline` out when a posting gives none and says nothing either way.
+- Send the email address as `applyUrl` when a posting says to apply by email and has no application page.
 - On a `400`, read `error` and fix the field it names before retrying.

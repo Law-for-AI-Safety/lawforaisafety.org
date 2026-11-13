@@ -1,3 +1,4 @@
+import { applyLinkForForm } from "./apply-link";
 import { GLOBAL } from "./schema";
 import type { CommitmentType, CompCurrency, CompPeriod, Opportunity, OpportunityRound, OpportunityType } from "./types";
 
@@ -44,11 +45,14 @@ export type OpportunityFormState = {
   compPeriod: "" | CompPeriod;
   compNote: string;
   deadline: string;
+  /** Rolling applications: then no deadline is sent, the listing's own or any round's. */
+  rolling: boolean;
   startDate: string;
   endDate: string;
   /** Empty for a listing with single dates, which are then in `deadline`, `startDate` and `endDate`. */
   rounds: RoundFormState[];
   tags: string[];
+  /** A web address, or an email address shown without its `mailto:`. */
   applyUrl: string;
   applyLabel: string;
   sourceUrl: string;
@@ -73,6 +77,7 @@ export function emptyOpportunityForm(): OpportunityFormState {
     compPeriod: "",
     compNote: "",
     deadline: "",
+    rolling: false,
     startDate: "",
     endDate: "",
     rounds: [],
@@ -102,11 +107,12 @@ export function opportunityFormFromExisting(o: Opportunity): OpportunityFormStat
     compPeriod: o.compPeriod ?? "",
     compNote: o.compNote ?? "",
     deadline: o.deadline ?? "",
+    rolling: o.rolling ?? false,
     startDate: o.startDate ?? "",
     endDate: o.endDate ?? "",
     rounds: (o.rounds ?? []).map(roundForm),
     tags: o.tags ?? [],
-    applyUrl: o.applyUrl,
+    applyUrl: applyLinkForForm(o.applyUrl),
     applyLabel: o.applyLabel ?? "",
     sourceUrl: o.sourceUrl ?? "",
   };
@@ -125,6 +131,7 @@ export function opportunityFormFromSubmission(submission: {
   location: string | null;
   remote: boolean;
   deadline: string | null;
+  rolling: boolean;
   startDate: string | null;
   endDate: string | null;
   description: string | null;
@@ -134,11 +141,12 @@ export function opportunityFormFromSubmission(submission: {
     type: submission.type ?? "job",
     title: submission.title ?? "",
     org: submission.org ?? "",
-    applyUrl: submission.applyUrl ?? "",
+    applyUrl: submission.applyUrl ? applyLinkForForm(submission.applyUrl) : "",
     sourceUrl: submission.sourceUrl ?? "",
     locationNote: submission.location ?? "",
     remote: submission.remote,
     deadline: submission.deadline ?? "",
+    rolling: submission.rolling,
     startDate: submission.startDate ?? "",
     endDate: submission.endDate ?? "",
     description: submission.description ?? "",
@@ -166,9 +174,9 @@ const ROUND_FIELDS = ["label", "deadline", "startDate", "endDate"] as const sati
  * The rounds to send, leaving out any the admin added and never filled in, such as the second
  * one that splitting into rounds starts with; null when none are left.
  */
-function roundsBody(rounds: RoundFormState[]): Record<keyof OpportunityRound, string>[] | null {
+function roundsBody(rounds: RoundFormState[], rolling: boolean): Record<keyof OpportunityRound, string>[] | null {
   const filled = rounds
-    .map(({ label, deadline, startDate, endDate }) => ({ label, deadline, startDate, endDate }))
+    .map(({ label, deadline, startDate, endDate }) => ({ label, deadline: rolling ? "" : deadline, startDate, endDate }))
     .filter((round) => Object.values(round).some((value) => value.trim() !== ""));
   return filled.length > 0 ? filled : null;
 }
@@ -184,6 +192,7 @@ export function toOpportunityBody(state: OpportunityFormState): Record<string, u
     locationCity: state.locationCountry === GLOBAL ? null : state.locationCity.trim() || null,
     compMin: state.compMin.trim() || null,
     compMax: state.compMax.trim() || null,
-    rounds: roundsBody(state.rounds),
+    deadline: state.rolling ? null : state.deadline,
+    rounds: roundsBody(state.rounds, state.rolling),
   };
 }

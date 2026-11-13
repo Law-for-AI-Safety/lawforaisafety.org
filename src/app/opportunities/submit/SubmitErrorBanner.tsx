@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 const ERROR_MESSAGES: Record<string, string> = {
   validation: "Some required details were missing. Please check the form and try again below.",
   toolong: "One of your answers is too long. Please shorten it and try again below.",
-  url: "One of the links doesn't look right. It should start with https://",
+  url: "One of the links doesn't look right. It should start with https:// (where to apply can be an email address instead).",
   date: "One of the dates doesn't look right, or the end date is before the start date.",
   eventdate: "An event needs its date. Please add it and try again below.",
   name: "Please enter your name without special characters like < or >.",

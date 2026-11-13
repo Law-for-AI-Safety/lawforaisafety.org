@@ -68,6 +68,13 @@ describe("a submission's page", () => {
     expect(screen.getByRole("checkbox", { name: /Email the submitter/ })).toBeChecked();
   });
 
+  it("shows an email address to apply to, and rolling applications in place of a deadline", async () => {
+    const row = await insert({ applyUrl: "mailto:join@pauseai.info", rolling: true });
+    render(await SubmissionPage(params(row.id)));
+    expect(screen.getByRole("link", { name: "mailto:join@pauseai.info" })).toHaveAttribute("href", "mailto:join@pauseai.info");
+    expect(screen.getByText("None: rolling applications")).toBeInTheDocument();
+  });
+
   it("shows the outcome, with no actions, once decided", async () => {
     const row = await insert({ status: "rejected", reviewedBy: "admin@example.com", rejectionReason: "Duplicate" });
     render(await SubmissionPage(params(row.id)));
@@ -92,6 +99,13 @@ describe("creating a listing from a submission", () => {
     expect(screen.getByLabelText("Type")).toHaveValue("event");
     expect(screen.getByLabelText("Date")).toHaveValue("2026-11-20");
     expect(screen.getByLabelText(/Location note/)).toHaveValue("Brussels, Belgium");
+  });
+
+  it("starts the form rolling, with the email address to apply to, when that is what was sent", async () => {
+    const row = await insert({ applyUrl: "mailto:join@pauseai.info", rolling: true });
+    render(await NewOpportunityPage({ searchParams: Promise.resolve({ submission: row.id }) }));
+    expect(screen.getByLabelText("Apply link or email")).toHaveValue("join@pauseai.info");
+    expect(screen.getByLabelText("Rolling registration (no deadline)")).toBeChecked();
   });
 
   it("is a 404 for a submission already dealt with", async () => {

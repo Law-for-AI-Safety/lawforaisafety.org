@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COUNTRIES } from "./countries";
+import { isApplyLink } from "./apply-link";
 import { OPPORTUNITY_TYPES } from "./kinds";
 import type { Opportunity, OpportunityRound } from "./types";
 
@@ -78,6 +79,8 @@ function checkRound(type: string | undefined, round: OpportunityRound, index: nu
   }
 }
 
+const ROLLING_WITH_DEADLINE = "A listing with rolling applications has no deadline: leave the deadline blank, or turn rolling off";
+
 /** Cross-field checks that a single field's own validator can't express. */
 function checkConsistency(
   val: {
@@ -89,6 +92,7 @@ function checkConsistency(
     locationCity?: unknown;
     type?: string;
     deadline?: string;
+    rolling?: true;
     startDate?: string;
     endDate?: string;
     rounds?: OpportunityRound[];
@@ -119,6 +123,15 @@ function checkConsistency(
     }
     val.rounds.forEach((round, index) => checkRound(val.type, round, index, ctx));
   }
+  // Rolling means no deadline anywhere, so the listing can't say both.
+  if (val.rolling && val.deadline !== undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: ROLLING_WITH_DEADLINE, path: ["deadline"] });
+  }
+  val.rounds?.forEach((round, index) => {
+    if (val.rolling && round.deadline !== undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: ROLLING_WITH_DEADLINE, path: ["rounds", index, "deadline"] });
+    }
+  });
   // An event closes after its date, so without one it would stay on the board for good.
   if (val.type === "event" && val.rounds === undefined && val.startDate === undefined) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An event needs its date (start date)", path: ["startDate"] });
@@ -149,6 +162,7 @@ const opportunityObjectSchema = z
     compPeriod: z.enum(COMP_PERIODS).optional(),
     compNote: text("Compensation note", 200).optional(),
     deadline: isoDate("Deadline").optional(),
+    rolling: z.literal(true, "Rolling must be true, or left out").optional(),
     startDate: isoDate("Start date").optional(),
     endDate: isoDate("End date").optional(),
     rounds: z
@@ -157,7 +171,7 @@ const opportunityObjectSchema = z
       .max(MAX_ROUNDS, `A listing can have at most ${MAX_ROUNDS} rounds`)
       .optional(),
     tags: z.array(text("Tag", 50)).optional(),
-    applyUrl: url("Apply URL"),
+    applyUrl: z.string().refine(isApplyLink, "Apply link must be a web address (http:// or https://) or an email address"),
     applyLabel: text("Apply label", 50).optional(),
     sourceUrl: url("Source URL").optional(),
     status: z.enum(OPPORTUNITY_STATUSES),

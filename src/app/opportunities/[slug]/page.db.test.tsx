@@ -94,8 +94,30 @@ describe("an opportunity's detail page", () => {
     render(await OpportunityPage(params("an-event")));
     expect(screen.getByText("Event")).toBeInTheDocument();
     expect(screen.getByText("Date")).toBeInTheDocument();
-    expect(screen.getByText("Register by")).toBeInTheDocument();
+    expect(screen.getByText("Deadline")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Register" })).toHaveAttribute("href", JOB.applyUrl);
+  });
+
+  it("says a rolling listing has no deadline, and still closes an event once it has taken place", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    await db.insert(opportunities).values([
+      { ...JOB, slug: "rolling-job", rolling: true },
+      { ...JOB, slug: "rolling-event", type: "event", startDate: "2026-09-30", rolling: true },
+    ]);
+    render(await OpportunityPage(params("rolling-job")));
+    expect(screen.getByText("Deadline").nextElementSibling).toHaveTextContent("Rolling applications");
+    expect(screen.getByRole("link", { name: "Apply now" })).toBeInTheDocument();
+    cleanup();
+    render(await OpportunityPage(params("rolling-event")));
+    expect(screen.getByText("Registration closed on 30 Sept 2026.")).toBeInTheDocument();
+  });
+
+  it("sends applications by email to an email apply link, showing the address", async () => {
+    await db.insert(opportunities).values({ ...JOB, slug: "email-job", applyUrl: "mailto:join@pauseai.info" });
+    render(await OpportunityPage(params("email-job")));
+    expect(screen.getByRole("link", { name: "Apply now" })).toHaveAttribute("href", "mailto:join@pauseai.info");
+    expect(screen.getByRole("link", { name: "join@pauseai.info" })).toHaveAttribute("href", "mailto:join@pauseai.info");
   });
 
   it("closes an event with no deadline once it has taken place", async () => {

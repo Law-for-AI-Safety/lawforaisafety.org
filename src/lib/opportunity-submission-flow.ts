@@ -18,6 +18,7 @@ import {
 import { notifyReviewersOfNewOpportunitySubmission } from "@/lib/slack";
 import { isProductionDeploy } from "@/lib/deploy-context";
 import { OPPORTUNITY_TYPES, type OpportunityType } from "@/opportunities/kinds";
+import { applyEmail, normaliseApplyLink } from "@/opportunities/apply-link";
 import { isRealCalendarDate } from "@/opportunities/schema";
 import type { Opportunity } from "@/opportunities/types";
 
@@ -103,6 +104,17 @@ function webUrl(formData: FormData, field: "sourceUrl" | "applyUrl"): string | n
   return url.toString();
 }
 
+/**
+ * Where to apply: a web address as `webUrl` takes it, or an email address, kept as a `mailto:`
+ * link as a listing's own is.
+ */
+function applyLink(formData: FormData): string | null {
+  const value = text(formData, "applyUrl");
+  if (!value) return null;
+  const link = normaliseApplyLink(value);
+  return applyEmail(link) !== undefined ? link : webUrl(formData, "applyUrl");
+}
+
 function isoDate(formData: FormData, field: "deadline" | "startDate" | "endDate"): string | null {
   const value = str(formData.get(field));
   if (!value) return null;
@@ -134,12 +146,13 @@ function parseFields(formData: FormData) {
 
   const title = text(formData, "title");
   const org = text(formData, "org");
-  const applyUrl = webUrl(formData, "applyUrl");
+  const applyUrl = applyLink(formData);
   const description = text(formData, "description");
   if (!type || !title || !org || !applyUrl || !description) {
     throw new SubmissionValidationError("Type, title, organisation, link and description are required");
   }
 
+  const rolling = formData.get("rolling") === "on";
   const startDate = isoDate(formData, "startDate");
   const endDate = isoDate(formData, "endDate");
   if (type === "event" && !startDate) {
@@ -157,7 +170,9 @@ function parseFields(formData: FormData) {
     applyUrl,
     location: text(formData, "location"),
     remote: formData.get("remote") === "on",
-    deadline: isoDate(formData, "deadline"),
+    // Rolling means no deadline, so one left in the greyed-out box is dropped.
+    rolling,
+    deadline: rolling ? null : isoDate(formData, "deadline"),
     startDate,
     endDate,
     description,

@@ -41,6 +41,12 @@ export type Opportunity = {
   /** Caveats that don't fit the structured range, e.g. "benchmarked locally outside London". */
   compNote?: string;
   deadline?: string;
+  /**
+   * Applications are taken on a rolling basis: there is no deadline, here or in any round, and
+   * the listing says so. It still closes as one with no deadline does (an event after its day, a
+   * course or round on its start date). Unset means not rolling.
+   */
+  rolling?: true;
   /** An event's date; for anything else, when the role, fellowship, project or course begins. */
   startDate?: string;
   /** A multi-day event's last day; for anything else, when it ends. */
@@ -51,6 +57,7 @@ export type Opportunity = {
    */
   rounds?: OpportunityRound[];
   tags?: string[];
+  /** A web address (http or https), or `mailto:` and an email address for applications by email. */
   applyUrl: string;
   applyLabel?: string;
   /** Where this listing was found, for reference, when it differs from `applyUrl`. */

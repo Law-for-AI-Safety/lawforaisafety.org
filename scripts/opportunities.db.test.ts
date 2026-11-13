@@ -68,6 +68,12 @@ describe("npm run opportunities", () => {
     expect(JSON.parse(printed[0])).toMatchObject({ title: "Renamed", org: "Acme", applyUrl: PUBLISHED.applyUrl });
   });
 
+  it("makes a listing rolling, applied to by email", async () => {
+    files["edit.json"] = JSON.stringify({ rolling: true, applyUrl: "join@pauseai.info" });
+    expect(await run("update", "acme-role", "edit.json")).toBe(0);
+    expect(JSON.parse(printed[0])).toMatchObject({ rolling: true, applyUrl: "mailto:join@pauseai.info" });
+  });
+
   it("publishes a draft", async () => {
     expect(await run("publish", "acme-draft")).toBe(0);
     expect(JSON.parse(printed[0])).toMatchObject({ slug: "acme-draft", status: "published" });

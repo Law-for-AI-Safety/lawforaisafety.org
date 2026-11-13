@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { emptyOpportunityForm, roundForm, roundRowsInSavedOrder, toOpportunityBody } from "./form-state";
+import {
+  emptyOpportunityForm,
+  opportunityFormFromExisting,
+  opportunityFormFromSubmission,
+  roundForm,
+  roundRowsInSavedOrder,
+  toOpportunityBody,
+} from "./form-state";
 
 describe("toOpportunityBody", () => {
   it("sends cleared fields as null, so an update clears them rather than keeping them", () => {
@@ -14,6 +21,54 @@ describe("toOpportunityBody", () => {
       { label: "", deadline: "2026-11-15", startDate: "", endDate: "" },
       { label: " Part-time ", deadline: "", startDate: "", endDate: "" },
     ]);
+  });
+});
+
+describe("rolling applications and email apply links in the form", () => {
+  it("sends no deadline while rolling, keeping what was typed for if rolling is turned off", () => {
+    const rounds = [roundForm({ deadline: "2026-11-15", startDate: "2026-11-23" })];
+    const state = { ...emptyOpportunityForm(), rolling: true, deadline: "2026-12-01", rounds };
+    expect(toOpportunityBody(state)).toMatchObject({
+      rolling: true,
+      deadline: null,
+      rounds: [{ label: "", deadline: "", startDate: "2026-11-23", endDate: "" }],
+    });
+    expect(toOpportunityBody({ ...state, rolling: false })).toMatchObject({ rolling: false, deadline: "2026-12-01" });
+  });
+
+  it("shows a listing's or a submission's email link as just the address, and its rolling", () => {
+    const listing = {
+      id: "1",
+      slug: "pauseai-volunteer",
+      status: "published" as const,
+      publishedAt: "2026-11-01",
+      type: "project" as const,
+      title: "Volunteer",
+      org: "PauseAI",
+      summary: "",
+      description: "",
+      locationCountry: "GLOBAL",
+      remote: true,
+      rolling: true as const,
+      applyUrl: "mailto:join@pauseai.info",
+    };
+    expect(opportunityFormFromExisting(listing)).toMatchObject({ rolling: true, applyUrl: "join@pauseai.info" });
+    const submission = {
+      type: null,
+      title: null,
+      org: null,
+      applyUrl: "mailto:join@pauseai.info",
+      sourceUrl: null,
+      location: null,
+      remote: false,
+      deadline: null,
+      rolling: true,
+      startDate: null,
+      endDate: null,
+      description: null,
+    };
+    expect(opportunityFormFromSubmission(submission)).toMatchObject({ rolling: true, applyUrl: "join@pauseai.info" });
+    expect(opportunityFormFromSubmission({ ...submission, applyUrl: null, rolling: false })).toMatchObject({ rolling: false, applyUrl: "" });
   });
 });
 
