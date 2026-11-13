@@ -220,6 +220,8 @@ describe("TeamGrid", () => {
         ],
       },
       "navy",
+      "/",
+      "team",
     );
     expect(section.id).toBe("team");
     expect(section.className).toBe("bg-brand-navy px-8 md:px-16 py-28 md:py-40");
@@ -233,6 +235,38 @@ describe("TeamGrid", () => {
     expect(screen.queryByRole("link", { name: "No Profile on LinkedIn" })).toBeNull();
     expect(section).toHaveTextContent("Executive Director");
     expect(section).toHaveTextContent("Helps.");
+  });
+});
+
+describe("TeamGrid groups", () => {
+  it("shows the introduction, then people with no group, then each group under its heading in first-appearance order", () => {
+    const person = (name: string, group?: string) => ({ name, role: "Role", bio: "Bio.", ...(group ? { group } : {}) });
+    const section = renderBlock(
+      {
+        type: "teamGrid",
+        heading: "Advisors",
+        intro: "Advisors *meet* monthly.",
+        members: [person("A", "Legal"), person("B"), person("C", "Technical"), person("D", "Legal")],
+      },
+      "black",
+    );
+    expect(section.id).toBe("");
+    const intro = section.querySelector("h2")!.parentElement!.nextElementSibling!;
+    expect(intro.tagName).toBe("P");
+    expect(intro).toHaveTextContent("Advisors meet monthly.");
+    expect(intro.querySelector("em")).toHaveTextContent("meet");
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Legal", "Technical"]);
+    const names = (grid: Element) => [...grid.querySelectorAll("p.text-2xl")].map((p) => p.textContent);
+    const grids = [...section.querySelectorAll(".grid")];
+    expect(grids.map(names)).toEqual([["B"], ["A", "D"], ["C"]]);
+    expect(grids[0].previousElementSibling).toBeNull();
+    expect(grids[1].previousElementSibling).toHaveTextContent("Legal");
+  });
+
+  it("shows no group heading when no one has a group", () => {
+    const section = renderBlock({ type: "teamGrid", heading: "Team", members: [{ name: "A", role: "R", bio: "B" }] }, "navy");
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+    expect(section.querySelectorAll(".grid")).toHaveLength(1);
   });
 });
 

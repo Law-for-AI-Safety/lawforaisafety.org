@@ -197,6 +197,8 @@ export function blockSchema(mode: Mode) {
     z.strictObject({
       type: z.literal("teamGrid"),
       heading: plain(),
+      // Paragraphs between the heading and the people.
+      intro: blocks(3000).optional(),
       members: list(
         mode,
         tied(
@@ -209,6 +211,9 @@ export function blockSchema(mode: Mode) {
             photo: imagePath(mode).optional(),
             // Describes the photo for screen readers; required with a photo.
             photoAlt: plain(200).optional(),
+            // People with the same group show together under it as a subheading, groups in
+            // the order they first appear; people with none come before the first group.
+            group: plain(100).optional(),
           }),
           (m) => (m.photo === undefined) === (m.photoAlt === undefined),
           "A photo needs alt text, and alt text needs a photo",

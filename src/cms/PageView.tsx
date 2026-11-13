@@ -43,14 +43,14 @@ export default function PageView({
   );
 }
 
-/** Each block's anchor id from the page's rules: the first block of a type named there gets it. */
+/** Each block's anchor id from the page's rules: the nth block of a type gets the nth id listed for it. */
 export function blockAnchors(slug: string, page: Pick<PageContent, "blocks">): (string | undefined)[] {
-  const anchors = pageRules(slug).anchors ?? {};
-  const seen = new Set<string>();
+  const anchors = { teamGrid: ["team"], ...pageRules(slug).anchors };
+  const seen = new Map<string, number>();
   return page.blocks.map((block) => {
-    if (seen.has(block.type)) return undefined;
-    seen.add(block.type);
-    return anchors[block.type];
+    const n = seen.get(block.type) ?? 0;
+    seen.set(block.type, n + 1);
+    return anchors[block.type]?.[n];
   });
 }
 

@@ -104,6 +104,7 @@ export function blockFields(block: AnyBlock): FieldSpec[] {
     case "teamGrid":
       return [
         heading,
+        { kind: "rich", key: "intro", label: "Introduction (optional)", max: 3000, rich: "blocks", optional: true },
         {
           kind: "list",
           key: "members",
@@ -117,6 +118,7 @@ export function blockFields(block: AnyBlock): FieldSpec[] {
             { kind: "plain", key: "linkedin", label: "LinkedIn page (optional)", max: 300, optional: true, hint: "A https://www.linkedin.com/ link." },
             { kind: "image", key: "photo", label: "Photo (optional)" },
             { kind: "plain", key: "photoAlt", label: "Photo description for screen readers", max: 200, optional: true, hint: "Needed with a photo." },
+            { kind: "plain", key: "group", label: "Group (optional)", max: 100, optional: true, hint: "People with the same group show together under it as a subheading, in the order the groups first appear. People with no group come first." },
           ],
         },
       ];

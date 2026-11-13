@@ -23,7 +23,7 @@ export default function Block({ block, tone, path, id }: { block: BlockContent; 
     case "cardList":
       return <CardList block={block} tone={light} id={id} />;
     case "teamGrid":
-      return <TeamGrid block={block} tone={dark} />;
+      return <TeamGrid block={block} tone={dark} id={id} />;
     case "timeline":
       return <TimelineBlock block={block} tone={light} id={id} />;
     case "milestones":

@@ -193,6 +193,48 @@
       ]
     },
     {
+      "type": "teamGrid",
+      "heading": "Advisors",
+      "intro": "Advisors are experts who meet monthly to provide strategic guidance on the most promising pathways to meaningful impact. Depending on their availability and relevant expertise, they may also dedicate a few hours each month to supporting ongoing projects or collaborating on specific initiatives.",
+      "members": [
+        {
+          "name": "Katalina Hernandez",
+          "role": "TBC",
+          "bio": "TBC.",
+          "linkedin": "https://www.linkedin.com/in/katalina-hernandez/",
+          "group": "Legal"
+        },
+        {
+          "name": "privacat",
+          "role": "TBC",
+          "bio": "TBC.",
+          "linkedin": "https://www.linkedin.com/in/privacat/",
+          "group": "Legal"
+        },
+        {
+          "name": "Martin Radzaj",
+          "role": "TBC",
+          "bio": "TBC.",
+          "linkedin": "https://www.linkedin.com/in/martinradzaj/",
+          "group": "Legal"
+        },
+        {
+          "name": "Radu Anca",
+          "role": "TBC",
+          "bio": "TBC.",
+          "linkedin": "https://www.linkedin.com/in/raduanca/",
+          "group": "Legal"
+        },
+        {
+          "name": "Margot Stakenborg",
+          "role": "TBC",
+          "bio": "TBC.",
+          "linkedin": "https://www.linkedin.com/in/margotstakenborg/",
+          "group": "Technical"
+        }
+      ]
+    },
+    {
       "type": "applicationSection",
       "form": "apply",
       "heading": "Join us in shaping the legal future of AI",
