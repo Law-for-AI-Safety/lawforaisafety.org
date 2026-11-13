@@ -231,3 +231,37 @@ describe("rounds", () => {
     expect(opportunityFieldsSchema.safeParse(fields).success).toBe(true);
   });
 });
+
+describe("rolling applications", () => {
+  it("takes a listing with rolling applications and no deadline, its rounds' included", () => {
+    expect(parseOpportunity({ ...valid(), rolling: true })).toMatchObject({ rolling: true });
+    const course = { ...valid(), type: "course" as const, rolling: true, rounds: [{ startDate: "2027-01-10" }, { startDate: "2027-04-10" }] };
+    expect(parseOpportunity(course).rounds).toHaveLength(2);
+  });
+
+  it("refuses a deadline on a rolling listing, its own or a round's, naming where", () => {
+    const own = opportunitySchema.safeParse({ ...valid(), rolling: true, deadline: "2026-12-01" });
+    expect(own.success || own.error.issues.map((issue) => issue.path)).toEqual([["deadline"]]);
+    const round = opportunitySchema.safeParse({ ...valid(), rolling: true, rounds: [{ startDate: "2027-01-10" }, { deadline: "2027-03-01" }] });
+    expect(round.success || describeIssues(round.error)).toBe(
+      "Round 2: A listing with rolling applications has no deadline: leave the deadline blank, or turn rolling off",
+    );
+  });
+
+  it("takes rolling only as true", () => {
+    expect(opportunitySchema.safeParse({ ...valid(), rolling: false }).success).toBe(false);
+    expect(opportunitySchema.safeParse({ ...valid(), rolling: "yes" }).success).toBe(false);
+  });
+});
+
+describe("apply link", () => {
+  it("takes a web address or a mailto: link to one email address", () => {
+    expect(parseOpportunity({ ...valid(), applyUrl: "mailto:join@pauseai.info" }).applyUrl).toBe("mailto:join@pauseai.info");
+    for (const applyUrl of ["join@pauseai.info", "javascript:alert(1)", "mailto:a@b.org?subject=Hi"]) {
+      const result = opportunitySchema.safeParse({ ...valid(), applyUrl });
+      expect(result.success || describeIssues(result.error)).toBe(
+        "Apply link must be a web address (http:// or https://) or an email address",
+      );
+    }
+  });
+});

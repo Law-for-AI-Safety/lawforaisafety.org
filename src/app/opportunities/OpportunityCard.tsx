@@ -32,8 +32,9 @@ export default function OpportunityCard({ opportunity, now = new Date() }: { opp
   const closing = (
     run.deadline
       ? [soon ? "Closing soon" : undefined, `${kind.deadlineLabel} ${formatDate(run.deadline)}`, more]
-      : // With no deadline, a run closes on its own date (an event's day, a course's or a round's start), if at all.
-        [soon ? "Coming up" : undefined, more]
+      : // With no deadline, a run closes on its own date (an event's day, a course's or a round's start), if at all;
+        // a rolling listing says it has none on purpose.
+        [soon ? "Coming up" : undefined, opportunity.rolling ? kind.rollingLabel : undefined, more]
   ).filter(Boolean);
 
   return (

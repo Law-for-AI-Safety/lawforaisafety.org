@@ -8,15 +8,15 @@ describe("NewOpportunityForm", () => {
     render(<NewOpportunityForm />);
     expect(screen.getByLabelText("Title")).toBeInTheDocument();
     expect(screen.getByLabelText("Organisation")).toBeInTheDocument();
-    expect(screen.getByLabelText("Apply URL")).toBeInTheDocument();
+    expect(screen.getByLabelText("Apply link or email")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create opportunity" })).toBeDisabled();
   });
 
   it("labels the dates and button for the chosen type", async () => {
     render(<NewOpportunityForm />);
-    expect(screen.getByLabelText("Apply by")).toBeInTheDocument();
+    expect(screen.getByLabelText("Deadline")).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Type"), "event");
-    expect(screen.getByLabelText("Register by")).toBeInTheDocument();
+    expect(screen.getByLabelText("Deadline")).toBeInTheDocument();
     expect(screen.getByLabelText("Date")).toBeInTheDocument();
     expect(screen.getByLabelText("Until")).toBeInTheDocument();
     expect(screen.getByLabelText("Apply label")).toHaveAttribute("placeholder", "Register");

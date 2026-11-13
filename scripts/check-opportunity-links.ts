@@ -8,6 +8,7 @@ import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { isWebAddress } from "../src/opportunities/apply-link";
 import type { Opportunity } from "../src/opportunities/types";
 
 const execFileAsync = promisify(execFile);
@@ -65,12 +66,14 @@ export async function checkLink(
   }
 }
 
+/** Only web addresses: an email apply link (`mailto:`) has nothing to request. */
 export function checkAllLinks(
   opportunities: Opportunity[],
   fetchImpl: typeof fetch = fetch,
   curlCheck: typeof curlStatus = curlStatus,
 ): Promise<LinkCheck[]> {
-  return Promise.all(opportunities.map((o) => checkLink(o, fetchImpl, curlCheck)));
+  const web = opportunities.filter((o) => isWebAddress(o.applyUrl));
+  return Promise.all(web.map((o) => checkLink(o, fetchImpl, curlCheck)));
 }
 
 /**

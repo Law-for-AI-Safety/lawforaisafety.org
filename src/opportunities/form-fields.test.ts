@@ -4,8 +4,8 @@ import type { Opportunity } from "./types";
 
 describe("opportunityFieldsFromBody", () => {
   it("refuses a body missing title, org or applyUrl", () => {
-    expect(opportunityFieldsFromBody({})).toEqual({ ok: false, error: "Title, organisation and apply URL are required" });
-    expect(opportunityFieldsFromBody({ title: "A", org: "B" })).toEqual({ ok: false, error: "Title, organisation and apply URL are required" });
+    expect(opportunityFieldsFromBody({})).toEqual({ ok: false, error: "Title, organisation and apply link are required" });
+    expect(opportunityFieldsFromBody({ title: "A", org: "B" })).toEqual({ ok: false, error: "Title, organisation and apply link are required" });
   });
 
   it("trims strings and drops blank optional fields", () => {
@@ -36,6 +36,27 @@ describe("opportunityFieldsFromBody", () => {
   it("leaves tags undefined when not an array", () => {
     const result = opportunityFieldsFromBody({ type: "job", title: "A", org: "B", applyUrl: "https://example.com" });
     expect(result).toMatchObject({ fields: { tags: undefined } });
+  });
+});
+
+describe("opportunityFieldsFromBody's rolling and apply link", () => {
+  const BODY = { type: "project", title: "Volunteer", org: "PauseAI", applyUrl: "https://example.org" };
+
+  it("takes rolling as true or false, false and null meaning not rolling", () => {
+    const fields = (rolling: unknown) => {
+      const parsed = opportunityFieldsFromBody({ ...BODY, rolling });
+      return parsed.ok ? parsed.fields.rolling : parsed.error;
+    };
+    expect(fields(true)).toBe(true);
+    expect(fields(false)).toBeUndefined();
+    expect(fields(null)).toBeUndefined();
+    expect(fields(undefined)).toBeUndefined();
+    expect(fields("yes")).toBe("Rolling must be true or false");
+  });
+
+  it("makes an email address to apply to a mailto: link", () => {
+    const parsed = opportunityFieldsFromBody({ ...BODY, applyUrl: " join@pauseai.info " });
+    expect(parsed.ok && parsed.fields.applyUrl).toBe("mailto:join@pauseai.info");
   });
 });
 
@@ -156,6 +177,21 @@ describe("bodyOverExisting", () => {
 
   it("keeps the listing's own dates for empty rounds", () => {
     expect(bodyOverExisting(EXISTING, { rounds: [] })).toMatchObject({ rounds: [], deadline: "2026-11-15" });
+  });
+
+  it("turns rolling off for a deadline sent without it, the listing's own or a round's", () => {
+    const rolling = { ...EXISTING, deadline: undefined, rolling: true as const };
+    expect(bodyOverExisting(rolling, { deadline: "2026-12-01" })).toMatchObject({ deadline: "2026-12-01", rolling: undefined });
+    expect(bodyOverExisting(rolling, { rounds: [{ startDate: "2027-01-10" }, { deadline: "2027-03-01" }] })).toMatchObject({ rolling: undefined });
+    expect(bodyOverExisting(rolling, { rounds: [{ startDate: "2027-01-10" }, null] })).toMatchObject({ rolling: true });
+    expect(bodyOverExisting(rolling, { title: "New", deadline: "" })).toMatchObject({ rolling: true });
+    expect(bodyOverExisting(rolling, { deadline: "2026-12-01", rolling: true })).toMatchObject({ deadline: "2026-12-01", rolling: true });
+  });
+
+  it("drops the listing's deadline for rolling sent without one", () => {
+    expect(bodyOverExisting(EXISTING, { rolling: true })).toMatchObject({ rolling: true, deadline: undefined, startDate: "2026-11-23" });
+    expect(bodyOverExisting(EXISTING, { rolling: false })).toMatchObject({ rolling: false, deadline: "2026-11-15" });
+    expect(bodyOverExisting(EXISTING, { rolling: true, deadline: "2026-12-01" })).toMatchObject({ deadline: "2026-12-01" });
   });
 
   it("drops the listing's rounds for a date sent without them", () => {

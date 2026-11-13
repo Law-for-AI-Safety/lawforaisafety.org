@@ -45,14 +45,14 @@ describe("OpportunityCard", () => {
     expect(screen.getByText("Acme Org")).toBeInTheDocument();
     expect(screen.getByText("Job")).toBeInTheDocument();
     expect(screen.getByText(/£90,000/)).toBeInTheDocument();
-    expect(screen.getByText(/Apply by 30 Oct 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Deadline 30 Oct 2026/)).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/opportunities/a-job");
   });
 
   it("renders a course with no compensation or deadline without showing either", () => {
     render(<OpportunityCard opportunity={course} />);
     expect(screen.getByText("Course")).toBeInTheDocument();
-    expect(screen.queryByText(/Apply by/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Deadline/)).not.toBeInTheDocument();
   });
 
   it("shows an event's dates and registration deadline", () => {
@@ -64,7 +64,15 @@ describe("OpportunityCard", () => {
     );
     expect(screen.getByText("Event")).toBeInTheDocument();
     expect(screen.getByText(/20 Nov 2026 – 21 Nov 2026/)).toBeInTheDocument();
-    expect(screen.getByText(/Register by 10 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Deadline 10 Nov 2026/)).toBeInTheDocument();
+  });
+
+  it("says a rolling listing has no deadline, worded for its kind", () => {
+    const { unmount } = render(<OpportunityCard opportunity={{ ...job, deadline: undefined, rolling: true }} />);
+    expect(screen.getByText("Rolling applications")).toBeInTheDocument();
+    unmount();
+    render(<OpportunityCard opportunity={{ ...course, rolling: true, startDate: "2026-10-10" }} now={new Date("2026-10-01")} />);
+    expect(screen.getByText("Coming up · Rolling enrolment")).toBeInTheDocument();
   });
 
   it("flags an event with no deadline as coming up when its date is near", () => {
@@ -79,7 +87,7 @@ describe("OpportunityCard", () => {
 
   it("flags a deadline within 30 days as closing soon", () => {
     render(<OpportunityCard opportunity={job} now={new Date("2026-10-25")} />);
-    expect(screen.getByText("Closing soon · Apply by 30 Oct 2026")).toBeInTheDocument();
+    expect(screen.getByText("Closing soon · Deadline 30 Oct 2026")).toBeInTheDocument();
   });
 
   it("shows a course's start date, which it closes on with no deadline", () => {
@@ -100,13 +108,13 @@ describe("OpportunityCard", () => {
     it("shows the next round, and how many more are open", () => {
       render(<OpportunityCard opportunity={rounds} now={new Date("2026-10-01T12:00:00Z")} />);
       expect(screen.getByText(/Round 1 · Starts 23 Nov 2026/)).toBeInTheDocument();
-      expect(screen.getByText("Enrol by 15 Nov 2026 · +2 more rounds")).toBeInTheDocument();
+      expect(screen.getByText("Deadline 15 Nov 2026 · +2 more rounds")).toBeInTheDocument();
     });
 
     it("moves on to the next round once one has closed", () => {
       render(<OpportunityCard opportunity={rounds} now={new Date("2026-11-20T12:00:00Z")} />);
       expect(screen.getByText(/Round 2 · Starts 14 Dec 2026/)).toBeInTheDocument();
-      expect(screen.getByText("Closing soon · Enrol by 6 Dec 2026 · +1 more round")).toBeInTheDocument();
+      expect(screen.getByText("Closing soon · Deadline 6 Dec 2026 · +1 more round")).toBeInTheDocument();
     });
 
     it("hints at more rounds when the round shown has no deadline", () => {

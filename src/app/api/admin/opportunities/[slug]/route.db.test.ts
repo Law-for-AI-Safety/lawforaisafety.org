@@ -154,7 +154,7 @@ describe("PATCH /api/admin/opportunities/[slug]", () => {
     await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
     const response = await PATCH(request("PATCH", { org: null }), params);
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Title, organisation and apply URL are required" });
+    expect(await response.json()).toEqual({ error: "Title, organisation and apply link are required" });
   });
 
   it("saves via a valid API key, with no session", async () => {
@@ -245,6 +245,46 @@ describe("editing a listing's rounds through PATCH", () => {
     await db.update(opportunities).set({ status: "draft", publishedAt: null });
     const response = await PATCH(request("PATCH", { ...body, publishedAt: undefined, rounds: ROUNDS, status: "published" }), params);
     expect(await response.json()).toMatchObject({ status: "published", rounds: ROUNDS });
+  });
+});
+
+describe("rolling applications and email apply links through PATCH", () => {
+  beforeEach(async () => {
+    await startAdminSession({ email: "admin@example.com", name: "Jane Editor" });
+  });
+
+  it("takes rolling alone, dropping the listing's deadline for it, and returns it from GET", async () => {
+    await db.update(opportunities).set({ deadline: "2026-11-15" });
+    const response = await PATCH(request("PATCH", { rolling: true }), params);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data).toMatchObject({ rolling: true });
+    expect(data).not.toHaveProperty("deadline");
+    expect(await (await GET(request("GET"), params)).json()).toMatchObject({ rolling: true });
+  });
+
+  it("turns rolling off for a deadline sent alone, or rolling sent as false", async () => {
+    await db.update(opportunities).set({ rolling: true });
+    expect(await (await PATCH(request("PATCH", { deadline: "2026-12-01" }), params)).json()).not.toHaveProperty("rolling");
+    await db.update(opportunities).set({ rolling: true, deadline: null });
+    await PATCH(request("PATCH", { rolling: false }), params);
+    const [row] = await db.select().from(opportunities);
+    expect(row.rolling).toBe(false);
+  });
+
+  it("is a 400 for rolling sent with a deadline, or as anything but true or false", async () => {
+    const both = await PATCH(request("PATCH", { rolling: true, deadline: "2026-12-01" }), params);
+    expect(both.status).toBe(400);
+    expect((await both.json()).error).toMatch(/rolling applications has no deadline/);
+    const yes = await PATCH(request("PATCH", { rolling: "yes" }), params);
+    expect(await yes.json()).toEqual({ error: "Rolling must be true or false" });
+  });
+
+  it("saves an email address to apply to as a mailto: link", async () => {
+    const response = await PATCH(request("PATCH", { applyUrl: "join@pauseai.info" }), params);
+    expect(await response.json()).toMatchObject({ applyUrl: "mailto:join@pauseai.info" });
+    const bad = await PATCH(request("PATCH", { applyUrl: "join at pauseai" }), params);
+    expect(bad.status).toBe(400);
   });
 });
 

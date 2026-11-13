@@ -107,10 +107,12 @@ export async function createOpportunity(
 /**
  * The admin form always resends every field, so a missing optional one means "clear it" - but
  * `parsed` carries that as `undefined`, and drizzle's `.set()` silently drops undefined-valued
- * keys from the UPDATE rather than nulling the column. Turn them into explicit `null`s first.
+ * keys from the UPDATE rather than nulling the column. Turn them into explicit `null`s first,
+ * except `rolling`, a column that is never null: unset, it is false.
  */
-function withNullsForClearedFields(fields: OpportunityFields): typeof fields {
-  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value ?? null])) as typeof fields;
+function withNullsForClearedFields(fields: OpportunityFields) {
+  const values = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value ?? null])) as typeof fields;
+  return { ...values, rolling: fields.rolling ?? false };
 }
 
 /**

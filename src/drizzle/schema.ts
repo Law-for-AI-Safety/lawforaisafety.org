@@ -525,6 +525,8 @@ export const opportunities = pgTable(
     compPeriod: opportunityCompPeriod("comp_period"),
     compNote: text("comp_note"),
     deadline: date("deadline"),
+    // Applications on a rolling basis, so no deadline here or in any round (see `Opportunity`).
+    rolling: boolean("rolling").notNull().default(false),
     startDate: date("start_date"),
     endDate: date("end_date"),
     // A listing that runs more than once (a course's cohorts, say): each round's own dates, in
@@ -532,6 +534,7 @@ export const opportunities = pgTable(
     // in the row, not a table of its own, as rounds are only ever read and written with it.
     rounds: jsonb("rounds").$type<OpportunityRound[]>(),
     tags: jsonb("tags").$type<string[]>().default([]),
+    // A web address, or `mailto:` and an email address (src/opportunities/apply-link.ts).
     applyUrl: text("apply_url").notNull(),
     applyLabel: text("apply_label"),
     sourceUrl: text("source_url"),
@@ -591,6 +594,8 @@ export const opportunitySubmissions = pgTable(
     location: text("location"),
     remote: boolean("remote").notNull().default(false),
     deadline: date("deadline"),
+    // Ticked "rolling", in which case `deadline` is null.
+    rolling: boolean("rolling").notNull().default(false),
     startDate: date("start_date"),
     endDate: date("end_date"),
     description: text("description"),

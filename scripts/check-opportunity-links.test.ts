@@ -113,4 +113,10 @@ describe("checkAllLinks", () => {
     );
     expect(results.map((r) => r.ok)).toEqual([true, false]);
   });
+
+  it("leaves out an email apply link, which has nothing to request", async () => {
+    const opportunities = [make("mailto:join@pauseai.info"), make("https://example.com/a")];
+    const results = await checkAllLinks(opportunities, fakeFetch({ "https://example.com/a": 200 }), fakeCurl(null));
+    expect(results.map((r) => r.url)).toEqual(["https://example.com/a"]);
+  });
 });

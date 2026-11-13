@@ -188,8 +188,26 @@ describe("what a submission must contain", () => {
       deadline: "2026-11-10",
       location: "Brussels, Belgium",
       remote: true,
+      rolling: false,
       note: "I'm one of the organisers.",
     });
+  });
+
+  it("keeps an email address to apply to as a mailto: link, and rolling applications without a deadline", async () => {
+    await post(
+      email.POST,
+      "/api/opportunities/submit/email",
+      human({ ...LISTING, applyUrl: " join@pauseai.info ", rolling: "on", deadline: "2026-11-10", name: "Sam", email: "sam@example.org" }),
+    );
+    expect((await rows())[0]).toMatchObject({ applyUrl: "mailto:join@pauseai.info", rolling: true, deadline: null });
+  });
+
+  it("refuses an apply link that is neither a web address nor an email address", async () => {
+    for (const applyUrl of ["join at pauseai.info", "mailto:join@pauseai.info?cc=x@y.org"]) {
+      const response = await post(email.POST, "/api/opportunities/submit/email", human({ ...LISTING, applyUrl, name: "Sam", email: "sam@example.org" }));
+      expect(location(response)).toBe("/opportunities/submit?error=url");
+    }
+    expect(await rows()).toEqual([]);
   });
 });
 

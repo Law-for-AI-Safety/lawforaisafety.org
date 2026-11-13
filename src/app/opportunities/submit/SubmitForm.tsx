@@ -24,11 +24,11 @@ const MODE_OPTIONS: { id: Mode; label: string }[] = [
 const TYPE_OPTIONS = OPPORTUNITY_TYPES.map((type) => ({ id: type, label: OPPORTUNITY_KINDS[type].label }));
 
 const LINK_LABEL: Record<OpportunityType, string> = {
-  job: "Link to apply",
-  fellowship: "Link to apply",
-  project: "Link to get involved",
-  course: "Link to enrol",
-  event: "Link to register",
+  job: "Link or email to apply",
+  fellowship: "Link or email to apply",
+  project: "Link or email to get involved",
+  course: "Link or email to enrol",
+  event: "Link or email to register",
 };
 
 function isMode(value: string | undefined): value is Mode {
@@ -47,6 +47,7 @@ function isType(value: string | undefined): value is OpportunityType {
 export default function SubmitForm() {
   const [mode, setMode] = useState<Mode>("link");
   const [type, setType] = useState<OpportunityType | null>(null);
+  const [rolling, setRolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittingTo, setSubmittingTo] = useState<string | null>(null);
   const renderedAt = useRenderedAt();
@@ -58,6 +59,7 @@ export default function SubmitForm() {
     setRestored(kept);
     if (isMode(kept?.values.mode)) setMode(kept.values.mode);
     if (isType(kept?.values.type)) setType(kept.values.type);
+    setRolling(kept?.checked.includes("rolling") ?? false);
   }
 
   const formRef = useRef<HTMLFormElement>(null);
@@ -131,7 +133,7 @@ export default function SubmitForm() {
           );
           return;
         }
-        keepInput(FORM_KEY, form, ["remote"]);
+        keepInput(FORM_KEY, form, ["remote", "rolling"]);
         setSubmittingTo(submitter?.getAttribute("formaction") ?? "");
       }}
     >
@@ -180,13 +182,14 @@ export default function SubmitForm() {
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className={LABEL_CLASSES}>{type ? LINK_LABEL[type] : "Link to apply"}</span>
+            <span className={LABEL_CLASSES}>{type ? LINK_LABEL[type] : "Link or email to apply"}</span>
+            <span className={HELPER_TEXT_CLASSES}>A web address, or an email address if applications go by email</span>
             <input
-              type="url"
+              type="text"
               name="applyUrl"
               maxLength={500}
               defaultValue={kept?.values.applyUrl}
-              placeholder="https://…"
+              placeholder="https://… or name@example.org"
               className={FIELD_CLASSES}
             />
           </label>
@@ -200,10 +203,22 @@ export default function SubmitForm() {
             <Checkbox name="remote" label="Can be done remotely" defaultChecked={kept?.checked.includes("remote")} />
           </div>
 
+          <Checkbox
+            name="rolling"
+            label="No deadline: it takes applications on a rolling basis"
+            defaultChecked={kept?.checked.includes("rolling")}
+            onChange={setRolling}
+          />
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="flex flex-col gap-2">
-              <span className={LABEL_CLASSES}>{kind?.deadlineLabel ?? "Apply by"}</span>
-              <input type="date" name="deadline" defaultValue={kept?.values.deadline} className={FIELD_CLASSES} />
+              <span className={LABEL_CLASSES}>{kind?.deadlineLabel ?? "Deadline"}</span>
+              <input
+                type="date"
+                name="deadline"
+                disabled={rolling}
+                defaultValue={kept?.values.deadline}
+                className={`${FIELD_CLASSES} disabled:opacity-50`}
+              />
             </label>
             <label className="flex flex-col gap-2">
               <span className={LABEL_CLASSES}>{kind?.startLabel ?? "Start date"}</span>

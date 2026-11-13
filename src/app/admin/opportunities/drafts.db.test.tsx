@@ -153,7 +153,7 @@ describe("saving a new listing as a draft", () => {
     await userEvent.type(screen.getByLabelText(/^Summary/), "A short summary.");
     await userEvent.type(screen.getByLabelText(/^Description/), "A longer description.");
     await userEvent.selectOptions(screen.getByLabelText("Country"), "GLOBAL");
-    await userEvent.type(screen.getByLabelText("Apply URL"), "https://example.com/apply");
+    await userEvent.type(screen.getByLabelText("Apply link or email"), "https://example.com/apply");
   }
 
   it("creates it off the public site, with links to preview and publish it", async () => {

@@ -8,13 +8,17 @@ import { previewHref } from "./PublishedNotice";
 
 /**
  * When the listing closes, as the list is ordered by (for one with rounds, its next round), and
- * how many rounds it has. A closing date that isn't a deadline is a course's start or an event's day.
+ * how many rounds it has, and whether it takes applications on a rolling basis. A closing date that isn't a deadline is a course's start or an event's day.
  */
 function datesNote(opportunity: Opportunity, now: Date): string {
   const { closes, deadline } = currentRun(opportunity, now);
   const label = deadline ? OPPORTUNITY_KINDS[opportunity.type].deadlineLabel : "Closes";
   const rounds = opportunity.rounds?.length;
-  return [closes && `${label} ${closes}`, rounds && `${rounds} round${rounds === 1 ? "" : "s"}`]
+  return [
+    opportunity.rolling && "Rolling",
+    closes && `${label} ${closes}`,
+    rounds && `${rounds} round${rounds === 1 ? "" : "s"}`,
+  ]
     .filter(Boolean)
     .map((part) => ` · ${part}`)
     .join("");

@@ -17,7 +17,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-/** Submitted links are checked to be http(s) when they come in, so they are safe to render as links. */
+/** Submitted links are checked to be http(s), or mailto: an email address, when they come in, so they are safe to render as links. */
 function ExternalLink({ href }: { href: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="underline">
@@ -45,7 +45,7 @@ export default async function SubmissionPage({ params }: Props) {
         {submission.title && <Fact label="Title">{submission.title}</Fact>}
         {submission.org && <Fact label="Organisation">{submission.org}</Fact>}
         {submission.applyUrl && (
-          <Fact label="Link">
+          <Fact label="Link or email">
             <ExternalLink href={submission.applyUrl} />
           </Fact>
         )}
@@ -57,6 +57,7 @@ export default async function SubmissionPage({ params }: Props) {
         {submission.location && <Fact label="Location">{submission.location}</Fact>}
         {submission.title && <Fact label="Remote">{submission.remote ? "Yes" : "No"}</Fact>}
         {submission.deadline && <Fact label="Deadline">{submission.deadline}</Fact>}
+        {submission.rolling && <Fact label="Deadline">None: rolling applications</Fact>}
         {submission.startDate && <Fact label="Start date">{submission.startDate}</Fact>}
         {submission.endDate && <Fact label="End date">{submission.endDate}</Fact>}
         {submission.description && <Fact label="Description">{submission.description}</Fact>}

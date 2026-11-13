@@ -1,3 +1,4 @@
+import { normaliseApplyLink } from "./apply-link";
 import { OPPORTUNITY_TYPES } from "./kinds";
 import { COMMITMENT_TYPES, COMP_CURRENCIES, COMP_PERIODS, OPPORTUNITY_STATUSES, ROUND_KEYS } from "./schema";
 import type { Opportunity, OpportunityRound, OpportunityStatus } from "./types";
@@ -39,8 +40,8 @@ export async function readJsonObject(request: Request): Promise<Record<string, u
 /** Every key `opportunityFieldsFromBody` reads, so a route can tell a body with no fields at all. */
 const FIELD_KEYS = [
   "type", "title", "org", "orgUrl", "summary", "description", "locationCountry", "locationCity", "locationNote",
-  "remote", "commitment", "compMin", "compMax", "compCurrency", "compPeriod", "compNote", "deadline", "startDate",
-  "endDate", "rounds", "tags", "applyUrl", "applyLabel", "sourceUrl",
+  "remote", "commitment", "compMin", "compMax", "compCurrency", "compPeriod", "compNote", "deadline", "rolling",
+  "startDate", "endDate", "rounds", "tags", "applyUrl", "applyLabel", "sourceUrl",
 ] as const satisfies readonly (keyof OpportunityFields)[];
 // A compile-time check that FIELD_KEYS names every field.
 const _allFieldKeys: Exclude<keyof OpportunityFields, (typeof FIELD_KEYS)[number]> extends never ? true : never = true;
@@ -53,13 +54,23 @@ export function hasOpportunityFields(body: Record<string, unknown>): boolean {
 
 const DATE_KEYS = ["deadline", "startDate", "endDate"] as const;
 
+const isSet = (value: unknown) => typeof value === "string" && value.trim() !== "";
+
+/** Whether a body gives a deadline, its own or a round's. */
+function setsDeadline(body: Record<string, unknown>): boolean {
+  if (isSet(body.deadline)) return true;
+  return Array.isArray(body.rounds) && body.rounds.some((round) => typeof round === "object" && round !== null && isSet(round.deadline));
+}
+
 /**
  * An update's body laid over the listing it edits, for `opportunityFieldsFromBody` to parse as a
  * whole: a field left out of the body keeps its current value, and one sent as null or blank
  * clears it. A listing keeps its dates either in its rounds or in its own deadline, start date and
  * end date, never both, so a body that switches from one to the other without mentioning the
  * other side clears it: non-empty `rounds` with no top-level dates drops the listing's own dates,
- * and a top-level date with no `rounds` drops its rounds.
+ * and a top-level date with no `rounds` drops its rounds. Likewise a listing has a deadline or
+ * rolling applications, so a deadline (its own or a round's) without `rolling` turns rolling off,
+ * and `rolling: true` without `deadline` drops the listing's own deadline.
  */
 export function bodyOverExisting(existing: Opportunity, body: Record<string, unknown>): Record<string, unknown> {
   const merged: Record<string, unknown> = {};
@@ -68,8 +79,10 @@ export function bodyOverExisting(existing: Opportunity, body: Record<string, unk
   const setsRounds = Array.isArray(body.rounds) && body.rounds.length > 0;
   const mentionsDates = DATE_KEYS.some((key) => key in body);
   if (setsRounds && !mentionsDates) for (const key of DATE_KEYS) merged[key] = undefined;
-  const setsDate = DATE_KEYS.some((key) => typeof body[key] === "string" && body[key].trim() !== "");
+  const setsDate = DATE_KEYS.some((key) => isSet(body[key]));
   if (setsDate && !("rounds" in body)) merged.rounds = undefined;
+  if (setsDeadline(body) && !("rolling" in body)) merged.rolling = undefined;
+  if (body.rolling === true && !("deadline" in body)) merged.deadline = undefined;
 
   for (const key of FIELD_KEYS) if (key in body) merged[key] = body[key];
   return merged;
@@ -124,9 +137,14 @@ export type ParsedOpportunityBody = { ok: true; fields: OpportunityFields } | { 
 export function opportunityFieldsFromBody(body: Record<string, unknown>): ParsedOpportunityBody {
   const title = str(body.title);
   const org = str(body.org);
-  const applyUrl = str(body.applyUrl);
+  // An email address becomes a mailto: link, so `applyUrl` is always a link.
+  const applyUrl = normaliseApplyLink(str(body.applyUrl));
   if (!title || !org || !applyUrl) {
-    return { ok: false, error: "Title, organisation and apply URL are required" };
+    return { ok: false, error: "Title, organisation and apply link are required" };
+  }
+  // A misspelt "yes" would otherwise quietly leave the deadline missing for no stated reason.
+  if (body.rolling !== undefined && body.rolling !== null && typeof body.rolling !== "boolean") {
+    return { ok: false, error: "Rolling must be true or false" };
   }
   // No fallback: a misspelt type would otherwise go live as the wrong kind of listing.
   const type = oneOf(OPPORTUNITY_TYPES)(body.type);
@@ -155,6 +173,7 @@ export function opportunityFieldsFromBody(body: Record<string, unknown>): Parsed
       compPeriod: oneOf(COMP_PERIODS)(body.compPeriod),
       compNote: strOrUndefined(body.compNote),
       deadline: strOrUndefined(body.deadline),
+      rolling: body.rolling === true || undefined,
       startDate: strOrUndefined(body.startDate),
       endDate: strOrUndefined(body.endDate),
       rounds: rounds.rounds,

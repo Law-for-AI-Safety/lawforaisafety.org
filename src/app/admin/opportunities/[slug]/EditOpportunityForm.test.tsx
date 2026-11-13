@@ -23,7 +23,7 @@ describe("EditOpportunityForm", () => {
     render(<EditOpportunityForm opportunity={opportunity} />);
     expect(screen.getByLabelText("Title")).toHaveValue(opportunity.title);
     expect(screen.getByLabelText("Organisation")).toHaveValue(opportunity.org);
-    expect(screen.getByLabelText("Apply URL")).toHaveValue(opportunity.applyUrl);
+    expect(screen.getByLabelText("Apply link or email")).toHaveValue(opportunity.applyUrl);
     expect(screen.getByRole("button", { name: "Remove this listing" })).toBeInTheDocument();
   });
 });

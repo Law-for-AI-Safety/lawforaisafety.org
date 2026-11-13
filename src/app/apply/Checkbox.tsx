@@ -6,10 +6,13 @@ export default function Checkbox({
   name,
   label,
   defaultChecked,
+  onChange,
 }: {
   name: string;
   label: ReactNode;
   defaultChecked?: boolean;
+  /** For a form that changes as it is ticked; the box keeps its own state either way. */
+  onChange?: (checked: boolean) => void;
 }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">
@@ -19,6 +22,7 @@ export default function Checkbox({
           name={name}
           value="on"
           defaultChecked={defaultChecked}
+          onChange={onChange && ((event) => onChange(event.target.checked))}
           className="peer h-6 w-6 cursor-pointer appearance-none rounded-sm border border-brand-black/30 bg-brand-white transition-colors checked:border-brand-navy checked:bg-brand-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy focus-visible:ring-offset-2"
         />
         <svg

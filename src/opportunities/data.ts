@@ -47,6 +47,7 @@ export function toOpportunity(row: OpportunityRow): Opportunity {
     compPeriod: row.compPeriod ?? undefined,
     compNote: row.compNote ?? undefined,
     deadline: row.deadline ?? undefined,
+    rolling: row.rolling || undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
     rounds: row.rounds && row.rounds.length > 0 ? row.rounds.map(toRound) : undefined,

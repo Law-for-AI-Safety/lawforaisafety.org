@@ -23,13 +23,18 @@ const label = "flex flex-col gap-1";
 const labelText = "font-sans text-brand-black";
 const secondaryButton = "w-fit border border-brand-navy px-4 py-1.5 text-brand-navy";
 
-/** A deadline, start and end date, labelled for the listing's kind. */
+/**
+ * A deadline, start and end date, labelled for the listing's kind. With rolling applications the
+ * deadline is greyed out, keeping what was typed in case rolling is turned off again; it isn't sent.
+ */
 function DateInputs({
   type,
+  rolling,
   dates,
   onChange,
 }: {
   type: OpportunityType;
+  rolling: boolean;
   dates: Pick<RoundFormState, "deadline" | "startDate" | "endDate">;
   onChange: (key: "deadline" | "startDate" | "endDate", value: string) => void;
 }) {
@@ -38,7 +43,13 @@ function DateInputs({
     <div className="grid gap-4 sm:grid-cols-3">
       <label className={label}>
         <span className={labelText}>{kind.deadlineLabel}</span>
-        <input type="date" value={dates.deadline} onChange={(e) => onChange("deadline", e.target.value)} className={input} />
+        <input
+          type="date"
+          value={rolling ? "" : dates.deadline}
+          disabled={rolling}
+          onChange={(e) => onChange("deadline", e.target.value)}
+          className={`${input} disabled:opacity-50`}
+        />
       </label>
       <label className={label}>
         <span className={labelText}>{kind.startLabel}</span>
@@ -83,11 +94,21 @@ function DateFields({
       return { ...s, rounds: [], deadline, startDate, endDate };
     });
 
+  const kind = OPPORTUNITY_KINDS[state.type];
+  const rollingToggle = (
+    <label className="flex items-center gap-2">
+      <input type="checkbox" checked={state.rolling} onChange={(e) => setState((s) => ({ ...s, rolling: e.target.checked }))} />
+      <span className={labelText}>{kind.rollingLabel} (no deadline)</span>
+    </label>
+  );
+
   if (state.rounds.length === 0) {
     return (
       <div className="flex flex-col gap-2">
+        {rollingToggle}
         <DateInputs
           type={state.type}
+          rolling={state.rolling}
           dates={state}
           onChange={(key, value) => setState((s) => ({ ...s, [key]: value }))}
         />
@@ -105,6 +126,7 @@ function DateFields({
         Each round has its own dates. The board shows the next open round, and the listing closes after the last.
         Rounds are saved in the order they close.
       </p>
+      {rollingToggle}
       {state.rounds.map((round, index) => (
         <fieldset key={round.key} className="flex flex-col gap-3 border border-brand-black/20 p-3">
           <legend className="px-1 font-sans text-brand-black">Round {index + 1}</legend>
@@ -112,7 +134,7 @@ function DateFields({
             <span className={labelText}>Label (optional, e.g. Intensive or Part-time)</span>
             <input value={round.label} onChange={(e) => setRound(index, "label", e.target.value)} className={input} />
           </label>
-          <DateInputs type={state.type} dates={round} onChange={(key, value) => setRound(index, key, value)} />
+          <DateInputs type={state.type} rolling={state.rolling} dates={round} onChange={(key, value) => setRound(index, key, value)} />
           <button type="button" onClick={() => removeRound(index)} className={secondaryButton}>
             Remove round {index + 1}
           </button>
@@ -282,8 +304,14 @@ export default function OpportunityFields({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={label}>
-          <span className={labelText}>Apply URL</span>
-          <input required type="url" value={state.applyUrl} onChange={(e) => set("applyUrl")(e.target.value)} className={input} />
+          <span className={labelText}>Apply link or email</span>
+          <input
+            required
+            value={state.applyUrl}
+            onChange={(e) => set("applyUrl")(e.target.value)}
+            className={input}
+            placeholder="https://… or an email address"
+          />
         </label>
         <label className={label}>
           <span className={labelText}>Apply label</span>
@@ -292,7 +320,7 @@ export default function OpportunityFields({
       </div>
 
       <label className={label}>
-        <span className={labelText}>Source URL (where this was imported from, if different from the apply URL)</span>
+        <span className={labelText}>Source URL (where this was imported from, if different from the apply link)</span>
         <input type="url" value={state.sourceUrl} onChange={(e) => set("sourceUrl")(e.target.value)} className={input} />
       </label>
     </div>
