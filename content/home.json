@@ -193,6 +193,48 @@
       ]
     },
     {
+      "type": "teamGrid",
+      "heading": "Advisors",
+      "intro": "Advisors are experts who meet monthly to provide strategic guidance on the most promising pathways to meaningful impact. Depending on their availability and relevant expertise, they may also dedicate a few hours each month to supporting ongoing projects or collaborating on specific initiatives.",
+      "members": [
+        {
+          "name": "Katalina Hernandez",
+          "role": "Head of Legal, EquiStamp",
+          "bio": "LLB, LLM and CIPP/E. Makes frontier AI safety research usable for legal, compliance and governance teams. Former Responsible AI Lead at VOIS (Accenture JV). Writes the Stress-Testing Reality newsletter.",
+          "linkedin": "https://www.linkedin.com/in/katalina-hernandez/",
+          "group": "Legal"
+        },
+        {
+          "name": "Carey Lening",
+          "role": "Data Protection and Tech Policy Consultant",
+          "bio": "Former lawyer with over 20 years in privacy and tech, including at Palantir and Meta. Author of the Privacat Insights newsletter, on what happens when big tech becomes ungovernable.",
+          "linkedin": "https://www.linkedin.com/in/privacat/",
+          "group": "Legal"
+        },
+        {
+          "name": "Martin Radzaj",
+          "role": "Barrister, Victorian Bar",
+          "bio": "Barrister with over a decade's experience in law and government policy. Has given evidence to the Victorian Parliament for Liberty Victoria. Runs Safe AI in Law, an AI risk explainer series.",
+          "linkedin": "https://www.linkedin.com/in/martinradzaj/",
+          "group": "Legal"
+        },
+        {
+          "name": "Anca Radu",
+          "role": "Researcher in Law, European University Institute",
+          "bio": "Researches AI in the judiciary and human rights. Ten years with the Council of Europe, currently a Scientific Expert in its European Commission for the Efficiency of Justice (CEPEJ).",
+          "linkedin": "https://www.linkedin.com/in/raduanca/",
+          "group": "Legal"
+        },
+        {
+          "name": "Margot Stakenborg",
+          "role": "Astra Strategy Fellow",
+          "bio": "AI safety researcher with a background in theoretical physics and philosophy of physics. Co-founder of Third Orbit. Research scientist at Iota Technology, working on the Io-1 nanosatellite.",
+          "linkedin": "https://www.linkedin.com/in/margotstakenborg/",
+          "group": "Technical"
+        }
+      ]
+    },
+    {
       "type": "applicationSection",
       "form": "apply",
       "heading": "Join us in shaping the legal future of AI",

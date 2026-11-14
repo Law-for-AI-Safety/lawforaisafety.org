@@ -28,11 +28,12 @@ export type PageRules = {
   blocks: Partial<Record<BlockType, number>>;
   forms: readonly FormType[];
   /**
-   * Fixed anchor ids for the first block of a type, for links such as the nav's `#mission`.
-   * Code owns them, so editors cannot break the links. The team grid (`#team`) and the
-   * application sections (`#contact`, `#apply`) always carry their own.
+   * Fixed anchor ids for blocks of a type, for links such as the nav's `#mission`: the first
+   * block of the type gets the first id, the second the second, and so on. Code owns them, so
+   * editors cannot break the links. A team grid with no id here is `#team` if it is the
+   * page's first; the application sections (`#contact`, `#apply`) always carry their own.
    */
-  anchors?: Partial<Record<BlockType, string>>;
+  anchors?: Partial<Record<BlockType, readonly string[]>>;
 };
 
 /** Any page without its own entry: every block except the application section. */
@@ -56,10 +57,11 @@ export const PAGE_RULES: Record<string, PageRules> = {
     forms: ["redLines"],
   },
   home: {
-    blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 1, timeline: 1, milestones: 1, applicationSection: 1 },
+    // Two team grids: the core team, then the advisors.
+    blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 2, timeline: 1, milestones: 1, applicationSection: 1 },
     forms: ["apply"],
-    // The nav's section links (src/app/Nav.tsx).
-    anchors: { quoteBand: "mission", cardList: "work", milestones: "our-story" },
+    // The nav's section links (src/app/Nav.tsx), and the advisors' own.
+    anchors: { quoteBand: ["mission"], cardList: ["work"], milestones: ["our-story"], teamGrid: ["team", "advisors"] },
   },
   "field-building": {
     blocks: { hero: 1, quoteBand: 2, textSection: 4, cardList: 4, timeline: 1, applicationSection: 1 },

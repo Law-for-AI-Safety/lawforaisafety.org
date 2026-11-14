@@ -180,6 +180,14 @@ describe("pages", () => {
     expect(problems(pageSchema("field-building").safeParse(value)).join("\n")).toContain(message);
   });
 
+  it("lets the homepage hold two team grids, but not three", () => {
+    const team = { type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B" }] };
+    expect(problems(pageSchema("home").safeParse(page([hero, team, team])))).toEqual([]);
+    expect(problems(pageSchema("home").safeParse(page([hero, team, team, team]))).join()).toContain(
+      "blocks.3: This page can have at most 2 teamGrid block(s)",
+    );
+  });
+
   it("lets any other page hold text-only blocks, but no application section", () => {
     const team = { type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B" }] };
     expect(problems(pageSchema("a-new-page").safeParse(page([hero, { type: "quoteBand", quote: "Q." }, team])))).toEqual([]);
@@ -292,6 +300,11 @@ describe("the homepage rules", () => {
   it("take the apply form registered for /, and give the nav's anchors", () => {
     expect(pagePath("home")).toBe("/");
     expect(applySourceFor(pagePath("home"))).toBe("homepage");
-    expect(pageRules("home").anchors).toEqual({ quoteBand: "mission", cardList: "work", milestones: "our-story" });
+    expect(pageRules("home").anchors).toEqual({
+      quoteBand: ["mission"],
+      cardList: ["work"],
+      milestones: ["our-story"],
+      teamGrid: ["team", "advisors"],
+    });
   });
 });

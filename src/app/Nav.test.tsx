@@ -17,7 +17,7 @@ describe("Nav", () => {
     expect(topLevel()).toEqual(["About", "Our Work", "Opportunities", "Contact"]);
   });
 
-  it("gathers Mission, Our Story and Team under About, pointing at the homepage's sections", () => {
+  it("gathers Mission, Our Story, Team and Advisors under About, pointing at the homepage's sections", () => {
     window.history.replaceState(null, "", "/opportunities");
     render(<Nav />);
     const about = within(desktop()).getByRole("link", { name: "About" }).parentElement!;
@@ -30,6 +30,7 @@ describe("Nav", () => {
       ["Mission", "/#mission"],
       ["Our Story", "/#our-story"],
       ["Team", "/#team"],
+      ["Advisors", "/#advisors"],
     ]);
   });
 
@@ -63,6 +64,7 @@ describe("Nav", () => {
       "Mission",
       "Our Story",
       "Team",
+      "Advisors",
       "Our Work",
       "Red Lines Dialogues",
       "MEP Outreach",
