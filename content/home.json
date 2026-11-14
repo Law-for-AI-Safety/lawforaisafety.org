@@ -200,35 +200,35 @@
         {
           "name": "Katalina Hernandez",
           "role": "Head of Legal, EquiStamp",
-          "bio": "AI safety lawyer. Co-lead of ML4Good's European Seminar on Frontier AI and Law. Former Responsible AI Lead at VOIS, leading EU AI Act implementation across ten jurisdictions.",
+          "bio": "LLB, LLM and CIPP/E. Makes frontier AI safety research usable for legal, compliance and governance teams. Former Responsible AI Lead at VOIS (Accenture JV). Writes the Stress-Testing Reality newsletter.",
           "linkedin": "https://www.linkedin.com/in/katalina-hernandez/",
           "group": "Legal"
         },
         {
           "name": "Carey Lening",
           "role": "Data Protection and Tech Policy Consultant",
-          "bio": "Former lawyer with over 20 years in privacy and tech, including at Palantir and Meta. Author of the Privacat Insights newsletter.",
+          "bio": "Former lawyer with over 20 years in privacy and tech, including at Palantir and Meta. Author of the Privacat Insights newsletter, on what happens when big tech becomes ungovernable.",
           "linkedin": "https://www.linkedin.com/in/privacat/",
           "group": "Legal"
         },
         {
           "name": "Martin Radzaj",
-          "role": "Barrister and Co-founder, Safe AI in Law",
-          "bio": "Barrister with over a decade's experience in law and government policy. AI safety researcher working on mechanistic interpretability of legally relevant features in LLMs.",
+          "role": "Barrister, Victorian Bar",
+          "bio": "Barrister with over a decade's experience in law and government policy. Has given evidence to the Victorian Parliament for Liberty Victoria. Runs Safe AI in Law, an AI risk explainer series.",
           "linkedin": "https://www.linkedin.com/in/martinradzaj/",
           "group": "Legal"
         },
         {
           "name": "Anca Radu",
-          "role": "Researcher in AI and Law",
-          "bio": "PhD from the European University Institute on the use of AI in the judiciary. Has advised the Council of Europe's CEPEJ and UNESCO as an independent expert.",
+          "role": "Researcher in Law, European University Institute",
+          "bio": "Researches AI in the judiciary and human rights. Ten years with the Council of Europe, currently a Scientific Expert in its European Commission for the Efficiency of Justice (CEPEJ).",
           "linkedin": "https://www.linkedin.com/in/raduanca/",
           "group": "Legal"
         },
         {
           "name": "Margot Stakenborg",
-          "role": "AI Safety Researcher",
-          "bio": "Background in theoretical physics and philosophy of physics. Research fellow at Dovetail, working on formalising world models.",
+          "role": "Astra Strategy Fellow",
+          "bio": "AI safety researcher with a background in theoretical physics and philosophy of physics. Co-founder of Third Orbit. Research scientist at Iota Technology, working on the Io-1 nanosatellite.",
           "linkedin": "https://www.linkedin.com/in/margotstakenborg/",
           "group": "Technical"
         }
