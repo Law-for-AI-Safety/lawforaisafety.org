@@ -2,6 +2,7 @@ import { and, count, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   applications,
+  redLinesApplications,
   taskTrackerProjects,
   taskTrackerTasks,
 } from "@/drizzle/schema";
@@ -9,6 +10,37 @@ import {
 /** Today (UTC) as YYYY-MM-DD, matching how the date columns are stored. */
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Applications still needing someone: pending ones, plus decided ones whose notification email
+ * failed. The same rows the applications workspace lists, counted for the sidebar's badge.
+ */
+const IN_COLLABORATION_QUEUE = or(
+  eq(applications.status, "pending"),
+  and(
+    or(eq(applications.status, "approved"), eq(applications.status, "rejected")),
+    eq(applications.notificationStatus, "failed"),
+  ),
+);
+
+export async function countCollaborationQueue(): Promise<number> {
+  const [row] = await db.select({ value: count() }).from(applications).where(IN_COLLABORATION_QUEUE);
+  return row?.value ?? 0;
+}
+
+export type RedLinesSummary = { pending: number; oldestPendingAt: Date | null };
+
+/** Pending Red Lines Dialogues applications, for the dashboard card and the sidebar badge. */
+export async function getRedLinesSummary(): Promise<RedLinesSummary> {
+  const [row] = await db
+    .select({ pending: count(), oldest: sql<Date | null>`min(${redLinesApplications.createdAt})` })
+    .from(redLinesApplications)
+    .where(eq(redLinesApplications.status, "pending"));
+  return {
+    pending: row?.pending ?? 0,
+    oldestPendingAt: row?.oldest ? new Date(row.oldest) : null,
+  };
 }
 
 export type ApplicationsSummary = {
@@ -114,4 +146,15 @@ export async function getTrackerSummary(email: string): Promise<TrackerSummary> 
     myOpenTasks: myOpenTasks?.value ?? 0,
     myOverdueTasks: myOverdueTasks?.value ?? 0,
   };
+}
+
+/** Open tasks assigned to `email` and past their planned end, for the sidebar's Projects badge. */
+export async function countMyOverdueTasks(email: string): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(taskTrackerTasks)
+    .where(
+      sql`${OPEN_TASK} and lower(${taskTrackerTasks.assigneeEmail}) = ${email.toLowerCase()} and ${taskTrackerTasks.plannedEnd} < ${todayISO()}`,
+    );
+  return row?.value ?? 0;
 }

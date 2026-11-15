@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getEmailPreviews } from "@/lib/email";
+import { getAdminSession, isTechAdminConfigured, isTechAdminEmail } from "@/lib/session";
+import TechAdminOnly from "../../TechAdminOnly";
 
 export const metadata: Metadata = {
   title: "LAIS - Email preview",
   robots: { index: false, follow: false },
 };
 
-export default function EmailPreviewPage() {
+/** Every transactional email as it renders. A technical admin's tool, like the other account-menu pages. */
+export default async function EmailPreviewPage() {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  if (!isTechAdminEmail(session.email)) {
+    return <TechAdminOnly configured={isTechAdminConfigured()} />;
+  }
   const previews = getEmailPreviews();
 
   return (

@@ -46,12 +46,12 @@ beforeEach(async () => {
 });
 
 describe("drafts in the admin", () => {
-  it("counts them in the header, linking to the list's drafts", async () => {
+  it("counts them in a tab, linking to the list's drafts", async () => {
     render(await OpportunitiesLayout({ children: null }));
     expect(screen.getByRole("link", { name: "Drafts (1 to publish)" })).toHaveAttribute("href", "/admin/opportunities#drafts");
   });
 
-  it("leaves the header's drafts link out when there are none", async () => {
+  it("leaves the drafts tab out when there are none", async () => {
     await db.delete(opportunities);
     render(await OpportunitiesLayout({ children: null }));
     expect(screen.queryByRole("link", { name: /Drafts/ })).not.toBeInTheDocument();

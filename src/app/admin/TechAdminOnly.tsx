@@ -17,7 +17,7 @@ export default function TechAdminOnly({ configured }: { configured: boolean }) {
           : "No technical admins have been set up yet, so this page is closed to everyone. Set TECH_ADMIN_EMAILS in the site's environment variables and redeploy."}
       </p>
       <Link href="/admin" className="underline">
-        Back to applications
+        Back to the dashboard
       </Link>
     </main>
   );
