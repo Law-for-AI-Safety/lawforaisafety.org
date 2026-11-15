@@ -5,7 +5,7 @@ const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 // Admin notification targets — org aliases, not personal admin addresses, so
 // sendAllowed() below only lets these actually fire in production (see its
 // own comment); outside production they log-skip like every other send.
-const GENERAL_NOTIFY_EMAIL = "info@lawforaisafety.org";
+export const GENERAL_NOTIFY_EMAIL = "info@lawforaisafety.org";
 const RED_LINES_NOTIFY_EMAIL = "redlines@lawforaisafety.org";
 
 function requireEnv(name: string): string {
@@ -66,7 +66,16 @@ function sendAllowed(to: string): boolean {
   return isProductionDeploy() || isAdminEmail(to);
 }
 
-async function send(to: string, subject: string, bodyHtml: string): Promise<void> {
+/** The sender every email from the site uses: transactional mail and the newsletter. */
+export function emailSender(): { email: string; name: string } {
+  return {
+    email: requireEnv("BREVO_FROM_EMAIL"),
+    name: process.env.BREVO_FROM_NAME || "Law for AI Safety",
+  };
+}
+
+/** `html` is a whole email when `wrapped`, or else body content for the shared shell. */
+async function send(to: string, subject: string, bodyHtml: string, { wrapped = false } = {}): Promise<void> {
   if (!sendAllowed(to)) {
     // No address in the log line — function logs are outside the erasure tool's reach.
     console.log(
@@ -89,13 +98,10 @@ async function send(to: string, subject: string, bodyHtml: string): Promise<void
       accept: "application/json",
     },
     body: JSON.stringify({
-      sender: {
-        email: requireEnv("BREVO_FROM_EMAIL"),
-        name: process.env.BREVO_FROM_NAME || "Law for AI Safety",
-      },
+      sender: emailSender(),
       to: [{ email: to }],
       subject: finalSubject,
-      htmlContent: wrapEmailHtml(bodyHtml),
+      htmlContent: wrapped ? bodyHtml : wrapEmailHtml(bodyHtml),
     }),
   });
 
@@ -253,6 +259,14 @@ function opportunitySubmissionRejectedEmail(name: string | null, what: string, r
     bodyHtml: `${greeting(name)}<p style="margin:0 0 16px;">Thanks for sending us ${escapeHtml(what)}. We've decided not to add it to our opportunities board.</p>
      ${reasonHtml}<p style="margin:0;">We appreciate you taking the time, and you're welcome to send us others.</p>`,
   };
+}
+
+/**
+ * A test copy of a newsletter, sent to one admin through the transactional API (no Brevo
+ * contact or test list needed). `html` is the whole newsletter email.
+ */
+export async function sendNewsletterTestEmail(to: string, subject: string, html: string): Promise<void> {
+  await send(to, `[Test] ${subject}`, html, { wrapped: true });
 }
 
 export async function sendApplicationApprovedEmail(

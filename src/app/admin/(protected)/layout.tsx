@@ -50,6 +50,11 @@ export default async function ProtectedAdminLayout({
               Website pages
             </Link>
           )}
+          {cms && cmsCan(cms.access, "edit") && (
+            <Link href="/admin/newsletters" className="underline">
+              Newsletter
+            </Link>
+          )}
           <span className="text-brand-black/70">Signed in as {session.name}</span>
         </div>
         <div className="flex flex-wrap items-center gap-4">
