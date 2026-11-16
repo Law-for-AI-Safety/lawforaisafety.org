@@ -54,7 +54,7 @@ describe("AdminSidebar", () => {
     await userEvent.click(menuButton());
     const dialog = screen.getByRole("dialog");
     const first = within(dialog).getAllByRole("link")[0];
-    const last = within(dialog).getByRole("button", { name: /Signed in as/ });
+    const last = within(dialog).getByRole("button", { name: "Account" });
     await userEvent.tab({ shift: true });
     expect(last).toHaveFocus();
     await userEvent.tab();
@@ -100,10 +100,11 @@ describe("AdminSidebar", () => {
   });
 
   describe("the account menu", () => {
-    const account = () => screen.getByRole("button", { name: /Signed in as\s*Jane Admin/ });
+    const account = () => screen.getByRole("button", { name: "Account" });
 
     it("toggles the account links", async () => {
       renderAt("/admin");
+      expect(screen.getByText("Signed in as Jane Admin")).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
       await userEvent.click(account());
       expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/admin/settings");

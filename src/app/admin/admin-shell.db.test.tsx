@@ -110,7 +110,7 @@ describe("the sidebar", () => {
   it("keeps the technical admins' tools and Log out in the account menu, for technical admins only", async () => {
     await signInAs("tech");
     const { unmount } = render(await ProtectedAdminLayout({ children: null }));
-    const account = screen.getByRole("button", { name: /Signed in as\s*tech person/ });
+    const account = screen.getByRole("button", { name: "Account" });
     expect(account).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
     fireEvent.click(account);
@@ -126,7 +126,7 @@ describe("the sidebar", () => {
 
     await signInAs("reviewer");
     render(await ProtectedAdminLayout({ children: null }));
-    fireEvent.click(screen.getByRole("button", { name: /Signed in as/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Account" }));
     expect(screen.queryByRole("link", { name: "Email preview" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();

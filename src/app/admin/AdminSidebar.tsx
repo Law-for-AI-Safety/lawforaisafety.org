@@ -95,14 +95,20 @@ function AccountMenu({ name, links, active }: { name: string; links: ShellLink[]
         onClick={() => setOpen((was) => !was)}
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-brand-black/5"
       >
+        {/* The button is named "Account" alone. The person's name is shown with it but kept out
+            of the button's name, so a name like "Pat Publisher" can never be mistaken for one of
+            the page's own buttons ("Publish") by assistive technology or tests. */}
         <span className="flex min-w-0 flex-col">
-          <span className="text-xs uppercase tracking-wide text-brand-black/60">Signed in as</span>
-          <span className="truncate text-brand-black">{name}</span>
+          <span className="text-xs uppercase tracking-wide text-brand-black/60">Account</span>
+          <span aria-hidden="true" className="truncate text-brand-black">
+            {name}
+          </span>
         </span>
         <span aria-hidden="true" className="text-brand-black/60">
           {open ? "▾" : "▴"}
         </span>
       </button>
+      <p className="sr-only">Signed in as {name}</p>
     </div>
   );
 }

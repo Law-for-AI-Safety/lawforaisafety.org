@@ -454,7 +454,7 @@ describe("the admin sidebar", () => {
       await db.execute(sql`ALTER TABLE cms_roles_unavailable RENAME TO cms_roles`);
     }
     expect(screen.getByText("body")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Signed in as/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Account" }));
     expect(screen.getByRole("link", { name: "Settings" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Website pages" })).toBeNull();
     expect(console.error).toHaveBeenCalledWith("[admin] Could not read CMS access for the nav", expect.any(Error));
