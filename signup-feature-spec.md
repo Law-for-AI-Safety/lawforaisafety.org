@@ -184,7 +184,7 @@ Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-sepa
 - **Login** (`/admin/login`): a single "Log in with Google" button; clicking it initiates the admin OAuth flow, with Google's `hd` parameter so the account chooser offers only Workspace accounts
 - Admin OAuth uses a **separate callback route** (`/api/admin/auth/google/callback`) from the applicant flow (`/api/auth/google/callback`) — the two flows must not share a callback, to prevent an admin login attempt from accidentally creating an application row
 - Admin OAuth state param is a short-lived signed token (same pattern as applicant flow) — carries no row ID since there is no draft row, just enough to verify the round-trip and detect CSRF
-- On successful callback: verified email checked against `ADMIN_EMAILS`; if permitted, issue a signed `httpOnly`, `Secure`, `SameSite=Lax` session cookie (signed JWT containing the admin's Workspace email and name — no DB lookup needed)
+- On successful callback: verified email checked against `ADMIN_EMAILS`; if permitted, issue an `httpOnly`, `Secure`, `SameSite=Lax` session cookie holding a random token, whose hash keys a row in `admin_sessions` (the admin's Workspace email and name), looked up on every request so a session can be ended
 - All `/admin/*` pages and `/api/admin/*` routes verify this cookie server-side
 - **Logout** (`/api/admin/logout`): clears the cookie
 - **Dependency risk**: if Google is down, admins cannot log in. Acceptable given Google already runs the organisation's email
