@@ -12,6 +12,7 @@ Checked directly against Netlify (`netlify env:list --context production`) — t
 | `GOOGLE_CLIENT_ID` | [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → your OAuth 2.0 Client → Client ID |
 | `GOOGLE_CLIENT_SECRET` | Same page → Client Secret |
 | `ADMIN_GOOGLE_DOMAIN` | The organisation's Google Workspace domain (the part after `@` in a Workspace address). Admin login accepts only accounts that Workspace manages; unset, admin login fails with an error rather than letting any Google account in. Kept out of the repo because it is public |
+| `ADMIN_LINKEDIN_KEEP_EMAILS` | Optional. Comma-separated LinkedIn addresses (each also in `ADMIN_EMAILS`) whose LinkedIn admin login stays open after their owner has moved to Google. Unset means LinkedIn closes for everyone who moves. See `account-security-steps.md` part 1 |
 | `SESSION_SECRET` | Random 32+ byte secret — `openssl rand -base64 32` in a terminal. Generate a **fresh** one for production rather than reusing your local dev value — keeps the two environments' signing keys independent |
 | `EMAIL_HASH_SECRET` | Same as above — `openssl rand -base64 32`, a different fresh value from `SESSION_SECRET` (must not equal it, see `.env.example`) |
 
@@ -29,7 +30,7 @@ Repeat per var. Add `--context deploy-preview` too for anything you want working
 
 ## Scoping — production vs preview
 
-- `SESSION_SECRET`, `EMAIL_HASH_SECRET`, `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_ID`/`SECRET`, `ADMIN_GOOGLE_DOMAIN`: safe to set for **all** contexts (production + deploy-preview + branch-deploy) — same values everywhere is fine, no isolation concern like `BREVO_LIST_ID` had.
+- `SESSION_SECRET`, `EMAIL_HASH_SECRET`, `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_ID`/`SECRET`, `ADMIN_GOOGLE_DOMAIN`, `ADMIN_LINKEDIN_KEEP_EMAILS`: safe to set for **all** contexts (production + deploy-preview + branch-deploy) — same values everywhere is fine, no isolation concern like `BREVO_LIST_ID` had.
 - `NEXT_PUBLIC_SITE_URL`: **production only, for now.** This one's genuinely awkward for previews — each deploy preview gets its own dynamic URL (`deploy-preview-3--law-for-ai-safety-org.netlify.app`, changes per PR), and LinkedIn/Google both require an *exact* registered redirect URI match. Setting `NEXT_PUBLIC_SITE_URL` for deploy-preview would need registering every individual preview URL on both provider dashboards to actually work — not practical to maintain. Realistic expectation: OAuth flows only work end-to-end locally or in production; a preview deploy exercising "Verify with LinkedIn" will build the wrong callback URL and fail at the provider, regardless of this var. Not something to fix now — flagging so it's not mistaken for a bug later.
 
 ## After adding

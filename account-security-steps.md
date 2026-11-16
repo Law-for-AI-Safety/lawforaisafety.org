@@ -22,6 +22,48 @@ admin account, and its controls apply to the admin panel:
 3. Admin console → Reporting → Audit and investigation → **Login log
    events** shows every sign-in, including failed ones and from where.
 
+### Moving admins off LinkedIn
+
+Admin login used to be "Log in with LinkedIn", and still offers it while
+admins move. LinkedIn accounts are personal, so none of the controls above
+reach them. Each admin moves once:
+
+1. Their Workspace address is added to `ADMIN_EMAILS` (and whichever lists
+   below their old address is on), next to their old LinkedIn address.
+2. They log in with LinkedIn as usual. The admin area shows a **Switch to
+   Google** banner; they click it and sign in with their Workspace account.
+3. From then on LinkedIn login is refused for both their addresses, and their
+   LinkedIn sessions end. `/admin/settings` → LinkedIn logins shows who has
+   moved.
+
+A Google sign-in that doesn't start from a LinkedIn session can't tell which
+LinkedIn address is the same person, so it closes LinkedIn only for the
+Workspace address. Ask admins to switch from the banner.
+
+`ADMIN_LINKEDIN_KEEP_EMAILS` lists the LinkedIn addresses that stay open even
+after their owner has moved (comma-separated, each also in `ADMIN_EMAILS`).
+Keep it as short as possible: every address on it can reach the admin panel
+without the Workspace's 2-step verification. For anyone on it, also do the
+LinkedIn steps below.
+
+Once everyone not on that list has moved, remove their old addresses from
+`ADMIN_EMAILS` and the other lists.
+
+### Admins still on LinkedIn
+
+For each admin who still logs in with LinkedIn:
+
+1. LinkedIn → Me → Settings & Privacy → Sign in & security → **Two-step
+   verification** → turn on → choose **Authenticator app**, not SMS.
+2. Same page → **Email addresses** → remove old addresses you no longer
+   control. Any confirmed address can be used to reset the password.
+3. **Pin their LinkedIn account id**: once they have logged in, a technical
+   admin copies the id shown at `/admin/settings` → LinkedIn logins into the
+   `ADMIN_LINKEDIN_SUBS` environment variable in Netlify (comma-separated,
+   one per admin) and redeploys. From then on LinkedIn login needs an
+   allowlisted email **and** an allowlisted account id, so someone
+   registering a new LinkedIn account against an admin's address is refused.
+
 Then **set who the technical admins are**. Everyone in `ADMIN_EMAILS` can
 read applications and approve or reject them, and use the task tracker and
 the opportunities board. Only technical admins can erase data, switch signup
@@ -43,9 +85,10 @@ narrows `ADMIN_EMAILS`, never adds to it:
 2. Redeploy. Until this is set, those pages are closed to everyone.
 
 When an admin leaves: suspend their Workspace account, which stops their next
-login at once. Then remove them from `ADMIN_EMAILS`, `TECH_ADMIN_EMAILS`,
-`TASK_TRACKER_TEAM_EMAILS` and `OPPORTUNITIES_TEAM_EMAILS`, redeploy, and
-remove their CMS role at `/admin/settings`. Their session ends on their next
+Google login at once. Then remove both their addresses from `ADMIN_EMAILS`,
+`TECH_ADMIN_EMAILS`, `TASK_TRACKER_TEAM_EMAILS`, `OPPORTUNITIES_TEAM_EMAILS`
+and `ADMIN_LINKEDIN_KEEP_EMAILS`, and their id from `ADMIN_LINKEDIN_SUBS`,
+redeploy, and remove their CMS role at `/admin/settings`. Their session ends on their next
 request after the redeploy; to end it sooner, a technical admin ends their
 sessions at `/admin/settings` → Signed in.
 
@@ -53,9 +96,9 @@ Once a month, skim `/admin/audit`: logins you don't recognise, approvals
 nobody remembers making, or an erasure with no matching email thread are all
 worth a question.
 
-Treat any "please sign in to Google" page reached from a link in Slack, an
-email or an application as hostile, unless it is the one the admin login
-button opened. Go to `/admin/login` yourself instead.
+Treat any "please sign in to Google" or "please log in to LinkedIn" page
+reached from a link in Slack, an email or an application as hostile. Go to
+`/admin/login` yourself instead.
 
 ## 2. Two-factor on everything else (15 minutes)
 

@@ -177,14 +177,16 @@ Reviewer approves or rejects via a simple admin page (see Admin UI below) — ch
 
 Admins log in with Google, using the organisation's own Google Workspace accounts — the same Google OAuth client already used for applicant verification. No username/password, no `admin_users` table, no password hashing. Workspace accounts rather than personal ones, because the organisation can then enforce 2-step verification, cut access by suspending an account, and read every sign-in in the Workspace's login audit.
 
-The Workspace domain is the env var `ADMIN_GOOGLE_DOMAIN`. The callback accepts only an account Google reports as verified, whose `hd` (hosted domain) claim is that domain, and whose email is on it; anything else is refused before the allowlist is consulted. Unset, admin login fails rather than accepting any domain.
+The Workspace domain is the env var `ADMIN_GOOGLE_DOMAIN`. The callback accepts only an account Google reports as verified, whose `hd` (hosted domain) claim is that domain, and whose email is on it; anything else is refused before the allowlist is consulted. Unset, Google admin login fails rather than accepting any domain.
+
+**Moving from LinkedIn.** Admin login used to be LinkedIn only, and LinkedIn stays available while admins move. Once an admin signs in with Google from a browser holding their LinkedIn session (the "Switch to Google" banner in the admin area, shown to sessions off the Workspace domain), LinkedIn admin login is refused for both their addresses, recorded in `admin_linkedin_retired`, and their LinkedIn sessions end. `ADMIN_LINKEDIN_KEEP_EMAILS` lists addresses that keep LinkedIn regardless. LinkedIn logins are still pinned to `ADMIN_LINKEDIN_SUBS` once that is set.
 
 Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-separated). On a successful Google callback from a Workspace account, if the verified email is not in the whitelist, deny access and show an error. Adding or removing an admin requires updating the env var and redeploying — acceptable for a handful of reviewers.
 
-- **Login** (`/admin/login`): a single "Log in with Google" button; clicking it initiates the admin OAuth flow, with Google's `hd` parameter so the account chooser offers only Workspace accounts
-- Admin OAuth uses a **separate callback route** (`/api/admin/auth/google/callback`) from the applicant flow (`/api/auth/google/callback`) — the two flows must not share a callback, to prevent an admin login attempt from accidentally creating an application row
+- **Login** (`/admin/login`): a "Log in with Google" button, which initiates the admin OAuth flow with Google's `hd` parameter so the account chooser offers only Workspace accounts, and below it "Log in with LinkedIn" for admins who haven't moved yet
+- Admin OAuth uses **separate callback routes** (`/api/admin/auth/google/callback`, `/api/admin/auth/linkedin/callback`) from the applicant flow (`/api/auth/google/callback`, `/api/auth/linkedin/callback`) — the two flows must not share a callback, to prevent an admin login attempt from accidentally creating an application row
 - Admin OAuth state param is a short-lived signed token (same pattern as applicant flow) — carries no row ID since there is no draft row, just enough to verify the round-trip and detect CSRF
-- On successful callback: verified email checked against `ADMIN_EMAILS`; if permitted, issue an `httpOnly`, `Secure`, `SameSite=Lax` session cookie holding a random token, whose hash keys a row in `admin_sessions` (the admin's Workspace email and name), looked up on every request so a session can be ended
+- On successful callback: verified email checked against `ADMIN_EMAILS`; if permitted, issue an `httpOnly`, `Secure`, `SameSite=Lax` session cookie holding a random token, whose hash keys a row in `admin_sessions` (the admin's email and name), looked up on every request so a session can be ended
 - All `/admin/*` pages and `/api/admin/*` routes verify this cookie server-side
 - **Logout** (`/api/admin/logout`): clears the cookie
 - **Dependency risk**: if Google is down, admins cannot log in. Acceptable given Google already runs the organisation's email
@@ -551,7 +553,11 @@ One deliberate choice made along the way: the standalone newsletter signup keeps
     /admin/auth/google
       route.ts            — Initiate admin Google OAuth (separate from applicant flow)
     /admin/auth/google/callback
-      route.ts            — Handle admin OAuth callback; check Workspace domain and ADMIN_EMAILS whitelist; issue session cookie
+      route.ts            — Handle admin OAuth callback; check Workspace domain and ADMIN_EMAILS whitelist; close LinkedIn for the admin; issue session cookie
+    /admin/auth/linkedin
+      route.ts            — Initiate admin LinkedIn OAuth, while admins move to Google
+    /admin/auth/linkedin/callback
+      route.ts            — Handle admin LinkedIn callback; check ADMIN_EMAILS, ADMIN_LINKEDIN_SUBS and whether the admin has moved to Google; issue session cookie
     /admin/logout
       route.ts            — Clear session cookie
     /admin/applications

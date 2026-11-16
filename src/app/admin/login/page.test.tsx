@@ -13,14 +13,24 @@ describe("the admin login page", () => {
     expect(screen.getByRole("link", { name: "Log in with Google" })).toHaveAttribute("href", "/api/admin/auth/google");
   });
 
+  it("still offers LinkedIn, saying it closes once the admin switches", async () => {
+    await renderWith();
+    expect(screen.getByText(/Still using LinkedIn\? .* After that, LinkedIn login stops working for you\./)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Log in with LinkedIn" })).toHaveAttribute("href", "/api/admin/auth/linkedin");
+  });
+
   it.each([
     ["invalid", "That login link isn't valid. Please try again."],
-    ["denied", "Google login was cancelled."],
+    ["denied", "Login was cancelled."],
     [
       "workspace",
       "Use your Law for AI Safety Google account. Personal Google accounts and other organisations' accounts can't access the admin area.",
     ],
-    ["forbidden", "That Google account isn't authorised to access the admin area."],
+    ["forbidden", "That account isn't authorised to access the admin area."],
+    [
+      "moved",
+      "You've moved to your Law for AI Safety Google account, so LinkedIn login is closed for you. Log in with Google instead.",
+    ],
   ])("explains the error %s", async (code, message) => {
     await renderWith(code);
     expect(screen.getByRole("alert")).toHaveTextContent(message);

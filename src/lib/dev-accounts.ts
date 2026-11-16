@@ -7,8 +7,7 @@
  * apart from the others' and several can be open side by side.
  *
  * Their addresses are on example.com, which no real person has, so even listed in a real
- * ADMIN_EMAILS they could never sign in through Google: admin login takes only accounts on
- * the organisation's own Workspace domain.
+ * ADMIN_EMAILS they could never sign in through LinkedIn or Google.
  */
 export type DevAccount = {
   /** The subdomain it signs in on. */

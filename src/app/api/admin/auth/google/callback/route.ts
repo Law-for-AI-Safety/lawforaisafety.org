@@ -4,8 +4,18 @@ import {
   clearOAuthStateCookie,
   oauthStateCookieMatches,
 } from "@/lib/oauth-state-cookie";
-import { adminWorkspaceDomain, isAdminWorkspaceAccount } from "@/lib/admin-workspace";
-import { startAdminSession, isAdminEmailAllowed } from "@/lib/session";
+import {
+  adminWorkspaceDomain,
+  isAdminWorkspaceAccount,
+  isOnWorkspaceDomain,
+  retireLinkedin,
+} from "@/lib/admin-workspace";
+import {
+  endSessionsOf,
+  getAdminSession,
+  isAdminEmailAllowed,
+  startAdminSession,
+} from "@/lib/session";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -60,13 +70,22 @@ export async function GET(request: Request) {
     return seeOther("/admin/login?error=forbidden");
   }
 
+  // The browser's current session, if it came from LinkedIn (an address off the Workspace
+  // domain), is how this Workspace account is matched to the admin's LinkedIn address: both
+  // are closed to LinkedIn from now on, and every LinkedIn session of theirs ends.
+  const previous = await getAdminSession();
+  const linkedinEmail =
+    previous && !isOnWorkspaceDomain(previous.email, domain) ? previous.email : null;
+  await retireLinkedin(linkedinEmail ? [userInfo.email, linkedinEmail] : [userInfo.email], userInfo.email);
+  if (linkedinEmail) await endSessionsOf(linkedinEmail, userInfo.email);
+
   await startAdminSession({ email: userInfo.email, name: userInfo.name });
   // Kept so the task tracker can offer people by name; see adminPeople.
   await rememberPerson(userInfo.email, userInfo.name);
   await recordAdminAction({
     actorEmail: userInfo.email,
     action: "login",
-    detail: { provider: "google" },
+    detail: linkedinEmail ? { provider: "google", linkedinClosedFor: linkedinEmail } : { provider: "google" },
   });
 
   return seeOther("/admin");

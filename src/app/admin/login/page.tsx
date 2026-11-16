@@ -7,10 +7,12 @@ export const metadata: Metadata = {
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid: "That login link isn't valid. Please try again.",
-  denied: "Google login was cancelled.",
+  denied: "Login was cancelled.",
   workspace:
     "Use your Law for AI Safety Google account. Personal Google accounts and other organisations' accounts can't access the admin area.",
-  forbidden: "That Google account isn't authorised to access the admin area.",
+  forbidden: "That account isn't authorised to access the admin area.",
+  moved:
+    "You've moved to your Law for AI Safety Google account, so LinkedIn login is closed for you. Log in with Google instead.",
 };
 
 export default async function AdminLoginPage({
@@ -39,6 +41,15 @@ export default async function AdminLoginPage({
       >
         Log in with Google
       </a>
+      <div className="flex flex-col items-center gap-3 border-t border-brand-black/15 pt-6 text-sm text-brand-black/70">
+        <p>
+          Still using LinkedIn? Log in with it, then choose &ldquo;Switch to Google&rdquo; at
+          the top of the admin area. After that, LinkedIn login stops working for you.
+        </p>
+        <a href="/api/admin/auth/linkedin" className="underline">
+          Log in with LinkedIn
+        </a>
+      </div>
     </main>
   );
 }

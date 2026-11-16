@@ -183,6 +183,35 @@ describe("the sidebar", () => {
   });
 });
 
+describe("moving admins from LinkedIn to Google", () => {
+  const banner = () => screen.queryByRole("status");
+
+  it("asks an admin signed in on a personal address to switch to Google", async () => {
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "lais.example");
+    await signInAs("reviewer");
+    render(await ProtectedAdminLayout({ children: null }));
+    expect(banner()).toHaveTextContent("You're signed in with LinkedIn");
+    expect(within(banner()!).getByRole("link", { name: "Switch to Google" })).toHaveAttribute("href", "/api/admin/auth/google");
+  });
+
+  it("doesn't ask a Workspace account, an admin who keeps LinkedIn, or anyone before Google login is set up", async () => {
+    vi.stubEnv("ADMIN_EMAILS", "tech@example.com,reviewer@example.com,sam@lais.example");
+    for (const [domain, keep, who] of [
+      ["lais.example", "", "sam@lais.example"],
+      ["lais.example", "reviewer@example.com", "reviewer@example.com"],
+      ["", "", "reviewer@example.com"],
+    ]) {
+      vi.stubEnv("ADMIN_GOOGLE_DOMAIN", domain);
+      vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", keep);
+      cookieJar.reset();
+      await startAdminSession({ email: who, name: "Someone" });
+      const { unmount } = render(await ProtectedAdminLayout({ children: null }));
+      expect(banner()).toBeNull();
+      unmount();
+    }
+  });
+});
+
 describe("the area tabs", () => {
   it("lists the opportunities pages as tabs, with the submissions waiting", async () => {
     await seedWaitingWork();
