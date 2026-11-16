@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { cache } from "react";
 import { and, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { opportunitySubmissions } from "@/drizzle/schema";
@@ -481,13 +482,14 @@ export async function listSubmissions(): Promise<SubmissionRow[]> {
     .orderBy(sql`${opportunitySubmissions.status} <> 'pending'`, desc(opportunitySubmissions.createdAt));
 }
 
-export async function countPendingSubmissions(): Promise<number> {
+/** Once per request: the opportunities tabs, the sidebar badge and the dashboard all ask. */
+export const countPendingSubmissions = cache(async (): Promise<number> => {
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(opportunitySubmissions)
     .where(eq(opportunitySubmissions.status, "pending"));
   return count;
-}
+});
 
 /** Ids come from URLs; anything not shaped like one would make Postgres throw rather than find nothing. */
 function isUuid(id: string): boolean {

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { cmsDrafts, cmsRoles, cmsSubmissions } from "@/drizzle/schema";
 import type { CmsPermission } from "@/cms/access";
@@ -17,6 +17,12 @@ export async function getDraft(page: string): Promise<DraftRow | null> {
 
 export async function listDrafts(): Promise<DraftRow[]> {
   return db.select().from(cmsDrafts).orderBy(asc(cmsDrafts.page));
+}
+
+/** How many pages have unpublished changes, for the admin dashboard. */
+export async function countDrafts(): Promise<number> {
+  const [row] = await db.select({ value: count() }).from(cmsDrafts);
+  return row?.value ?? 0;
 }
 
 type DraftWrite = { page: string; content: unknown; baseHash: string; valid: boolean; authorEmail: string };
