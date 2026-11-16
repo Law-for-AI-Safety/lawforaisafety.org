@@ -6,6 +6,8 @@ import { SITE_URL, siteDirs, sitemapEntries } from "@/cms/site";
 import { connection } from "next/server";
 import { getCachedOpportunities } from "@/opportunities/data";
 import { openOpportunities } from "@/opportunities/filter";
+import { publicIssues } from "@/newsletter/archive";
+import { issuePath } from "@/newsletter/slug";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Rendered per request rather than at build time, since opportunities live in the database.
@@ -25,6 +27,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(opportunity.publishedAt),
       changeFrequency: "weekly",
       priority: 0.6,
+    });
+  }
+
+  // Newsletter issues on the website, like opportunities, have a dynamic segment.
+  for (const issue of await publicIssues()) {
+    entries.push({
+      url: `${SITE_URL}${issuePath(issue.slug)}`,
+      lastModified: issue.sentAt,
+      changeFrequency: "yearly",
+      priority: 0.5,
     });
   }
 

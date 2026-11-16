@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import ApplyForm from "../../app/apply/ApplyForm";
 import ContactErrorBanner from "../../app/ContactErrorBanner";
@@ -81,6 +82,9 @@ export default function ApplicationSection({
               <div className={PART}>
                 <h3 className={PART_HEADING}>{block.newsletterHeading}</h3>
                 <NewsletterForm />
+                <Link href="/newsletter" className="self-start text-lg font-light text-brand-navy/85 underline">
+                  Read past issues
+                </Link>
               </div>
             )}
             {block.formHeading ? (

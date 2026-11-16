@@ -68,6 +68,13 @@ describe("renderNewsletterHtml", () => {
     expect(html).toContain(">lawforaisafety.test</a>");
   });
 
+  it("links to the issue's web page only when it has one, escaping the address", () => {
+    const html = renderNewsletterHtml(ok, { siteUrl: SITE, unsubscribeHref: "#", viewInBrowserHref: `${SITE}/newsletter/a"b` });
+    expect(html).toContain(`<a href="${SITE}/newsletter/a&quot;b" style="color:#1b334c;">View in browser</a>`);
+    expect(renderNewsletterHtml(ok, { siteUrl: SITE, unsubscribeHref: "#" })).not.toContain("View in browser");
+    expect(renderNewsletterHtml(ok, { siteUrl: SITE, unsubscribeHref: "#", viewInBrowserHref: null })).not.toContain("View in browser");
+  });
+
   it("escapes the subject and preview text", () => {
     const html = renderNewsletterHtml({ ...ok, subject: "<b>Hi</b>", previewText: "a & b" }, { siteUrl: SITE, unsubscribeHref: "#" });
     expect(html).toContain("<title>&lt;b&gt;Hi&lt;/b&gt;</title>");

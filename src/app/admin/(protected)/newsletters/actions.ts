@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { recordAdminAction } from "@/lib/audit-log";
 import {
@@ -14,18 +15,22 @@ import {
   updateCampaign,
 } from "@/lib/brevo-campaigns";
 import { isProductionDeploy } from "@/lib/deploy-context";
+import { notifyIndexNowLater } from "@/lib/indexnow";
 import { sendNewsletterTestEmail } from "@/lib/email";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import {
+  assignSlug,
   claimForSubmit,
   getNewsletter,
   insertNewsletter,
   markSubmitted,
   markTested,
+  recordSent,
   releaseClaim,
   removeNewsletter,
   returnToDraft,
   setCampaignId,
+  setPublishOnWeb,
   setScheduledAt,
   writeNewsletter,
   type NewsletterRow,
@@ -39,7 +44,9 @@ import {
   type NewsletterFields,
 } from "@/newsletter/template";
 import { scheduleProblem, STUCK_AFTER_MS } from "@/newsletter/schedule";
-import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
+import { NEWSLETTER_WEB_CACHE_TAG } from "@/newsletter/archive";
+import { siteUrl, TEST_UNSUBSCRIBE_HREF, TEST_VIEW_IN_BROWSER_HREF } from "@/newsletter/site";
+import { ARCHIVE_PATH, issuePath } from "@/newsletter/slug";
 
 /**
  * The newsletter's server actions. Each is a public endpoint: it checks the caller's permission
@@ -88,6 +95,7 @@ const fieldsArg = z.object({
   subject: z.string().max(1000),
   previewText: z.string().max(1000),
   body: z.string().max(BODY_MAX * 2),
+  publishOnWeb: z.boolean(),
 });
 const whenArg = z.iso.datetime({ offset: true });
 const countArg = z.number().int().min(0);
@@ -172,7 +180,11 @@ export async function sendTestNewsletter(id: unknown, version: unknown): Promise
   const ready = await readyDraft(newsletterId, at);
   if (!ready.ok) return ready;
   const fields = fieldsOf(ready.row);
-  const html = renderNewsletterHtml(fields, { siteUrl: siteUrl(), unsubscribeHref: TEST_UNSUBSCRIBE_HREF });
+  const html = renderNewsletterHtml(fields, {
+    siteUrl: siteUrl(),
+    unsubscribeHref: TEST_UNSUBSCRIBE_HREF,
+    viewInBrowserHref: ready.row.publishOnWeb ? TEST_VIEW_IN_BROWSER_HREF : null,
+  });
   try {
     await sendNewsletterTestEmail(actor.email, fields.subject.trim(), html);
   } catch (err) {
@@ -222,7 +234,29 @@ async function sendChecks(when: string | null, typedCount: number): Promise<{ ok
   return { ok: true, at };
 }
 
+/**
+ * Drops the public archive's cached list, so it gains or loses this newsletter at once. An issue
+ * joins the list when handed to Brevo, though it shows only once Brevo has sent it.
+ */
+function clearWebCache(): void {
+  revalidateTag(NEWSLETTER_WEB_CACHE_TAG, { expire: 0 });
+}
+
 const campaignName = (subject: string, at: Date) => `${subject} (${at.toISOString().slice(0, 10)})`;
+
+/** What Brevo is given: the email for the list, with its "View in browser" link when it will be on the website. */
+function campaignContent(fields: NewsletterFields, slug: string, publishOnWeb: boolean, sendAt: Date) {
+  return {
+    name: campaignName(fields.subject.trim(), sendAt),
+    subject: fields.subject.trim(),
+    previewText: fields.previewText.trim(),
+    htmlContent: renderNewsletterHtml(fields, {
+      siteUrl: siteUrl(),
+      unsubscribeHref: BREVO_UNSUBSCRIBE_TAG,
+      viewInBrowserHref: publishOnWeb ? `${siteUrl()}${issuePath(slug)}` : null,
+    }),
+  };
+}
 
 /**
  * Hands the draft at `version` to Brevo for the whole list: scheduled for `when` (an ISO time
@@ -258,14 +292,10 @@ export async function scheduleNewsletter(
 
   const fields = fieldsOf(row);
   const sendAt = checks.at ?? new Date();
-  const content = {
-    name: campaignName(fields.subject.trim(), sendAt),
-    subject: fields.subject.trim(),
-    previewText: fields.previewText.trim(),
-    htmlContent: renderNewsletterHtml(fields, { siteUrl: siteUrl(), unsubscribeHref: BREVO_UNSUBSCRIBE_TAG }),
-  };
   let campaignId = row.brevoCampaignId;
   try {
+    const slug = await assignSlug(newsletterId, fields.subject, sendAt);
+    const content = campaignContent(fields, slug, row.publishOnWeb, sendAt);
     if (campaignId === null) {
       campaignId = await createCampaign(content);
       await setCampaignId(newsletterId, campaignId);
@@ -280,6 +310,7 @@ export async function scheduleNewsletter(
   }
 
   await markSubmitted(newsletterId, sendAt, actor.email);
+  clearWebCache();
   await recordAdminAction({
     actorEmail: actor.email,
     action: checks.at ? "newsletter_schedule" : "newsletter_send_now",
@@ -353,6 +384,7 @@ export async function cancelNewsletter(id: unknown): Promise<{ ok: true } | Refu
     return brevoFailure(err, "cancel the newsletter");
   }
   await returnToDraft(args.data, actor.email);
+  clearWebCache();
   await recordAdminAction({
     actorEmail: actor.email,
     action: "newsletter_cancel",
@@ -390,6 +422,55 @@ export async function recoverNewsletter(id: unknown): Promise<{ ok: true } | Ref
     await releaseClaim(args.data);
   } else {
     await markSubmitted(args.data, campaign.scheduledAt ?? campaign.sentAt ?? new Date(claimed), row.submittedBy ?? actor.email);
+    clearWebCache();
   }
+  return { ok: true };
+}
+
+/**
+ * Puts a newsletter Brevo has on the website, or takes it off. It is public only once Brevo has
+ * sent it, so before then this decides whether it goes up. While Brevo still has it scheduled,
+ * the campaign's "View in browser" link is added or removed to match; once it has gone out, the
+ * link in the email stays as it was sent, and leads to a missing page while it is off the site.
+ */
+export async function setNewsletterOnWeb(id: unknown, publishOnWeb: unknown): Promise<{ ok: true } | Refusal> {
+  const actor = await requireNewsletter("send");
+  if (!actor.ok) return actor;
+  const args = z.tuple([idArg, z.boolean()]).safeParse([id, publishOnWeb]);
+  if (!args.success) return INVALID;
+  const [newsletterId, on] = args.data;
+
+  const row = await getNewsletter(newsletterId);
+  if (!row) return NOT_FOUND;
+  if (row.state !== "submitted" || row.brevoCampaignId === null) {
+    return { ok: false, reason: "invalid", message: "Use the checkbox in the editor until the newsletter is handed to Brevo." };
+  }
+  if (row.publishOnWeb === on) return { ok: true };
+
+  const slug = await assignSlug(row.id, row.subject, row.scheduledAt ?? new Date());
+  let sentAt = row.sentAt;
+  if (!sentAt) {
+    try {
+      const campaign = await getCampaign(row.brevoCampaignId);
+      if (campaign?.status === "queued") {
+        await updateCampaign(row.brevoCampaignId, campaignContent(fieldsOf(row), slug, on, row.scheduledAt ?? new Date()));
+      } else if (campaign?.status === "sent") {
+        sentAt = campaign.sentAt ?? new Date();
+        await recordSent(row.id, sentAt);
+      }
+    } catch (err) {
+      return brevoFailure(err, "update the campaign");
+    }
+  }
+
+  await setPublishOnWeb(row.id, on);
+  clearWebCache();
+  // Only a sent issue's page appears or disappears; before that nothing public changes.
+  if (sentAt) notifyIndexNowLater([issuePath(slug), ARCHIVE_PATH]);
+  await recordAdminAction({
+    actorEmail: actor.email,
+    action: on ? "newsletter_web_publish" : "newsletter_web_unpublish",
+    detail: { newsletter: row.id, subject: row.subject.trim(), page: issuePath(slug), sent: sentAt !== null },
+  });
   return { ok: true };
 }

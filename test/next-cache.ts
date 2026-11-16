@@ -13,6 +13,8 @@ type Entry = { value: unknown; tags: string[]; staleAt: number };
 
 const entries = new Map<string, Entry>();
 const refreshing = new Map<string, Promise<void>>();
+// Bumped by `reset()`, so a refresh still running from an earlier test can't store its result in the next one.
+let generation = 0;
 
 export const dataCache = {
   /** Number of results currently cached. */
@@ -26,6 +28,7 @@ export const dataCache = {
   reset: () => {
     entries.clear();
     refreshing.clear();
+    generation++;
   },
 };
 
@@ -35,9 +38,12 @@ export function unstable_cache<Args extends unknown[], Result>(
   { tags = [], revalidate = false }: { tags?: string[]; revalidate?: number | false } = {},
 ): (...args: Args) => Promise<Result> {
   const store = async (key: string, args: Args) => {
+    const started = generation;
     // Next stores results as JSON, so a cached value comes back as plain data.
     const value = JSON.parse(JSON.stringify(await fn(...args))) as Result;
-    entries.set(key, { value, tags, staleAt: revalidate === false ? Infinity : Date.now() + revalidate * 1000 });
+    if (started === generation) {
+      entries.set(key, { value, tags, staleAt: revalidate === false ? Infinity : Date.now() + revalidate * 1000 });
+    }
     return value;
   };
 
