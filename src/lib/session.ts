@@ -174,26 +174,3 @@ export function isTaskTrackerTeamEmail(email: string): boolean {
 export function isOpportunitiesTeamEmail(email: string): boolean {
   return isTeamEmail(email, "OPPORTUNITIES_TEAM_EMAILS");
 }
-
-export function pinnedAdminSubs(): string[] {
-  return (process.env.ADMIN_LINKEDIN_SUBS ?? "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-/**
- * Second factor on the allowlist: the provider's stable account id. An email
- * address can be reassigned or re-registered; a `sub` can't. While
- * ADMIN_LINKEDIN_SUBS is unset this passes (so the ids can be collected from
- * the login log line first) — once set, both email and sub must match.
- */
-export function isAdminSubAllowed(sub: string): boolean {
-  const allowed = pinnedAdminSubs();
-  if (allowed.length === 0) return true;
-  return allowed.includes(sub);
-}
-
-export function isAdminSubPinningConfigured(): boolean {
-  return pinnedAdminSubs().length > 0;
-}

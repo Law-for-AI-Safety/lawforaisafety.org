@@ -175,17 +175,19 @@ Reviewer approves or rejects via a simple admin page (see Admin UI below) — ch
 
 ### Authentication
 
-Admins log in via LinkedIn OAuth — the same LinkedIn app already used for applicant verification. No username/password, no `admin_users` table, no password hashing.
+Admins log in with Google, using the organisation's own Google Workspace accounts — the same Google OAuth client already used for applicant verification. No username/password, no `admin_users` table, no password hashing. Workspace accounts rather than personal ones, because the organisation can then enforce 2-step verification, cut access by suspending an account, and read every sign-in in the Workspace's login audit.
 
-Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-separated). On successful LinkedIn callback, if the verified email is not in the whitelist, deny access and show an error. Adding or removing an admin requires updating the env var and redeploying — acceptable for a handful of reviewers.
+The Workspace domain is the env var `ADMIN_GOOGLE_DOMAIN`. The callback accepts only an account Google reports as verified, whose `hd` (hosted domain) claim is that domain, and whose email is on it; anything else is refused before the allowlist is consulted. Unset, admin login fails rather than accepting any domain.
 
-- **Login** (`/admin/login`): a single "Log in with LinkedIn" button; clicking it initiates the admin OAuth flow
-- Admin OAuth uses a **separate callback route** (`/api/admin/auth/linkedin/callback`) from the applicant flow (`/api/auth/linkedin/callback`) — the two flows must not share a callback, to prevent an admin login attempt from accidentally creating an application row
+Whitelist of permitted admin emails stored in env var `ADMIN_EMAILS` (comma-separated). On a successful Google callback from a Workspace account, if the verified email is not in the whitelist, deny access and show an error. Adding or removing an admin requires updating the env var and redeploying — acceptable for a handful of reviewers.
+
+- **Login** (`/admin/login`): a single "Log in with Google" button; clicking it initiates the admin OAuth flow, with Google's `hd` parameter so the account chooser offers only Workspace accounts
+- Admin OAuth uses a **separate callback route** (`/api/admin/auth/google/callback`) from the applicant flow (`/api/auth/google/callback`) — the two flows must not share a callback, to prevent an admin login attempt from accidentally creating an application row
 - Admin OAuth state param is a short-lived signed token (same pattern as applicant flow) — carries no row ID since there is no draft row, just enough to verify the round-trip and detect CSRF
-- On successful callback: verified email checked against `ADMIN_EMAILS`; if permitted, issue a signed `httpOnly`, `Secure`, `SameSite=Lax` session cookie (signed JWT containing the admin's LinkedIn email and name — no DB lookup needed)
+- On successful callback: verified email checked against `ADMIN_EMAILS`; if permitted, issue a signed `httpOnly`, `Secure`, `SameSite=Lax` session cookie (signed JWT containing the admin's Workspace email and name — no DB lookup needed)
 - All `/admin/*` pages and `/api/admin/*` routes verify this cookie server-side
 - **Logout** (`/api/admin/logout`): clears the cookie
-- **Dependency risk**: if LinkedIn is down, admins cannot log in. Acceptable given LinkedIn is already load-bearing for the applicant flow — its uptime is already a prerequisite for the system to function
+- **Dependency risk**: if Google is down, admins cannot log in. Acceptable given Google already runs the organisation's email
 
 ### Pages
 
@@ -546,10 +548,10 @@ One deliberate choice made along the way: the standalone newsletter signup keeps
                               straight to status = pending (no draft/redirect round trip)
     /auth/retry
       route.ts            — Retry a draft stuck in auth_error with a fresh state_token
-    /admin/auth/linkedin
-      route.ts            — Initiate admin LinkedIn OAuth (separate from applicant flow)
-    /admin/auth/linkedin/callback
-      route.ts            — Handle admin OAuth callback; check ADMIN_EMAILS whitelist; issue session cookie
+    /admin/auth/google
+      route.ts            — Initiate admin Google OAuth (separate from applicant flow)
+    /admin/auth/google/callback
+      route.ts            — Handle admin OAuth callback; check Workspace domain and ADMIN_EMAILS whitelist; issue session cookie
     /admin/logout
       route.ts            — Clear session cookie
     /admin/applications

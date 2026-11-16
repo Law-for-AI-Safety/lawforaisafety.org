@@ -4,20 +4,23 @@ The code can be correct and the site still be taken over through the accounts
 around it. This is the checklist for those accounts. About 45 minutes in
 total, mostly logging in to things. Do part 1 first; it matters most.
 
-## 1. Admin LinkedIn accounts (10 minutes per admin)
+## 1. Admin Google Workspace accounts (10 minutes, then 5 per admin)
 
-Admin login is "Log in with LinkedIn" plus the `ADMIN_EMAILS` allowlist.
-Whoever can log in to an admin's LinkedIn account can log in to the admin
-panel. Every person in `ADMIN_EMAILS` does this:
+Admin login is "Log in with Google" with the organisation's own Google
+Workspace account, plus the `ADMIN_EMAILS` allowlist. The login takes only an
+account the Workspace manages, on the domain set in `ADMIN_GOOGLE_DOMAIN`:
+personal Google accounts and other organisations' accounts are refused even
+when their address is on the list. So the Workspace decides who holds each
+admin account, and its controls apply to the admin panel:
 
-1. LinkedIn → Me → Settings & Privacy → Sign in & security → **Two-step
-   verification** → turn on → choose **Authenticator app**, not SMS.
-2. Save the recovery codes in a password manager.
-3. Same page → **Where you're signed in** → end any session you don't
-   recognise.
-4. Same page → **Email addresses** → remove old addresses you no longer
-   control. Any confirmed address can be used to reset the password.
-5. Use a password that is unique to LinkedIn.
+1. Google Workspace Admin console → Security → Authentication → **2-step
+   verification** → allow it, then **enforce** it for everyone, with
+   security keys or the Google Authenticator app rather than SMS.
+2. Every admin has their own Workspace account (not a shared one such as
+   `info@`), and that Workspace address is what is in `ADMIN_EMAILS` and the
+   lists below.
+3. Admin console → Reporting → Audit and investigation → **Login log
+   events** shows every sign-in, including failed ones and from where.
 
 Then **set who the technical admins are**. Everyone in `ADMIN_EMAILS` can
 read applications and approve or reject them, and use the task tracker and
@@ -39,29 +42,20 @@ narrows `ADMIN_EMAILS`, never adds to it:
    deadline) never depends on one person being available.
 2. Redeploy. Until this is set, those pages are closed to everyone.
 
-Then, once per admin, **pin their LinkedIn account id**:
-
-1. The admin logs in to `/admin` on production.
-2. A technical admin opens `/admin/settings` → Admin logins. Each admin's
-   email and LinkedIn account id is listed there.
-3. Add the ids to the `ADMIN_LINKEDIN_SUBS` environment variable in Netlify
-   (comma-separated, one per admin). Redeploy.
-4. From then on, login needs an allowlisted email **and** an allowlisted
-   account id. Someone registering a new LinkedIn account against an admin's
-   address gets refused, and the settings page marks each account as pinned
-   or not.
-
-When an admin leaves: remove them from `ADMIN_EMAILS`, `TECH_ADMIN_EMAILS`,
-`TASK_TRACKER_TEAM_EMAILS`, `OPPORTUNITIES_TEAM_EMAILS` and
-`ADMIN_LINKEDIN_SUBS`, redeploy, and remove their CMS role at
-`/admin/settings`. Their session ends on their next request.
+When an admin leaves: suspend their Workspace account, which stops their next
+login at once. Then remove them from `ADMIN_EMAILS`, `TECH_ADMIN_EMAILS`,
+`TASK_TRACKER_TEAM_EMAILS` and `OPPORTUNITIES_TEAM_EMAILS`, redeploy, and
+remove their CMS role at `/admin/settings`. Their session ends on their next
+request after the redeploy; to end it sooner, a technical admin ends their
+sessions at `/admin/settings` → Signed in.
 
 Once a month, skim `/admin/audit`: logins you don't recognise, approvals
 nobody remembers making, or an erasure with no matching email thread are all
 worth a question.
 
-Treat any "please log in to LinkedIn" page reached from a link in Slack, an
-email or an application as hostile. Go to linkedin.com yourself instead.
+Treat any "please sign in to Google" page reached from a link in Slack, an
+email or an application as hostile, unless it is the one the admin login
+button opened. Go to `/admin/login` yourself instead.
 
 ## 2. Two-factor on everything else (15 minutes)
 
@@ -74,9 +68,8 @@ there, and make sure no login is shared between people.
 2. **Netlify** → User settings → Security → 2FA. Then Team → Members. Netlify
    holds every secret the site has, so this is the second most important
    account after part 1.
-3. **Google Workspace** → Admin console → Security → 2-step verification →
-   enforce. This protects `web@` and `info@`, which receive DMARC reports and
-   erasure requests.
+3. **Google Workspace**: done in part 1. It also protects `web@` and
+   `info@`, which receive DMARC reports and erasure requests.
 4. **Brevo** → profile → Security → 2FA. Then Users.
 5. **Slack** → workspace settings → Authentication → require two-factor for
    the workspace.

@@ -4,12 +4,8 @@ import {
   clearOAuthStateCookie,
   oauthStateCookieMatches,
 } from "@/lib/oauth-state-cookie";
-import {
-  startAdminSession,
-  isAdminEmailAllowed,
-  isAdminSubAllowed,
-  isAdminSubPinningConfigured,
-} from "@/lib/session";
+import { adminWorkspaceDomain, isAdminWorkspaceAccount } from "@/lib/admin-workspace";
+import { startAdminSession, isAdminEmailAllowed } from "@/lib/session";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -39,12 +35,13 @@ export async function GET(request: Request) {
   if (!siteUrl) {
     throw new Error("Missing required env var: NEXT_PUBLIC_SITE_URL");
   }
+  const domain = adminWorkspaceDomain();
 
   let userInfo;
   try {
-    userInfo = await exchangeCodeForUserInfo("linkedin", {
+    userInfo = await exchangeCodeForUserInfo("google", {
       code,
-      redirectUri: `${siteUrl}/api/admin/auth/linkedin/callback`,
+      redirectUri: `${siteUrl}/api/admin/auth/google/callback`,
     });
   } catch (err) {
     if (err instanceof UnverifiedEmailError) {
@@ -53,36 +50,23 @@ export async function GET(request: Request) {
     throw err;
   }
 
+  // Checked before the lists: an address on ADMIN_EMAILS proves nothing about who holds
+  // the account unless the Workspace, with its 2-step verification and suspension, does.
+  if (!isAdminWorkspaceAccount(userInfo, domain)) {
+    return seeOther("/admin/login?error=workspace");
+  }
+
   if (!isAdminEmailAllowed(userInfo.email)) {
     return seeOther("/admin/login?error=forbidden");
-  }
-
-  if (!isAdminSubAllowed(userInfo.sub)) {
-    // Right email, wrong LinkedIn account. Either the env var is out of date
-    // or someone has registered an account against an admin's address.
-    console.warn(
-      `[admin-login] Refused ${userInfo.email}: LinkedIn sub ${userInfo.sub} is not in ADMIN_LINKEDIN_SUBS`,
-    );
-    return seeOther("/admin/login?error=forbidden");
-  }
-
-  if (!isAdminSubPinningConfigured()) {
-    // Also shown on /admin/settings → Admin logins, which is the easier place to collect it.
-    console.log(
-      `[admin-login] ${userInfo.email} signed in with LinkedIn sub ${userInfo.sub} (ADMIN_LINKEDIN_SUBS not set, sub not enforced)`,
-    );
   }
 
   await startAdminSession({ email: userInfo.email, name: userInfo.name });
   // Kept so the task tracker can offer people by name; see adminPeople.
   await rememberPerson(userInfo.email, userInfo.name);
-  // The sub is kept so a technical admin can read every admin's LinkedIn id
-  // off the settings page when filling in ADMIN_LINKEDIN_SUBS. It's an opaque
-  // account id, not a credential.
   await recordAdminAction({
     actorEmail: userInfo.email,
     action: "login",
-    detail: { linkedinSub: userInfo.sub },
+    detail: { provider: "google" },
   });
 
   return seeOther("/admin");

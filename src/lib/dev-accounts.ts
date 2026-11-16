@@ -1,13 +1,14 @@
 /**
  * Made-up admin accounts for the local dev server, one per kind of access, so a change can be
- * checked in a browser as each kind of person without LinkedIn. `npm run dev:accounts` lets
+ * checked in a browser as each kind of person without a Google sign-in. `npm run dev:accounts` lets
  * them in (ADMIN_EMAILS and TECH_ADMIN_EMAILS in .env.local, CMS roles in the local
  * database), and `/api/admin/dev-login`, which exists only under `next dev`, signs one in.
  * Each signs in on its own localhost subdomain (`publish.localhost`), so its cookie is kept
  * apart from the others' and several can be open side by side.
  *
  * Their addresses are on example.com, which no real person has, so even listed in a real
- * ADMIN_EMAILS they could never sign in through LinkedIn.
+ * ADMIN_EMAILS they could never sign in through Google: admin login takes only accounts on
+ * the organisation's own Workspace domain.
  */
 export type DevAccount = {
   /** The subdomain it signs in on. */

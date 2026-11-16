@@ -87,7 +87,6 @@ export async function startDemoServer(databaseUrl: string): Promise<void> {
       ADMIN_EMAILS: DEMO_ADMIN.email,
       TASK_TRACKER_TEAM_EMAILS: DEMO_ADMIN.email,
       TECH_ADMIN_EMAILS: '',
-      ADMIN_LINKEDIN_SUBS: '',
       // Nothing recorded should reach a real inbox or Slack channel.
       SLACK_WEBHOOK_URL: '',
       SLACK_BOT_TOKEN: '',

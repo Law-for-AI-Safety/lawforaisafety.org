@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Signing in to the dev server
 
-To check a change in a browser as a particular admin, never use LinkedIn. `npm run dev:accounts` lets in four made-up accounts, one per kind of access (`src/lib/dev-accounts.ts`): it adds them to `ADMIN_EMAILS` and `TECH_ADMIN_EMAILS` in `.env.local`, keeping what is there, and gives them their CMS roles in the local database. It refuses a database that is not on this machine. Restart the dev server after it changes `.env.local`.
+To check a change in a browser as a particular admin, never use the real Google sign-in. `npm run dev:accounts` lets in four made-up accounts, one per kind of access (`src/lib/dev-accounts.ts`): it adds them to `ADMIN_EMAILS` and `TECH_ADMIN_EMAILS` in `.env.local`, keeping what is there, and gives them their CMS roles in the local database. It refuses a database that is not on this machine. Restart the dev server after it changes `.env.local`.
 
 Each account signs in on its own localhost subdomain of the dev server's port, by opening `/api/admin/dev-login` there:
 
