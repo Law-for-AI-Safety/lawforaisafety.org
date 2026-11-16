@@ -6,6 +6,8 @@ import { turnstile } from "./fakes/turnstile";
 import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
 import { indexNow } from "./fakes/indexnow";
+import { googleIndexing } from "./fakes/google-indexing";
+import { forgetGoogleAccessToken } from "@/lib/google-indexing";
 import { dataCache } from "./next-cache";
 import { afterTasks } from "./next-after";
 
@@ -28,6 +30,9 @@ Object.assign(process.env, {
 delete process.env.DEPLOY_CONTEXT;
 // IndexNow pings only go out once a test sets a key (`vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY)`).
 delete process.env.INDEXNOW_KEY;
+// Nor Google Indexing API notifications without a service account
+// (`vi.stubEnv("GOOGLE_INDEXING_SERVICE_ACCOUNT", GOOGLE_INDEXING_SERVICE_ACCOUNT)`).
+delete process.env.GOOGLE_INDEXING_SERVICE_ACCOUNT;
 // Publishing is not set up unless a test points it at the fake GitHub (`githubEnv()`).
 for (const name of ["GITHUB_APP_ID", "GITHUB_APP_INSTALLATION_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME", "GITHUB_API_URL", "CMS_PREVIEW_SITE_NAME"]) {
   delete process.env[name];
@@ -58,6 +63,8 @@ beforeEach(() => {
   oauthProviders.reset();
   slack.reset();
   indexNow.reset();
+  googleIndexing.reset();
+  forgetGoogleAccessToken();
   afterTasks.reset();
 });
 

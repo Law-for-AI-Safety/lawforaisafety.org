@@ -1,3 +1,4 @@
+import { googleIndexing } from "./google-indexing";
 import { route } from "./network";
 
 export type ProviderUser = { sub: string; name: string; email: string; emailVerified?: boolean };
@@ -54,6 +55,11 @@ class FakeOAuthProviders {
 
 export const oauthProviders = new FakeOAuthProviders();
 for (const provider of Object.keys(ENDPOINTS) as Provider[]) {
-  route(ENDPOINTS[provider].token, (request) => oauthProviders.token(provider, request));
+  route(ENDPOINTS[provider].token, async (request) => {
+    // Google's token endpoint also signs in the Indexing API's service account, with a JWT.
+    const grantType = new URLSearchParams(await request.clone().text()).get("grant_type");
+    if (provider === "google" && grantType === "urn:ietf:params:oauth:grant-type:jwt-bearer") return googleIndexing.token(request);
+    return oauthProviders.token(provider, request);
+  });
   route(ENDPOINTS[provider].userinfo, (request) => oauthProviders.userinfo(request));
 }

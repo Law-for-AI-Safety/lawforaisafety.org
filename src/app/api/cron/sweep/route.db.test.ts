@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { opportunities } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import { indexNow, INDEXNOW_KEY } from "../../../../../test/fakes/indexnow";
+import { GOOGLE_INDEXING_SERVICE_ACCOUNT, googleIndexing } from "../../../../../test/fakes/google-indexing";
 import { POST } from "./route";
 
 const sweep = (secret = "test-cron-secret") =>
@@ -24,6 +25,7 @@ beforeEach(async () => {
   vi.stubEnv("CRON_SECRET", "test-cron-secret");
   vi.stubEnv("DEPLOY_CONTEXT", "production");
   vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY);
+  vi.stubEnv("GOOGLE_INDEXING_SERVICE_ACCOUNT", GOOGLE_INDEXING_SERVICE_ACCOUNT);
   await db.delete(opportunities);
 });
 
@@ -31,6 +33,7 @@ describe("the scheduled sweep", () => {
   it("refuses a request without the secret", async () => {
     expect((await sweep("wrong")).status).toBe(401);
     expect(indexNow.pings).toEqual([]);
+    expect(googleIndexing.notifications).toEqual([]);
   });
 
   it("tells the search engines about listings that closed since the last run", async () => {
@@ -47,5 +50,6 @@ describe("the scheduled sweep", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ closedOpportunities: 1 });
     expect(indexNow.urls()).toEqual(["https://lawforaisafety.org/opportunities/just-closed", "https://lawforaisafety.org/opportunities"]);
+    expect(googleIndexing.notifications).toEqual([{ url: "https://lawforaisafety.org/opportunities/just-closed", type: "URL_DELETED" }]);
   });
 });
