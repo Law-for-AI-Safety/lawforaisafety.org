@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RichTextField from "@/app/admin/cms/[slug]/RichTextField";
 import { scheduleProblem } from "@/newsletter/schedule";
-import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
+import { siteUrl, TEST_UNSUBSCRIBE_HREF, TEST_VIEW_IN_BROWSER_HREF } from "@/newsletter/site";
 import {
   newsletterProblems,
   PREVIEW_TEXT_MAX,
   renderNewsletterHtml,
   SUBJECT_MAX,
+  type DraftFields,
   type NewsletterFields,
 } from "@/newsletter/template";
 import { deleteNewsletter, saveNewsletter, scheduleNewsletter, sendTestNewsletter } from "../actions";
@@ -70,7 +71,7 @@ export default function Composer({
   sender,
 }: {
   id: string;
-  initial: NewsletterFields;
+  initial: DraftFields;
   initialVersion: number;
   initialTestedVersion: number | null;
   canSend: boolean;
@@ -88,12 +89,21 @@ export default function Composer({
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const dirty = fields.subject !== saved.subject || fields.previewText !== saved.previewText || fields.body !== saved.body;
+  const dirty =
+    fields.subject !== saved.subject ||
+    fields.previewText !== saved.previewText ||
+    fields.body !== saved.body ||
+    fields.publishOnWeb !== saved.publishOnWeb;
   const problems = newsletterProblems(fields);
   const ready = Object.keys(problems).length === 0;
   const tested = !dirty && testedVersion === version;
   const html = useMemo(
-    () => renderNewsletterHtml(fields, { siteUrl: siteUrl(), unsubscribeHref: TEST_UNSUBSCRIBE_HREF }),
+    () =>
+      renderNewsletterHtml(fields, {
+        siteUrl: siteUrl(),
+        unsubscribeHref: TEST_UNSUBSCRIBE_HREF,
+        viewInBrowserHref: fields.publishOnWeb ? TEST_VIEW_IN_BROWSER_HREF : null,
+      }),
     [fields],
   );
 
@@ -176,6 +186,25 @@ export default function Composer({
         />
         <RichTextField label="Newsletter" value={fields.body} kind="blocks" onChange={set("body")} invalid={!!problems.body && fields.body !== ""} />
         {problems.body && fields.body !== "" && <p className="text-sm text-brand-red">{problems.body}</p>}
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-2 text-brand-black">
+            <input
+              type="checkbox"
+              checked={fields.publishOnWeb}
+              onChange={(e) => {
+                const publishOnWeb = e.target.checked;
+                setFields((current) => ({ ...current, publishOnWeb }));
+                setConfirming(false);
+              }}
+              aria-describedby="publish-on-web-hint"
+            />
+            Also publish on the website
+          </label>
+          <span id="publish-on-web-hint" className="text-sm text-brand-black/60">
+            It goes up in the newsletter archive once Brevo has sent it, and the email gets a &quot;View in browser&quot;
+            link to it. It can be taken down later.
+          </span>
+        </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button

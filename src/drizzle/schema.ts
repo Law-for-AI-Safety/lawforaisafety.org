@@ -262,6 +262,8 @@ export const adminAuditAction = pgEnum("admin_audit_action", [
   "newsletter_send_now",
   "newsletter_reschedule",
   "newsletter_cancel",
+  "newsletter_web_publish",
+  "newsletter_web_unpublish",
 ]);
 
 // Append-only record of who did what in the admin panel. The application row
@@ -640,6 +642,13 @@ export const newsletterState = pgEnum("newsletter_state", ["draft", "submitting"
 // scheduled or sent. Whether it has actually gone out is read from Brevo, by `brevoCampaignId`,
 // never kept here. A campaign created but not yet scheduled keeps its id, and the next attempt
 // reuses it; cancelling suspends the campaign in Brevo and clears the id.
+//
+// `publishOnWeb` says whether the issue has a public page at `/newsletter/<slug>`. `slug` is
+// given at hand-over (the email's "View in browser" link needs it) and kept from then on, so a
+// link already sent never changes; cancelling clears it, as the issue was never public. The page
+// is public only once Brevo reports the campaign sent. `sentAt` records the first time we saw
+// that: sending can't be undone, so this copy of Brevo's status can never go stale, unlike
+// scheduled or sending, which are still only ever read from Brevo.
 export const newsletters = pgTable("newsletters", {
   id: uuid("id").primaryKey().defaultRandom(),
   subject: text("subject").notNull().default(""),
@@ -656,4 +665,7 @@ export const newsletters = pgTable("newsletters", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   submittedBy: text("submitted_by"),
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
+  publishOnWeb: boolean("publish_on_web").notNull().default(true),
+  slug: text("slug").unique(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
 });

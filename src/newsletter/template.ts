@@ -11,6 +11,9 @@ import { inlineTree, parseRichText, type InlineNode, type Run } from "../cms/ric
 
 export type NewsletterFields = { subject: string; previewText: string; body: string };
 
+/** What a draft saves: the email's fields, and whether the issue also goes on the website. */
+export type DraftFields = NewsletterFields & { publishOnWeb: boolean };
+
 export const SUBJECT_MAX = 150;
 export const PREVIEW_TEXT_MAX = 200;
 export const BODY_MAX = 100_000;
@@ -101,12 +104,18 @@ export function renderNewsletterBody(body: string, siteUrl: string): string {
 
 /**
  * The whole email. `unsubscribeHref` is Brevo's merge tag in the campaign, and a stand-in in
- * the preview and the test copy, which go to one admin rather than through the list. A body
- * that cannot be read yet (mid-edit) renders as a notice, so the preview never breaks.
+ * the preview and the test copy, which go to one admin rather than through the list.
+ * `viewInBrowserHref` is the issue's page on the site, for an issue that will have one; without
+ * it the email has no "View in browser" link. A body that cannot be read yet (mid-edit) renders
+ * as a notice, so the preview never breaks.
  */
 export function renderNewsletterHtml(
   fields: NewsletterFields,
-  { siteUrl, unsubscribeHref }: { siteUrl: string; unsubscribeHref: string },
+  {
+    siteUrl,
+    unsubscribeHref,
+    viewInBrowserHref = null,
+  }: { siteUrl: string; unsubscribeHref: string; viewInBrowserHref?: string | null },
 ): string {
   let body: string;
   try {
@@ -129,7 +138,7 @@ export function renderNewsletterHtml(
 <body style="margin:0;padding:0;background-color:${COLOURS.page};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preview}</div>
 <div style="background-color:${COLOURS.page};padding:32px 16px;font-family:Georgia,'Times New Roman',serif;">
-  <div style="max-width:600px;margin:0 auto;background-color:${COLOURS.card};border-radius:4px;overflow:hidden;">
+  ${viewInBrowserHref ? `<p style="max-width:600px;margin:0 auto 12px;text-align:right;font-size:12px;line-height:1.6;"><a href="${escapeHtml(viewInBrowserHref)}" style="color:${COLOURS.navy};">View in browser</a></p>\n  ` : ""}<div style="max-width:600px;margin:0 auto;background-color:${COLOURS.card};border-radius:4px;overflow:hidden;">
     <div style="padding:24px 32px;border-bottom:4px solid ${COLOURS.navy};">
       <a href="${site}" style="text-decoration:none;"><img src="${site}/logo-email.png" alt="Law for AI Safety" width="160" style="display:block;height:auto;border:0;" /></a>
     </div>

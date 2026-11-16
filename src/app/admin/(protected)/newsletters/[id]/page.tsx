@@ -6,11 +6,13 @@ import { getNewsletter } from "@/lib/newsletter-store";
 import { emailSender } from "@/lib/email";
 import { renderNewsletterHtml } from "@/newsletter/template";
 import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
+import { issuePath } from "@/newsletter/slug";
 import { statusOf } from "../load";
 import NoNewsletterAccess from "../NoNewsletterAccess";
 import StatusBadge from "../StatusBadge";
 import Composer from "./Composer";
 import SubmittedControls from "./SubmittedControls";
+import WebControls from "./WebControls";
 
 export const metadata: Metadata = {
   title: "LAIS - Newsletter",
@@ -54,7 +56,7 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
     return (
       <Composer
         id={row.id}
-        initial={fields}
+        initial={{ ...fields, publishOnWeb: row.publishOnWeb }}
         initialVersion={row.version}
         initialTestedVersion={row.testedVersion}
         canSend={canSend}
@@ -65,6 +67,7 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
   }
 
   const status = await statusOf(row);
+  const page = row.slug ? issuePath(row.slug) : null;
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8">
       <Link href="/admin/newsletters" className="text-sm underline">
@@ -78,9 +81,16 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
         {row.submittedBy && <p className="text-sm text-brand-black/70">Handed to Brevo by {row.submittedBy}.</p>}
       </div>
       <SubmittedControls id={row.id} subject={row.subject} status={status.kind} stuck={status.kind === "submitting" && status.stuck} canSend={canSend} scheduledAt={status.kind === "scheduled" ? status.at.toISOString() : null} />
+      {row.state === "submitted" && page && (
+        <WebControls id={row.id} page={page} onWeb={row.publishOnWeb} sent={row.sentAt !== null || status.kind === "sent"} canSend={canSend} />
+      )}
       <iframe
         title="The newsletter as sent"
-        srcDoc={renderNewsletterHtml(fields, { siteUrl: siteUrl(), unsubscribeHref: TEST_UNSUBSCRIBE_HREF })}
+        srcDoc={renderNewsletterHtml(fields, {
+          siteUrl: siteUrl(),
+          unsubscribeHref: TEST_UNSUBSCRIBE_HREF,
+          viewInBrowserHref: row.publishOnWeb && page ? `${siteUrl()}${page}` : null,
+        })}
         className="h-[70vh] w-full border border-brand-black/10 bg-brand-white"
       />
     </main>

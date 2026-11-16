@@ -40,7 +40,7 @@ describe("sitemap.xml", () => {
 
   it("leaves out the admin, the flows' steps and anything not a page", async () => {
     const urls = (await sitemap()).map((e) => e.url);
-    for (const url of urls) expect(url).not.toMatch(/\/(admin|api|apply|newsletter|og-assets)\b|\/(confirm|retry)$|\[/);
+    for (const url of urls) expect(url).not.toMatch(/\/(admin|api|apply|og-assets)\b|\/newsletter\/(confirmed|invalid)$|\/(confirm|retry)$|\[/);
   });
 
   it("lists the opportunities board and every opportunity's own page", async () => {

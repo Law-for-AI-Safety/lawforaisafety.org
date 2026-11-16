@@ -53,6 +53,7 @@ const FIELDS = {
   subject: "November update",
   previewText: "What we did this month",
   body: "Hello **everyone**.\n\n- [Apply](/field-building)",
+  publishOnWeb: true,
 };
 const NOW = new Date("2026-11-15T12:00:00Z");
 const IN_A_WEEK = "2026-11-22T09:00:00.000Z";
@@ -177,8 +178,8 @@ describe("drafts", () => {
     await signInAs("draft");
     const created = await createNewsletter();
     if (!created.ok) throw new Error();
-    expect(await row(created.id)).toMatchObject({ subject: "", body: "", version: 1, state: "draft", createdBy: EMAIL.draft });
-    expect(await saveNewsletter(created.id, { subject: "", previewText: "", body: "**open" }, 1)).toEqual({
+    expect(await row(created.id)).toMatchObject({ subject: "", body: "", version: 1, state: "draft", createdBy: EMAIL.draft, publishOnWeb: true });
+    expect(await saveNewsletter(created.id, { subject: "", previewText: "", body: "**open", publishOnWeb: true }, 1)).toEqual({
       ok: true,
       version: 2,
       problems: { subject: "Add a subject line.", body: expect.stringMatching(/^The text has a formatting problem/) },

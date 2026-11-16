@@ -31,6 +31,8 @@ const ACTION_LABELS: Record<string, string> = {
   newsletter_send_now: "Sent a newsletter",
   newsletter_reschedule: "Rescheduled a newsletter",
   newsletter_cancel: "Cancelled a scheduled newsletter",
+  newsletter_web_publish: "Put a newsletter on the website",
+  newsletter_web_unpublish: "Took a newsletter off the website",
 };
 
 const MAX_ENTRIES = 100;

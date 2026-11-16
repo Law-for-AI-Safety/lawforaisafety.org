@@ -56,6 +56,9 @@ export default function Footer() {
             <Link href="/opportunities" className="underline hover:text-brand-white">
               Opportunities
             </Link>
+            <Link href="/newsletter" className="underline hover:text-brand-white">
+              Newsletter
+            </Link>
             {isPolicyServed() && (
               <Link href="/privacy-policy" className="underline hover:text-brand-white">
                 Privacy Policy

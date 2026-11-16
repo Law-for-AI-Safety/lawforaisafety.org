@@ -6,7 +6,8 @@ import { routeOrigin } from "./network";
  * own fake (`emails` in ./email.ts), registered for its exact URL, which wins over this one.
  *
  * Campaigns move as Brevo's do: created as `draft`, `queued` once given a `scheduledAt`, and
- * `sent` on send-now. `startSending(id)` plays Brevo picking a scheduled campaign up.
+ * `sent` on send-now. `startSending(id)` plays Brevo picking a scheduled campaign up, and
+ * `finishSending(id)` it finishing.
  * `test/setup-env.ts` resets it before each test.
  */
 
@@ -58,6 +59,13 @@ class FakeBrevoCampaigns {
   /** Brevo starting to send a scheduled campaign. */
   startSending(id: number): void {
     this.campaign(id).status = "in_process";
+  }
+
+  /** Brevo finishing sending a campaign, at `at` (now by default). */
+  finishSending(id: number, at = new Date()): void {
+    const campaign = this.campaign(id);
+    campaign.status = "sent";
+    campaign.sentDate = at.toISOString();
   }
 
   async handle(request: Request): Promise<Response> {
