@@ -16,7 +16,7 @@ export type AdminAccess = {
   cmsEdit: boolean;
 };
 
-/** The waiting-work counts the sidebar can show; each is fetched by the shell (getNavCount). */
+/** The waiting-work counts the sidebar can show; each is fetched by the shell (COUNTS in AdminShell.tsx). */
 export type NavCountKey = "collaboration" | "redLines" | "submissions" | "myOverdueTasks";
 
 export const NAV_GROUPS = ["Review", "Publish", "Work"] as const;

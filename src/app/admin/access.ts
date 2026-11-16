@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cmsCan } from "@/cms/access";
 import { getCmsActor } from "@/lib/cms-access";
 import { isOpportunitiesTeamEmail, isTaskTrackerTeamEmail, isTechAdminEmail } from "@/lib/session";
@@ -7,8 +8,9 @@ import type { AdminAccess } from "./nav";
  * What `email` may open in the admin, by the same checks each area makes on its own pages.
  * Only decides which links and cards to show: a failure to read CMS access (say, cms_roles not
  * migrated yet) hides the Website pages link and leaves the rest of the admin working.
+ * Cached for the request, as both the shell and the dashboard ask.
  */
-export async function getAdminAccess(email: string): Promise<AdminAccess> {
+export const getAdminAccess = cache(async (email: string): Promise<AdminAccess> => {
   const cms = await getCmsActor().catch((err) => {
     console.error("[admin] Could not read CMS access for the nav", err);
     return null;
@@ -19,4 +21,4 @@ export async function getAdminAccess(email: string): Promise<AdminAccess> {
     opportunities: isOpportunitiesTeamEmail(email),
     cmsEdit: cms !== null && cmsCan(cms.access, "edit"),
   };
-}
+});

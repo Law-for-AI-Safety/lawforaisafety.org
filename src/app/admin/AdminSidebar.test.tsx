@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { navigation } from "../../../test/next-navigation";
 import AdminSidebar from "./AdminSidebar";
 import AdminTabs from "./AdminTabs";
 import type { ShellGroup, ShellLink } from "./nav";
@@ -32,9 +33,19 @@ describe("AdminSidebar", () => {
   });
 
   it("marks the dashboard only on the dashboard itself", () => {
-    renderAt("/admin");
-    const admin = within(screen.getByRole("complementary")).getByRole("link", { name: "Admin" });
-    expect(admin).toHaveAttribute("aria-current", "page");
+    const { unmount } = renderAt("/admin");
+    const admin = () => within(screen.getByRole("complementary")).getByRole("link", { name: "Admin" });
+    expect(admin()).toHaveAttribute("aria-current", "page");
+    unmount();
+    renderAt("/admin/erasure");
+    expect(admin()).not.toHaveAttribute("aria-current");
+  });
+
+  it("asks for fresh counts on each new page, but not on the first", () => {
+    renderAt("/admin/applications/abc");
+    expect(navigation.refresh).not.toHaveBeenCalled();
+    act(() => window.history.pushState(null, "", "/admin/applications"));
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("opens the drawer as a modal dialog from the Menu button, focusing its first link", async () => {
@@ -106,8 +117,10 @@ describe("AdminSidebar", () => {
       renderAt("/admin");
       expect(screen.getByText("Signed in as Jane Admin")).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
+      expect(account()).not.toHaveAttribute("aria-controls");
       await userEvent.click(account());
       expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/admin/settings");
+      expect(screen.getByRole("link", { name: "Settings" }).closest("ul")).toHaveAttribute("id", account().getAttribute("aria-controls"));
       await userEvent.click(account());
       expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
     });

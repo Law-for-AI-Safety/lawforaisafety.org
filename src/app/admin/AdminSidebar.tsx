@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { activeHref, type ShellGroup, type ShellLink } from "./nav";
 
@@ -91,7 +91,7 @@ function AccountMenu({ name, links, active }: { name: string; links: ShellLink[]
       <button
         type="button"
         aria-expanded={open}
-        aria-controls={menuId}
+        aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((was) => !was)}
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-brand-black/5"
       >
@@ -120,13 +120,15 @@ function AccountMenu({ name, links, active }: { name: string; links: ShellLink[]
  */
 export default function AdminSidebar({ groups, account, name }: { groups: ShellGroup[]; account: ShellLink[]; name: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const drawer = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const drawerId = useId();
 
-  const hrefs = ["/admin", ...groups.flatMap((g) => g.links.map((l) => l.href)), ...account.map((l) => l.href)];
-  const active = activeHref(pathname, hrefs);
+  const hrefs = [...groups.flatMap((g) => g.links.map((l) => l.href)), ...account.map((l) => l.href)];
+  // The dashboard is marked only on itself, not on every admin page outside the nav.
+  const active = activeHref(pathname, hrefs) ?? (pathname === "/admin" ? "/admin" : null);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -139,6 +141,14 @@ export default function AdminSidebar({ groups, account, name }: { groups: ShellG
     setShownFor(pathname);
     setOpen(false);
   }
+
+  // Next keeps a layout, and so this sidebar's counts, across client navigations. Asking for
+  // a fresh render on each new page keeps the badges (and the queue beside them) current after
+  // someone decides an application, without a reload.
+  const firstPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== firstPath.current) router.refresh();
+  }, [pathname, router]);
 
   useEffect(() => {
     if (!open) return;

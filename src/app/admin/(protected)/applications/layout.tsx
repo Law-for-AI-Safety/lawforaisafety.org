@@ -1,5 +1,6 @@
-import { and, asc, eq, or } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { IN_COLLABORATION_QUEUE } from "@/lib/admin-summary";
 import { applications } from "@/drizzle/schema";
 import AdminApplicationsList from "./AdminApplicationsList";
 
@@ -29,18 +30,7 @@ export default async function ApplicationsLayout({
       audience: applications.audience,
     })
     .from(applications)
-    .where(
-      or(
-        eq(applications.status, "pending"),
-        and(
-          or(
-            eq(applications.status, "approved"),
-            eq(applications.status, "rejected"),
-          ),
-          eq(applications.notificationStatus, "failed"),
-        ),
-      ),
-    )
+    .where(IN_COLLABORATION_QUEUE)
     .orderBy(asc(applications.createdAt));
 
   return (

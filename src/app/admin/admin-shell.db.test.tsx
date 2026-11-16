@@ -255,6 +255,40 @@ describe("the dashboard", () => {
     expect(within(card("Technical admin")).getByRole("link", { name: "Email preview" })).toHaveAttribute("href", "/admin/email-preview");
   });
 
+  it("keeps the rest of the dashboard when one area's numbers cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await seedWaitingWork();
+    await signInAs("tech");
+    await db.execute(sql`ALTER TABLE opportunity_submissions RENAME TO opportunity_submissions_unavailable`);
+    try {
+      render(await AdminDashboardPage());
+    } finally {
+      await db.execute(sql`ALTER TABLE opportunity_submissions_unavailable RENAME TO opportunity_submissions`);
+    }
+    const card = (title: string) => screen.getByRole("heading", { name: title }).closest("section")!;
+    expect(within(card("Opportunities")).getByText("These numbers could not be loaded just now.")).toBeInTheDocument();
+    expect(within(card("Red Lines")).getByText("Waiting for review")).toBeInTheDocument();
+    expect(console.error).toHaveBeenCalledWith("[admin] Could not load the dashboard's opportunities numbers", expect.any(Error));
+  });
+
+  it.each([
+    ["Collaboration", "applications", "applications_unavailable"],
+    ["Red Lines", "red_lines_applications", "red_lines_unavailable"],
+    ["Website pages", "cms_drafts", "cms_drafts_unavailable"],
+    ["Projects", "task_tracker_tasks", "task_tracker_tasks_unavailable"],
+  ])("says so on the %s card when its numbers cannot be read", async (title, table, renamed) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await signInAs("tech");
+    await db.execute(sql.raw(`ALTER TABLE ${table} RENAME TO ${renamed}`));
+    try {
+      render(await AdminDashboardPage());
+    } finally {
+      await db.execute(sql.raw(`ALTER TABLE ${renamed} RENAME TO ${table}`));
+    }
+    const card = screen.getByRole("heading", { name: title }).closest("section")!;
+    expect(within(card).getByText("These numbers could not be loaded just now.")).toBeInTheDocument();
+  });
+
   it("says when nothing is waiting", async () => {
     await signInAs("publish");
     render(await AdminDashboardPage());

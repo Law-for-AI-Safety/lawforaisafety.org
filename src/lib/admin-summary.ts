@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { and, count, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -14,9 +15,9 @@ function todayISO(): string {
 
 /**
  * Applications still needing someone: pending ones, plus decided ones whose notification email
- * failed. The same rows the applications workspace lists, counted for the sidebar's badge.
+ * failed. The applications workspace lists these rows and the sidebar's badge counts them.
  */
-const IN_COLLABORATION_QUEUE = or(
+export const IN_COLLABORATION_QUEUE = or(
   eq(applications.status, "pending"),
   and(
     or(eq(applications.status, "approved"), eq(applications.status, "rejected")),
@@ -31,8 +32,8 @@ export async function countCollaborationQueue(): Promise<number> {
 
 export type RedLinesSummary = { pending: number; oldestPendingAt: Date | null };
 
-/** Pending Red Lines Dialogues applications, for the dashboard card and the sidebar badge. */
-export async function getRedLinesSummary(): Promise<RedLinesSummary> {
+/** Pending Red Lines Dialogues applications, for the dashboard card and the sidebar badge; once per request. */
+export const getRedLinesSummary = cache(async (): Promise<RedLinesSummary> => {
   const [row] = await db
     .select({ pending: count(), oldest: sql<Date | null>`min(${redLinesApplications.createdAt})` })
     .from(redLinesApplications)
@@ -41,7 +42,7 @@ export async function getRedLinesSummary(): Promise<RedLinesSummary> {
     pending: row?.pending ?? 0,
     oldestPendingAt: row?.oldest ? new Date(row.oldest) : null,
   };
-}
+});
 
 export type ApplicationsSummary = {
   pending: number;

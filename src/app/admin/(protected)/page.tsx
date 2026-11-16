@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/session";
 import { getApplicationsSummary, getRedLinesSummary, getTrackerSummary } from "@/lib/admin-summary";
-import { listDrafts } from "@/lib/cms-store";
+import { countDrafts } from "@/lib/cms-store";
 import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
 import { countDraftOpportunities } from "@/opportunities/data";
 import { getAdminAccess } from "../access";
@@ -70,6 +70,21 @@ function waitingLabel(since: Date | null): string | null {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
+ * A card's numbers, or null when they cannot be read: one area's failing query leaves its card
+ * saying so instead of taking down the whole dashboard.
+ */
+function loaded<T>(area: string, promise: Promise<T>): Promise<T | null> {
+  return promise.catch((err) => {
+    console.error(`[admin] Could not load the dashboard's ${area} numbers`, err);
+    return null;
+  });
+}
+
+function Unavailable() {
+  return <p className="text-sm text-brand-red">These numbers could not be loaded just now.</p>;
+}
+
+/**
  * The admin front door: what needs attention in every area the signed-in person can use, in
  * the sidebar's order, rather than dropping straight into one queue.
  */
@@ -78,35 +93,42 @@ export default async function AdminDashboardPage() {
   if (!session) redirect("/admin/login");
 
   const access = await getAdminAccess(session.email);
-  const [applications, redLines, cmsDrafts, submissions, opportunityDrafts, tracker] = await Promise.all([
-    getApplicationsSummary(),
-    getRedLinesSummary(),
-    access.cmsEdit ? listDrafts().then((drafts) => drafts.length) : null,
-    access.opportunities ? countPendingSubmissions() : null,
-    access.opportunities ? countDraftOpportunities() : null,
-    access.tracker ? getTrackerSummary(session.email) : null,
+  // Each is null when it failed to load.
+  const [applications, redLines, cmsDrafts, opportunities, tracker] = await Promise.all([
+    loaded("collaboration", getApplicationsSummary()),
+    loaded("Red Lines", getRedLinesSummary()),
+    access.cmsEdit ? loaded("website pages", countDrafts()) : null,
+    access.opportunities
+      ? loaded("opportunities", Promise.all([countPendingSubmissions(), countDraftOpportunities()]))
+      : null,
+    access.tracker ? loaded("projects", getTrackerSummary(session.email)) : null,
   ]);
   const tools = visibleTo(ACCOUNT_ITEMS, access);
 
   const firstName = session.name.split(" ")[0] || session.name;
-  const waiting = waitingLabel(applications.oldestPendingAt);
-  const redLinesWaiting = waitingLabel(redLines.oldestPendingAt);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
       <h1 className="font-sans text-3xl text-brand-black">Welcome back, {firstName}</h1>
 
       <Card title="Collaboration" links={[{ href: "/admin/applications", label: "Review applications" }]}>
-        <div className="flex flex-wrap gap-x-10 gap-y-4">
-          <Stat value={applications.pending} label="Waiting for review" urgent />
-          <Stat value={applications.needsRetry} label="Notification failed" urgent />
-        </div>
-        <p className="text-sm text-brand-black/70">
-          People applying to collaborate with Law for AI Safety.{" "}
-          {applications.pending === 0 && applications.needsRetry === 0
-            ? "Nothing waiting for review."
-            : (waiting ?? "Some decided applications still need their email retried.")}
-        </p>
+        {applications ? (
+          <>
+            <div className="flex flex-wrap gap-x-10 gap-y-4">
+              <Stat value={applications.pending} label="Waiting for review" urgent />
+              <Stat value={applications.needsRetry} label="Notification failed" urgent />
+            </div>
+            <p className="text-sm text-brand-black/70">
+              People applying to collaborate with Law for AI Safety.{" "}
+              {applications.pending === 0 && applications.needsRetry === 0
+                ? "Nothing waiting for review."
+                : (waitingLabel(applications.oldestPendingAt) ??
+                  "Some decided applications still need their email retried.")}
+            </p>
+          </>
+        ) : (
+          <Unavailable />
+        )}
       </Card>
 
       <Card
@@ -116,24 +138,35 @@ export default async function AdminDashboardPage() {
           { href: "/admin/red-lines-dialogue/decided", label: "Decided applications" },
         ]}
       >
-        <div className="flex flex-wrap gap-x-10 gap-y-4">
-          <Stat value={redLines.pending} label="Waiting for review" urgent />
-        </div>
-        <p className="text-sm text-brand-black/70">
-          People applying to take part in the Red Lines Dialogues. {redLinesWaiting ?? "Nothing waiting for review."}
-        </p>
+        {redLines ? (
+          <>
+            <div className="flex flex-wrap gap-x-10 gap-y-4">
+              <Stat value={redLines.pending} label="Waiting for review" urgent />
+            </div>
+            <p className="text-sm text-brand-black/70">
+              People applying to take part in the Red Lines Dialogues.{" "}
+              {waitingLabel(redLines.oldestPendingAt) ?? "Nothing waiting for review."}
+            </p>
+          </>
+        ) : (
+          <Unavailable />
+        )}
       </Card>
 
-      {cmsDrafts !== null && (
+      {access.cmsEdit && (
         <Card title="Website pages" links={[{ href: "/admin/cms", label: "Edit pages" }]}>
-          <div className="flex flex-wrap gap-x-10 gap-y-4">
-            <Stat value={cmsDrafts} label="With unpublished changes" />
-          </div>
+          {cmsDrafts === null ? (
+            <Unavailable />
+          ) : (
+            <div className="flex flex-wrap gap-x-10 gap-y-4">
+              <Stat value={cmsDrafts} label="With unpublished changes" />
+            </div>
+          )}
           <p className="text-sm text-brand-black/70">The pages of the public site that can be edited here.</p>
         </Card>
       )}
 
-      {submissions !== null && opportunityDrafts !== null && (
+      {access.opportunities && (
         <Card
           title="Opportunities"
           links={[
@@ -142,20 +175,26 @@ export default async function AdminDashboardPage() {
             { href: "/admin/opportunities/new", label: "New opportunity" },
           ]}
         >
-          <div className="flex flex-wrap gap-x-10 gap-y-4">
-            <Stat value={submissions} label="Submissions to review" urgent />
-            <Stat value={opportunityDrafts} label="Drafts to publish" />
-          </div>
-          <p className="text-sm text-brand-black/70">
-            The public opportunities board.{" "}
-            {submissions === 0
-              ? "No submissions waiting."
-              : `${plural(submissions, "submission is", "submissions are")} waiting for a decision.`}
-          </p>
+          {opportunities ? (
+            <>
+              <div className="flex flex-wrap gap-x-10 gap-y-4">
+                <Stat value={opportunities[0]} label="Submissions to review" urgent />
+                <Stat value={opportunities[1]} label="Drafts to publish" />
+              </div>
+              <p className="text-sm text-brand-black/70">
+                The public opportunities board.{" "}
+                {opportunities[0] === 0
+                  ? "No submissions waiting."
+                  : `${plural(opportunities[0], "submission is", "submissions are")} waiting for a decision.`}
+              </p>
+            </>
+          ) : (
+            <Unavailable />
+          )}
         </Card>
       )}
 
-      {tracker && (
+      {access.tracker && (
         <Card
           title="Projects"
           links={[
@@ -163,6 +202,8 @@ export default async function AdminDashboardPage() {
             { href: "/admin/task-tracker/projects", label: "All projects" },
           ]}
         >
+          {tracker ? (
+            <>
           <div className="flex flex-wrap gap-x-10 gap-y-4">
             <Stat value={tracker.myOpenTasks} label="Assigned to you" />
             <Stat value={tracker.myOverdueTasks} label="Yours overdue" urgent />
@@ -189,6 +230,10 @@ export default async function AdminDashboardPage() {
               .filter(Boolean)
               .join(" ") || "Nothing overdue, blocked or unassigned."}
           </p>
+            </>
+          ) : (
+            <Unavailable />
+          )}
         </Card>
       )}
 
