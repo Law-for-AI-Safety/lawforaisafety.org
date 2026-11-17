@@ -1,4 +1,8 @@
 import { isProductionDeploy } from "./deploy-context";
+// Anything interpolated into email HTML goes through escapeHtml. On the email-only apply path
+// the applicant types both the name and the recipient address, so an unescaped name is
+// attacker-chosen HTML sent from our domain to a third party.
+import { escapeHtml } from "./escape-html";
 
 const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 
@@ -109,20 +113,6 @@ async function send(to: string, subject: string, bodyHtml: string, { wrapped = f
     const body = await res.text().catch(() => "");
     throw new Error(`Brevo send failed: ${res.status} ${body}`);
   }
-}
-
-/**
- * Anything interpolated into email HTML goes through this. On the email-only
- * apply path the applicant types both the name and the recipient address, so
- * an unescaped name is attacker-chosen HTML sent from our domain to a third party.
- */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 /** First word of a full name, for a natural-reading greeting — falls back to no greeting at all if there's no name. */

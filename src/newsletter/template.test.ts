@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   BREVO_UNSUBSCRIBE_TAG,
-  escapeHtml,
   newsletterProblems,
   renderNewsletterBody,
   renderNewsletterHtml,
@@ -9,6 +8,7 @@ import {
   PREVIEW_TEXT_MAX,
   BODY_MAX,
 } from "./template";
+import { escapeHtml } from "../lib/escape-html";
 
 const SITE = "https://lawforaisafety.test";
 const ok = { subject: "November update", previewText: "What we did", body: "Hello **all**." };

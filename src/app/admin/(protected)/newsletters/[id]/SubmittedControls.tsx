@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatLocalInput, scheduleProblem } from "@/newsletter/schedule";
 import type { NewsletterStatus } from "@/newsletter/status";
-import { cancelNewsletter, recoverNewsletter, rescheduleNewsletter } from "../actions";
+import { cancelNewsletter, recoverNewsletter, reopenNewsletter, rescheduleNewsletter } from "../actions";
 import ConfirmSend from "../ConfirmSend";
 import { useTimeZone } from "../LocalTime";
 import WhenPicker, { whenFromInput } from "../WhenPicker";
@@ -43,8 +43,8 @@ export default function SubmittedControls({
     return stuck ? (
       <div className="flex flex-col gap-2">
         <p className="text-brand-black">
-          Handing this newsletter to Brevo was interrupted. Check with Brevo to find out whether it was scheduled, and to
-          make it editable again if not.
+          A change to this newsletter in Brevo was interrupted, or Brevo did not answer clearly. Check with Brevo to find
+          out whether it is scheduled or sent, and to make it editable again if not.
         </p>
         <button type="button" disabled={pending} onClick={() => run(() => recoverNewsletter(id))} className="self-start rounded-sm bg-brand-navy px-4 py-2 text-brand-white disabled:opacity-40">
           Check with Brevo
@@ -52,7 +52,22 @@ export default function SubmittedControls({
         {error && <p role="alert" className="text-brand-red">{error}</p>}
       </div>
     ) : (
-      <p className="text-brand-black/70">This newsletter is being handed to Brevo. Reload in a moment.</p>
+      <p className="text-brand-black/70">This newsletter is being changed in Brevo. Reload in a moment.</p>
+    );
+  }
+
+  if (status === "stopped") {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-brand-black">
+          Brevo has stopped this newsletter, so it won&apos;t go out. Make it a draft again to change it and send it anew,
+          or to delete it.
+        </p>
+        <button type="button" disabled={pending} onClick={() => run(() => reopenNewsletter(id))} className="self-start rounded-sm bg-brand-navy px-4 py-2 text-brand-white disabled:opacity-40">
+          Make it a draft again
+        </button>
+        {error && <p role="alert" className="text-brand-red">{error}</p>}
+      </div>
     );
   }
 

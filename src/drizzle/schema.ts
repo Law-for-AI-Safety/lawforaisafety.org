@@ -635,11 +635,13 @@ export const newsletterState = pgEnum("newsletter_state", ["draft", "submitting"
 // started from, so a stale save is refused. `testedVersion` is the version last test-sent, and
 // sending needs it to equal `version`.
 //
-// `state` is `draft` while it can be edited, `submitting` while it is being handed to Brevo (the
-// claim that stops a double click creating two campaigns), and `submitted` once Brevo has it
-// scheduled or sent. Whether it has actually gone out is read from Brevo, by `brevoCampaignId`,
-// never kept here. A campaign created but not yet scheduled keeps its id, and the next attempt
-// reuses it; cancelling suspends the campaign in Brevo and clears the id.
+// `state` is `draft` while it can be edited, `submitting` while a request is changing its Brevo
+// campaign (handing it over, rescheduling or cancelling: the claim that stops a double click or two
+// admins at once doing it twice), and `submitted` once Brevo has it. A change whose outcome Brevo
+// left unclear stays `submitting` until an admin checks with Brevo. Whether it has gone out is read
+// from Brevo, by `brevoCampaignId`, except `sentAt`, kept once Brevo says it was sent, which cannot
+// change. A campaign created but not yet scheduled keeps its id, and the next attempt reuses it;
+// cancelling suspends the campaign in Brevo and clears the id.
 export const newsletters = pgTable("newsletters", {
   id: uuid("id").primaryKey().defaultRandom(),
   subject: text("subject").notNull().default(""),
@@ -656,4 +658,6 @@ export const newsletters = pgTable("newsletters", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   submittedBy: text("submitted_by"),
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
+  // When Brevo reported it sent; once set, it is final and Brevo is not asked again.
+  sentAt: timestamp("sent_at", { withTimezone: true }),
 });

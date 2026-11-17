@@ -69,24 +69,53 @@ export async function claimForSubmit(id: string, version: number, email: string)
   return row ?? null;
 }
 
-export async function setCampaignId(id: string, campaignId: number): Promise<void> {
+export async function setCampaignId(id: string, campaignId: number | null): Promise<void> {
   await db.update(newsletters).set({ brevoCampaignId: campaignId }).where(eq(newsletters.id, id));
 }
 
+/** Records that Brevo has it, scheduled or sent, after a hand-over that this request claimed. */
 export async function markSubmitted(id: string, scheduledAt: Date, email: string): Promise<void> {
   await db
     .update(newsletters)
     .set({ state: "submitted", scheduledAt, submittedBy: email, submittedAt: new Date() })
-    .where(eq(newsletters.id, id));
+    .where(and(eq(newsletters.id, id), eq(newsletters.state, "submitting")));
 }
 
-/** Back to an editable draft after a failed hand-over; a campaign Brevo created as a draft keeps its id for the retry. */
-export async function releaseClaim(id: string): Promise<void> {
-  await db.update(newsletters).set({ state: "draft", submittedBy: null, submittedAt: null }).where(eq(newsletters.id, id));
+/**
+ * Back to an editable draft after a hand-over Brevo definitely refused. A campaign Brevo created
+ * as a draft keeps its id for the retry, unless `clearCampaign` (Brevo no longer has it).
+ */
+export async function releaseClaim(id: string, { clearCampaign = false } = {}): Promise<void> {
+  await db
+    .update(newsletters)
+    .set({ state: "draft", submittedBy: null, submittedAt: null, ...(clearCampaign ? { brevoCampaignId: null } : {}) })
+    .where(and(eq(newsletters.id, id), eq(newsletters.state, "submitting")));
 }
 
-export async function setScheduledAt(id: string, scheduledAt: Date): Promise<void> {
-  await db.update(newsletters).set({ scheduledAt }).where(eq(newsletters.id, id));
+/**
+ * Claims a newsletter Brevo has, for one change to its campaign (reschedule or cancel). Only one
+ * caller can win, so a cancel and a reschedule at once cannot both reach Brevo.
+ */
+export async function claimSubmitted(id: string): Promise<NewsletterRow | null> {
+  const [row] = await db
+    .update(newsletters)
+    .set({ state: "submitting", submittedAt: new Date() })
+    .where(and(eq(newsletters.id, id), eq(newsletters.state, "submitted")))
+    .returning();
+  return row ?? null;
+}
+
+/** Ends a claim from `claimSubmitted`, still handed over, at `scheduledAt` (unchanged when omitted). */
+export async function unclaimSubmitted(id: string, scheduledAt?: Date): Promise<void> {
+  await db
+    .update(newsletters)
+    .set({ state: "submitted", ...(scheduledAt ? { scheduledAt } : {}) })
+    .where(and(eq(newsletters.id, id), eq(newsletters.state, "submitting")));
+}
+
+/** Records Brevo's word that it has gone out, so the list stops asking Brevo about it. */
+export async function markSent(id: string, sentAt: Date): Promise<void> {
+  await db.update(newsletters).set({ sentAt }).where(eq(newsletters.id, id));
 }
 
 /** Back to an editable draft once its campaign is stopped. A test of the same version still counts. */

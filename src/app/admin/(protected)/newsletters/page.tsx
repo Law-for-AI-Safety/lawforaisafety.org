@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import { listNewsletters } from "@/lib/newsletter-store";
-import { statusOf } from "./load";
+import { statusesOf } from "./load";
 import NewNewsletterButton from "./NewNewsletterButton";
 import StatusBadge from "./StatusBadge";
 
@@ -17,7 +17,7 @@ export default async function NewslettersPage() {
   const actor = await requireNewsletter();
   if (!actor.ok) redirect("/admin/login");
   const rows = await listNewsletters();
-  const statuses = await Promise.all(rows.map(statusOf));
+  const statuses = await statusesOf(rows);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">

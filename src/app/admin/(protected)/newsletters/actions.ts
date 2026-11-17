@@ -5,6 +5,7 @@ import { recordAdminAction } from "@/lib/audit-log";
 import {
   BrevoError,
   createCampaign,
+  type Campaign,
   deleteCampaign,
   getCampaign,
   getNewsletterList,
@@ -18,6 +19,7 @@ import { sendNewsletterTestEmail } from "@/lib/email";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import {
   claimForSubmit,
+  claimSubmitted,
   getNewsletter,
   insertNewsletter,
   markSubmitted,
@@ -26,7 +28,7 @@ import {
   removeNewsletter,
   returnToDraft,
   setCampaignId,
-  setScheduledAt,
+  unclaimSubmitted,
   writeNewsletter,
   type NewsletterRow,
 } from "@/lib/newsletter-store";
@@ -91,10 +93,28 @@ const fieldsArg = z.object({
 const whenArg = z.iso.datetime({ offset: true });
 const countArg = z.number().int().min(0);
 
+const detailOf = (err: unknown) => (err instanceof BrevoError ? ` Brevo said: ${err.status} ${err.body.slice(0, 300)}` : "");
+
+/** For a Brevo call that only reads, or that cannot have sent anything. */
 function brevoFailure(err: unknown, doing: string): Refusal {
   console.error(`[newsletter] Brevo failed while ${doing}`, err);
-  const detail = err instanceof BrevoError ? ` Brevo said: ${err.status} ${err.body.slice(0, 300)}` : "";
-  return { ok: false, reason: "brevo", message: `Brevo could not ${doing}. Nothing was sent.${detail}` };
+  return { ok: false, reason: "brevo", message: `Brevo could not ${doing}. Nothing was sent.${detailOf(err)}` };
+}
+
+/**
+ * Whether Brevo definitely refused a call (a 4xx answer), so it changed nothing. A server error,
+ * a timeout or a lost connection may come after Brevo acted, so those leave the outcome unknown.
+ */
+const refusedByBrevo = (err: unknown) => err instanceof BrevoError && err.status >= 400 && err.status < 500;
+
+/** For a call to change a campaign whose outcome Brevo left unclear: the newsletter stays claimed until someone checks. */
+function brevoUnclear(err: unknown, doing: string): Refusal {
+  console.error(`[newsletter] Brevo gave no clear answer while ${doing}`, err);
+  return {
+    ok: false,
+    reason: "brevo",
+    message: `Brevo did not answer clearly while trying to ${doing}, so it may or may not have done it.${detailOf(err)} In ${STUCK_AFTER_MS / 60_000} minutes, reload this page and press "Check with Brevo" to find out.`,
+  };
 }
 
 const fieldsOf = (row: NewsletterRow): NewsletterFields => ({
@@ -138,12 +158,30 @@ export async function deleteNewsletter(id: unknown, version: unknown): Promise<{
   if (!args.success) return INVALID;
   const [newsletterId, at] = args.data;
 
+  // A campaign left from a refused hand-over is a Brevo draft, which sends nothing. Anything else
+  // means Brevo may send it, so the newsletter is kept to show and stop it from.
+  const row = await getNewsletter(newsletterId);
+  if (row?.brevoCampaignId != null) {
+    let campaign;
+    try {
+      campaign = await getCampaign(row.brevoCampaignId);
+    } catch (err) {
+      return brevoFailure(err, "look up the campaign");
+    }
+    if (campaign !== null && campaign.status !== "draft") {
+      return {
+        ok: false,
+        reason: "locked",
+        message: `Brevo has a campaign for this newsletter that is ${campaign.status}, so it can't be deleted here. Reload the page.`,
+      };
+    }
+  }
   const removed = await removeNewsletter(newsletterId, at);
   if (!removed) return refusalFor(await getNewsletter(newsletterId), at);
-  // A campaign left from a failed hand-over was never scheduled, so Brevo lets it go.
   if (removed.brevoCampaignId !== null) {
+    // Only a Brevo draft, which never sends, can be left behind if this fails.
     await deleteCampaign(removed.brevoCampaignId).catch((err) =>
-      console.error(`[newsletter] Could not delete Brevo campaign ${removed.brevoCampaignId}`, err),
+      console.error(`[newsletter] Could not delete draft Brevo campaign ${removed.brevoCampaignId}`, err),
     );
   }
   return { ok: true };
@@ -197,14 +235,16 @@ export async function getSendList(): Promise<ListSummary> {
   }
 }
 
-/** The send-to-list checks every send makes: the live site, a valid time, and the typed count against a fresh one. */
-async function sendChecks(when: string | null, typedCount: number): Promise<{ ok: true; at: Date | null } | Refusal> {
+/** A send time as typed, checked to be one Brevo should be given. */
+function sendTime(when: string): { ok: true; at: Date } | Refusal {
+  const at = new Date(when);
+  const problem = scheduleProblem(at, new Date());
+  return problem ? { ok: false, reason: "invalid", message: problem } : { ok: true, at };
+}
+
+/** The checks every send to the list makes: the live site, and the typed count against a fresh one. */
+async function listChecks(typedCount: number): Promise<{ ok: true } | Refusal> {
   if (!isProductionDeploy()) return NOT_PRODUCTION;
-  const at = when === null ? null : new Date(when);
-  if (at) {
-    const problem = scheduleProblem(at, new Date());
-    if (problem) return { ok: false, reason: "invalid", message: problem };
-  }
   let subscribers: number;
   try {
     subscribers = (await getNewsletterList()).subscribers;
@@ -218,7 +258,7 @@ async function sendChecks(when: string | null, typedCount: number): Promise<{ ok
       message: `The list has ${subscribers} subscribers now. Type that number to confirm.`,
     };
   }
-  return { ok: true, at };
+  return { ok: true };
 }
 
 const campaignName = (subject: string, at: Date) => `${subject} (${at.toISOString().slice(0, 10)})`;
@@ -249,58 +289,93 @@ export async function scheduleNewsletter(
       message: "Send yourself a test of this version first, and check it, before it goes to the list.",
     };
   }
-  const checks = await sendChecks(whenIso, count);
+  let scheduleAt: Date | null = null;
+  if (whenIso !== null) {
+    const time = sendTime(whenIso);
+    if (!time.ok) return time;
+    scheduleAt = time.at;
+  }
+  const checks = await listChecks(count);
   if (!checks.ok) return checks;
 
   const row = await claimForSubmit(newsletterId, at, actor.email);
   if (!row) return refusalFor(await getNewsletter(newsletterId), at);
 
   const fields = fieldsOf(row);
-  const sendAt = checks.at ?? new Date();
+  const sendAt = scheduleAt ?? new Date();
+  const doing = scheduleAt ? "schedule the newsletter" : "send the newsletter";
   const content = {
     name: campaignName(fields.subject.trim(), sendAt),
     subject: fields.subject.trim(),
     previewText: fields.previewText.trim(),
     htmlContent: renderNewsletterHtml(fields, { siteUrl: siteUrl(), unsubscribeHref: BREVO_UNSUBSCRIBE_TAG }),
   };
+
+  // Creating or filling in a Brevo draft campaign sends nothing, so any failure here is safe to
+  // retry from a draft. A campaign Brevo no longer has is replaced.
   let campaignId = row.brevoCampaignId;
   try {
+    if (campaignId !== null) {
+      try {
+        await updateCampaign(campaignId, content);
+      } catch (err) {
+        if (!(err instanceof BrevoError && err.status === 404)) throw err;
+        campaignId = null;
+        await setCampaignId(newsletterId, null);
+      }
+    }
     if (campaignId === null) {
       campaignId = await createCampaign(content);
       await setCampaignId(newsletterId, campaignId);
-    } else {
-      await updateCampaign(campaignId, content);
     }
-    if (checks.at) await scheduleCampaign(campaignId, checks.at);
-    else await sendCampaignNow(campaignId);
   } catch (err) {
     await releaseClaim(newsletterId);
-    return brevoFailure(err, checks.at ? "schedule the newsletter" : "send the newsletter");
+    return brevoFailure(err, doing);
+  }
+
+  // Scheduling or sending is the step that reaches the list. Only a refusal from Brevo is known
+  // to have done nothing; any other failure leaves it claimed until someone checks with Brevo.
+  try {
+    if (scheduleAt) await scheduleCampaign(campaignId, scheduleAt);
+    else await sendCampaignNow(campaignId);
+  } catch (err) {
+    if (!refusedByBrevo(err)) return brevoUnclear(err, doing);
+    await releaseClaim(newsletterId);
+    return brevoFailure(err, doing);
   }
 
   await markSubmitted(newsletterId, sendAt, actor.email);
   await recordAdminAction({
     actorEmail: actor.email,
-    action: checks.at ? "newsletter_schedule" : "newsletter_send_now",
+    action: scheduleAt ? "newsletter_schedule" : "newsletter_send_now",
     detail: { newsletter: newsletterId, campaign: campaignId, subject: fields.subject.trim(), at: sendAt.toISOString(), subscribers: count },
   });
   return { ok: true };
 }
 
-/** Loads a newsletter Brevo has scheduled and not yet started sending, or why not. */
-async function scheduledNewsletter(id: string): Promise<{ ok: true; row: NewsletterRow; campaignId: number } | Refusal> {
-  const row = await getNewsletter(id);
-  if (!row) return NOT_FOUND;
-  if (row.state !== "submitted" || row.brevoCampaignId === null) {
-    return { ok: false, reason: "invalid", message: "This newsletter is not scheduled." };
+const NOT_SCHEDULED: Refusal = { ok: false, reason: "invalid", message: "This newsletter is not scheduled." };
+
+/**
+ * Claims a newsletter Brevo has scheduled and not yet started sending, for one change, or says
+ * why not. The caller ends the claim with `unclaimSubmitted` or `returnToDraft`.
+ */
+async function claimScheduled(id: string): Promise<{ ok: true; row: NewsletterRow; campaignId: number } | Refusal> {
+  const current = await getNewsletter(id);
+  if (!current) return NOT_FOUND;
+  if (current.state !== "submitted" || current.brevoCampaignId === null) return NOT_SCHEDULED;
+  const row = await claimSubmitted(id);
+  if (!row || row.brevoCampaignId === null) {
+    return { ok: false, reason: "conflict", message: "Someone else is changing this newsletter. Reload the page." };
   }
   let campaign;
   try {
     campaign = await getCampaign(row.brevoCampaignId);
   } catch (err) {
+    await unclaimSubmitted(id);
     return brevoFailure(err, "look up the campaign");
   }
   if (campaign?.status !== "queued") {
+    await unclaimSubmitted(id);
     return {
       ok: false,
       reason: "locked",
@@ -318,21 +393,24 @@ export async function rescheduleNewsletter(id: unknown, when: unknown, typedCoun
   if (!args.success) return INVALID;
   const [newsletterId, whenIso, count] = args.data;
 
-  const scheduled = await scheduledNewsletter(newsletterId);
-  if (!scheduled.ok) return scheduled;
-  const checks = await sendChecks(whenIso, count);
+  const time = sendTime(whenIso);
+  if (!time.ok) return time;
+  const checks = await listChecks(count);
   if (!checks.ok) return checks;
-  const at = new Date(whenIso);
+  const scheduled = await claimScheduled(newsletterId);
+  if (!scheduled.ok) return scheduled;
   try {
-    await scheduleCampaign(scheduled.campaignId, at);
+    await scheduleCampaign(scheduled.campaignId, time.at);
   } catch (err) {
+    if (!refusedByBrevo(err)) return brevoUnclear(err, "reschedule the newsletter");
+    await unclaimSubmitted(newsletterId);
     return brevoFailure(err, "reschedule the newsletter");
   }
-  await setScheduledAt(newsletterId, at);
+  await unclaimSubmitted(newsletterId, time.at);
   await recordAdminAction({
     actorEmail: actor.email,
     action: "newsletter_reschedule",
-    detail: { newsletter: newsletterId, campaign: scheduled.campaignId, from: scheduled.row.scheduledAt?.toISOString() ?? null, at: at.toISOString() },
+    detail: { newsletter: newsletterId, campaign: scheduled.campaignId, from: scheduled.row.scheduledAt?.toISOString() ?? null, at: time.at.toISOString() },
   });
   return { ok: true };
 }
@@ -344,11 +422,13 @@ export async function cancelNewsletter(id: unknown): Promise<{ ok: true } | Refu
   const args = idArg.safeParse(id);
   if (!args.success) return INVALID;
 
-  const scheduled = await scheduledNewsletter(args.data);
+  const scheduled = await claimScheduled(args.data);
   if (!scheduled.ok) return scheduled;
   try {
     await suspendCampaign(scheduled.campaignId);
   } catch (err) {
+    if (!refusedByBrevo(err)) return brevoUnclear(err, "cancel the newsletter");
+    await unclaimSubmitted(args.data);
     return brevoFailure(err, "cancel the newsletter");
   }
   await returnToDraft(args.data, actor.email);
@@ -360,10 +440,13 @@ export async function cancelNewsletter(id: unknown): Promise<{ ok: true } | Refu
   return { ok: true };
 }
 
+/** Brevo statuses after which a campaign will never go out. */
+const STOPPED: readonly Campaign["status"][] = ["suspended", "cancelled", "archive"];
+
 /**
- * Settles a newsletter whose hand-over to Brevo was interrupted (the request died part way), by
- * asking Brevo what it has: a scheduled or sent campaign makes it submitted, and no campaign,
- * or one still a Brevo draft, makes it an editable draft again.
+ * Settles a newsletter whose change in Brevo was interrupted or left unclear, by asking Brevo
+ * what it has: a campaign scheduled, sending or sent makes it handed over; no campaign, a Brevo
+ * draft or a stopped campaign makes it an editable draft again.
  */
 export async function recoverNewsletter(id: unknown): Promise<{ ok: true } | Refusal> {
   const actor = await requireNewsletter();
@@ -385,10 +468,46 @@ export async function recoverNewsletter(id: unknown): Promise<{ ok: true } | Ref
       return brevoFailure(err, "look up the campaign");
     }
   }
-  if (campaign === null || campaign.status === "draft") {
-    await releaseClaim(args.data);
-  } else {
-    await markSubmitted(args.data, campaign.scheduledAt ?? campaign.sentAt ?? new Date(claimed), row.submittedBy ?? actor.email);
+  if (campaign === null) await releaseClaim(args.data, { clearCampaign: true });
+  else if (campaign.status === "draft") await releaseClaim(args.data);
+  else if (STOPPED.includes(campaign.status)) await returnToDraft(args.data, actor.email);
+  else await markSubmitted(args.data, campaign.scheduledAt ?? campaign.sentAt ?? new Date(claimed), row.submittedBy ?? actor.email);
+  return { ok: true };
+}
+
+/**
+ * Makes a newsletter whose campaign Brevo has stopped (suspended, cancelled or archived there, or
+ * deleted) an editable draft again, so it can be fixed and sent anew or deleted.
+ */
+export async function reopenNewsletter(id: unknown): Promise<{ ok: true } | Refusal> {
+  const actor = await requireNewsletter();
+  if (!actor.ok) return actor;
+  const args = idArg.safeParse(id);
+  if (!args.success) return INVALID;
+
+  const current = await getNewsletter(args.data);
+  if (!current) return NOT_FOUND;
+  if (current.state !== "submitted" || current.brevoCampaignId === null) {
+    return { ok: false, reason: "invalid", message: "This newsletter is not with Brevo." };
   }
+  const row = await claimSubmitted(args.data);
+  if (!row) return { ok: false, reason: "conflict", message: "Someone else is changing this newsletter. Reload the page." };
+  let campaign;
+  try {
+    campaign = await getCampaign(current.brevoCampaignId);
+  } catch (err) {
+    await unclaimSubmitted(args.data);
+    return brevoFailure(err, "look up the campaign");
+  }
+  if (campaign !== null && !STOPPED.includes(campaign.status)) {
+    await unclaimSubmitted(args.data);
+    return { ok: false, reason: "locked", message: "Brevo still has this newsletter going out, so it can't be reopened." };
+  }
+  await returnToDraft(args.data, actor.email);
+  await recordAdminAction({
+    actorEmail: actor.email,
+    action: "newsletter_cancel",
+    detail: { newsletter: args.data, campaign: current.brevoCampaignId, reopened: campaign?.status ?? "deleted" },
+  });
   return { ok: true };
 }

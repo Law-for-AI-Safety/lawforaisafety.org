@@ -218,6 +218,13 @@
       "when": 1794769354202,
       "tag": "0030_rich_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794933892882,
+      "tag": "0031_stale_zeigeist",
+      "breakpoints": true
     }
   ]
 }

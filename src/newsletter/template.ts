@@ -1,4 +1,5 @@
 import { inlineTree, parseRichText, type InlineNode, type Run } from "../cms/rich-text";
+import { escapeHtml } from "../lib/escape-html";
 
 /**
  * The newsletter email: the fields an admin writes, their checks, and the HTML Brevo sends.
@@ -50,14 +51,6 @@ export function newsletterProblems(fields: NewsletterFields): FieldProblems {
   return problems;
 }
 
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
 
 /** Site paths (`/field-building`) become full addresses, since an email has no site to be relative to. */
 function absoluteHref(href: string, siteUrl: string): string {

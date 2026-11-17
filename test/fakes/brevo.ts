@@ -33,7 +33,7 @@ class FakeBrevoCampaigns {
   /** Every request, as "METHOD /path", in order. */
   readonly calls: string[] = [];
   list = { id: NEWSLETTER_LIST_ID, name: "Newsletter", subscribers: 120 };
-  private failures: { match: string; status: number }[] = [];
+  private failures: { match: string; status: number | "network" }[] = [];
   private nextId = 1;
 
   reset(): void {
@@ -44,8 +44,11 @@ class FakeBrevoCampaigns {
     this.nextId = 1;
   }
 
-  /** Makes the next request whose "METHOD /path" contains `match` fail with `status`. */
-  failNext(match: string, status = 500): void {
+  /**
+   * Makes the next request whose "METHOD /path" contains `match` fail with `status`, or, for
+   * "network", with the error `fetch` throws when the connection is lost.
+   */
+  failNext(match: string, status: number | "network" = 500): void {
     this.failures.push({ match, status });
   }
 
@@ -68,6 +71,7 @@ class FakeBrevoCampaigns {
     const failure = this.failures.findIndex((f) => call.includes(f.match));
     if (failure >= 0) {
       const [{ status }] = this.failures.splice(failure, 1);
+      if (status === "network") throw new TypeError("fetch failed");
       return Response.json({ code: "fake_failure", message: "Failed as the test asked" }, { status });
     }
 

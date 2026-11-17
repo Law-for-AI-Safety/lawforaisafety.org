@@ -42,6 +42,12 @@ export default function ConfirmSend({
     };
   }, []);
 
+  /** The count changed under the admin: show the new one, to be typed afresh. */
+  const reloadList = async () => {
+    setTyped("");
+    setList(await getSendList());
+  };
+
   const when = at ? describeTime(at, timeZone) : null;
   const matches = list?.ok === true && typed.trim() === String(list.subscribers);
   const verb = at ? action : "Send now";
@@ -111,7 +117,9 @@ export default function ConfirmSend({
           onClick={() =>
             startTransition(async () => {
               const result = await onConfirm(Number(typed.trim()));
-              if (!result.ok) setError(result.message);
+              if (result.ok) return;
+              setError(result.message);
+              if (result.reason === "count_mismatch") await reloadList();
             })
           }
           className="rounded-sm bg-brand-red px-4 py-2 text-brand-white disabled:opacity-40"

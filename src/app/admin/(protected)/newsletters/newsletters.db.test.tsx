@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ import {
   deleteNewsletter,
   getSendList,
   recoverNewsletter,
+  reopenNewsletter,
   rescheduleNewsletter,
   saveNewsletter,
   scheduleNewsletter,
@@ -354,14 +355,60 @@ describe("scheduling and sending", () => {
     });
     expect(await row(id)).toMatchObject({ state: "draft", brevoCampaignId: null, submittedBy: null });
 
-    brevo.failNext(`PUT /v3/emailCampaigns/1`);
-    expect(await scheduleNewsletter(id, version, IN_A_WEEK, 120)).toMatchObject({ ok: false, reason: "brevo" });
+    brevo.failNext(`PUT /v3/emailCampaigns/1`, 400);
+    expect(await scheduleNewsletter(id, version, IN_A_WEEK, 120)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/Nothing was sent\. Brevo said: 400/) });
     expect(await row(id)).toMatchObject({ state: "draft", brevoCampaignId: 1 });
     expect(brevo.campaign(1).status).toBe("draft");
 
     expect(await scheduleNewsletter(id, version, null, 120)).toEqual({ ok: true });
     expect(brevo.campaigns).toHaveLength(1);
     expect(brevo.campaign(1).status).toBe("sent");
+  });
+
+  it("makes a new campaign when Brevo no longer has the one a refused attempt left", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { id, version } = await seed();
+    await signInAs("publish");
+    brevo.failNext("PUT /v3/emailCampaigns/1", 400);
+    await scheduleNewsletter(id, version, IN_A_WEEK, 120);
+    brevo.campaigns.length = 0;
+    expect(await scheduleNewsletter(id, version, IN_A_WEEK, 120)).toEqual({ ok: true });
+    expect(brevo.campaigns.map((c) => [c.id, c.status])).toEqual([[2, "queued"]]);
+    expect((await row(id)).brevoCampaignId).toBe(2);
+
+    // Any other failure while filling in the old campaign is reported, and nothing was sent.
+    const other = await seed();
+    await signInAs("publish");
+    brevo.failNext("PUT /v3/emailCampaigns/3", 400);
+    await scheduleNewsletter(other.id, other.version, IN_A_WEEK, 120);
+    brevo.failNext("PUT /v3/emailCampaigns/3", "network");
+    expect(await scheduleNewsletter(other.id, other.version, IN_A_WEEK, 120)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/Nothing was sent/) });
+    expect(await row(other.id)).toMatchObject({ state: "draft", brevoCampaignId: 3 });
+  });
+
+  it.each([
+    ["schedule", IN_A_WEEK, "PUT /v3/emailCampaigns/1", 500],
+    ["send now", null, "/sendNow", "network"],
+  ] as const)("keeps the newsletter claimed when Brevo gives no clear answer to %s, until someone checks", async (_, when, call, failure) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { id, version } = await seed();
+    await signInAs("publish");
+    brevo.failNext(call, failure);
+    expect(await scheduleNewsletter(id, version, when, 120)).toMatchObject({
+      ok: false,
+      reason: "brevo",
+      message: expect.stringMatching(/did not answer clearly .* may or may not have done it\..*press "Check with Brevo"/),
+    });
+    expect(await row(id)).toMatchObject({ state: "submitting", brevoCampaignId: 1 });
+    expect(await saveNewsletter(id, FIELDS, version)).toMatchObject({ ok: false, reason: "locked" });
+    expect(await deleteNewsletter(id, version)).toMatchObject({ ok: false, reason: "locked" });
+    expect(await scheduleNewsletter(id, version, when, 120)).toMatchObject({ ok: false, reason: "locked" });
+    expect(brevo.campaigns).toHaveLength(1);
+    expect(await audit()).toEqual([]);
+
+    vi.setSystemTime(new Date(NOW.getTime() + 6 * 60_000));
+    expect(await recoverNewsletter(id)).toEqual({ ok: true });
+    expect(await row(id)).toMatchObject({ state: "draft", brevoCampaignId: 1 });
   });
 
   it("says when Brevo can't be asked for the list", async () => {
@@ -430,11 +477,46 @@ describe("once scheduled", () => {
     await signInAs("publish");
     brevo.failNext(`GET /v3/emailCampaigns/${campaignId}`);
     expect(await cancelNewsletter(id)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/look up the campaign/) });
-    brevo.failNext("/status");
-    expect(await cancelNewsletter(id)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/cancel the newsletter/) });
-    brevo.failNext(`PUT /v3/emailCampaigns/${campaignId}`);
-    expect(await rescheduleNewsletter(id, "2026-11-23T09:00:00Z", 120)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/reschedule/) });
     expect((await row(id)).state).toBe("submitted");
+    brevo.failNext("/status", 400);
+    expect(await cancelNewsletter(id)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/^Brevo could not cancel the newsletter/) });
+    brevo.failNext(`PUT /v3/emailCampaigns/${campaignId}`, 400);
+    expect(await rescheduleNewsletter(id, "2026-11-23T09:00:00Z", 120)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/^Brevo could not reschedule/) });
+    expect(await row(id)).toMatchObject({ state: "submitted", scheduledAt: new Date(IN_A_WEEK) });
+    expect(brevo.campaign(campaignId)).toMatchObject({ status: "queued", scheduledAt: IN_A_WEEK });
+  });
+
+  it.each([
+    ["cancel", () => "/status", (id: string) => cancelNewsletter(id)],
+    ["reschedule", (c: number) => `PUT /v3/emailCampaigns/${c}`, (id: string) => rescheduleNewsletter(id, "2026-11-23T09:00:00Z", 120)],
+  ] as const)("keeps it claimed when Brevo gives no clear answer to a %s, and settles it from Brevo", async (_, call, act) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { id, campaignId } = await seedScheduled();
+    await signInAs("publish");
+    brevo.failNext(call(campaignId), "network");
+    expect(await act(id)).toMatchObject({ ok: false, reason: "brevo", message: expect.stringMatching(/did not answer clearly/) });
+    expect((await row(id)).state).toBe("submitting");
+    expect(await cancelNewsletter(id)).toMatchObject({ ok: false, reason: "invalid" });
+
+    vi.setSystemTime(new Date(NOW.getTime() + 6 * 60_000));
+    expect(await recoverNewsletter(id)).toEqual({ ok: true });
+    expect(await row(id)).toMatchObject({ state: "submitted", brevoCampaignId: campaignId, scheduledAt: new Date(IN_A_WEEK) });
+  });
+
+  it("lets only one of a cancel and a reschedule at once reach Brevo", async () => {
+    const { id, campaignId } = await seedScheduled();
+    await signInAs("publish");
+    const results = await Promise.all([cancelNewsletter(id), rescheduleNewsletter(id, "2026-11-23T09:00:00Z", 120)]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toMatchObject({ ok: false });
+    const after = await row(id);
+    if (results[0].ok) {
+      expect(after).toMatchObject({ state: "draft", brevoCampaignId: null });
+      expect(brevo.campaign(campaignId).status).toBe("suspended");
+    } else {
+      expect(after).toMatchObject({ state: "submitted", scheduledAt: new Date("2026-11-23T09:00:00Z") });
+      expect(brevo.campaign(campaignId)).toMatchObject({ status: "queued", scheduledAt: "2026-11-23T09:00:00.000Z" });
+    }
   });
 });
 
@@ -504,7 +586,7 @@ describe("deleting a draft", () => {
     for (const brevoFails of [false, true]) {
       const { id, version } = await seed();
       await signInAs("publish");
-      brevo.failNext("PUT /v3/emailCampaigns");
+      brevo.failNext("PUT /v3/emailCampaigns", 400);
       await scheduleNewsletter(id, version, IN_A_WEEK, 120);
       const campaignId = (await row(id)).brevoCampaignId!;
       if (brevoFails) brevo.failNext("DELETE");
@@ -512,6 +594,82 @@ describe("deleting a draft", () => {
       expect(await row(id)).toBeUndefined();
       expect(brevo.campaigns.some((c) => c.id === campaignId)).toBe(brevoFails);
     }
+  });
+
+  it("refuses while Brevo has a campaign for it that may still go out, or can't be asked", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { id, version } = await seed();
+    await signInAs("publish");
+    const res = await fetch("https://api.brevo.com/v3/emailCampaigns", {
+      method: "POST",
+      headers: { "api-key": "k" },
+      body: JSON.stringify({ name: "x", subject: "x", htmlContent: "x", recipients: { listIds: [NEWSLETTER_LIST_ID] } }),
+    });
+    const campaignId = (await res.json()).id;
+    brevo.campaign(campaignId).status = "queued";
+    await db.update(newsletters).set({ brevoCampaignId: campaignId }).where(eq(newsletters.id, id));
+    expect(await deleteNewsletter(id, version)).toMatchObject({ ok: false, reason: "locked", message: expect.stringMatching(/that is queued/) });
+    brevo.failNext("GET /v3/emailCampaigns");
+    expect(await deleteNewsletter(id, version)).toMatchObject({ ok: false, reason: "brevo" });
+    expect(await row(id)).toBeDefined();
+
+    // One Brevo has lost entirely sends nothing, so the draft goes.
+    brevo.campaigns.length = 0;
+    expect(await deleteNewsletter(id, version)).toEqual({ ok: true });
+  });
+});
+
+describe("a campaign Brevo has stopped", () => {
+  it("can be made a draft again, from the page, by any admin", async () => {
+    const { id, campaignId } = await seedScheduled();
+    brevo.campaign(campaignId).status = "suspended";
+    await signInAs("regular admin");
+    const user = userEvent.setup();
+    render(await NewsletterPage({ params: Promise.resolve({ id }) }));
+    expect(screen.getByText("Stopped in Brevo (suspended)")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Make it a draft again" }));
+    await waitFor(() => expect(navigation.refresh).toHaveBeenCalled());
+    expect(await row(id)).toMatchObject({ state: "draft", brevoCampaignId: null });
+    expect(await audit()).toEqual([
+      { action: "newsletter_cancel", actor: EMAIL["regular admin"], detail: { newsletter: id, campaign: campaignId, reopened: "suspended" } },
+    ]);
+  });
+
+  it("also when Brevo has deleted it", async () => {
+    const { id } = await seedScheduled();
+    brevo.campaigns.length = 0;
+    await signInAs("publish");
+    expect(await reopenNewsletter(id)).toEqual({ ok: true });
+    expect((await row(id)).state).toBe("draft");
+  });
+
+  it("refuses while the campaign may still go out, and for anything not with Brevo", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { id, campaignId } = await seedScheduled();
+    await signInAs("publish");
+    expect(await reopenNewsletter(id)).toMatchObject({ ok: false, reason: "locked" });
+    brevo.failNext("GET /v3/emailCampaigns");
+    expect(await reopenNewsletter(id)).toMatchObject({ ok: false, reason: "brevo" });
+    expect(await row(id)).toMatchObject({ state: "submitted", brevoCampaignId: campaignId });
+    expect(await reopenNewsletter("00000000-0000-4000-8000-000000000000")).toMatchObject({ ok: false, reason: "not_found" });
+    expect(await reopenNewsletter(3)).toMatchObject({ ok: false, reason: "invalid" });
+    const draft = await seed();
+    await signInAs("publish");
+    expect(await reopenNewsletter(draft.id)).toMatchObject({ ok: false, reason: "invalid", message: "This newsletter is not with Brevo." });
+
+    brevo.campaign(campaignId).status = "cancelled";
+    const both = await Promise.all([reopenNewsletter(id), reopenNewsletter(id)]);
+    expect(both.map((r) => r.ok).sort()).toEqual([false, true]);
+    expect((await audit()).filter((a) => a.action === "newsletter_cancel")).toHaveLength(1);
+  });
+
+  it("is settled as a draft when an interrupted change finds it stopped", async () => {
+    const { id, campaignId } = await seedScheduled();
+    brevo.campaign(campaignId).status = "archive";
+    await db.update(newsletters).set({ state: "submitting", submittedAt: new Date(NOW.getTime() - 6 * 60_000) }).where(eq(newsletters.id, id));
+    await signInAs("publish");
+    expect(await recoverNewsletter(id)).toEqual({ ok: true });
+    expect(await row(id)).toMatchObject({ state: "draft", brevoCampaignId: null });
   });
 });
 
@@ -533,6 +691,16 @@ describe("the pages", () => {
     expect(item("December update").getByText("Draft")).toBeInTheDocument();
     expect(item("Untitled newsletter").getByText("Draft")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "November update" })).toHaveAttribute("href", `/admin/newsletters/${scheduled}`);
+    cleanup();
+
+    // Once Brevo has said a newsletter was sent, that is kept and Brevo is not asked again.
+    expect((await row(sent)).sentAt).toEqual(NOW);
+    brevo.calls.length = 0;
+    render(await NewslettersPage());
+    expect(item("October update").getByText(/^Sent/)).not.toHaveTextContent("delivered");
+    expect(brevo.calls.filter((call) => call.startsWith("GET /v3/emailCampaigns"))).toEqual([
+      `GET /v3/emailCampaigns/${(await row(scheduled)).brevoCampaignId}`,
+    ]);
   });
 
   it("says when Brevo can't be reached, rather than guessing", async () => {
@@ -615,6 +783,29 @@ describe("the pages", () => {
     await user.click(dialog.getByRole("button", { name: "Schedule: 120 subscribers" }));
     expect(await dialog.findByText("The list has 125 subscribers now. Type that number to confirm.")).toBeInTheDocument();
     expect(brevo.campaigns).toEqual([]);
+
+    // The dialog now asks for the new count, and takes it.
+    const input = await dialog.findByLabelText("To confirm, type the number of subscribers (125)");
+    expect(input).toHaveValue("");
+    await user.type(input, "125");
+    await user.click(dialog.getByRole("button", { name: "Schedule: 125 subscribers" }));
+    // The page refreshes once the action has finished, after its last write.
+    await waitFor(() => expect(navigation.refresh).toHaveBeenCalled());
+    expect(brevo.campaigns).toMatchObject([{ status: "queued" }]);
+  });
+
+  it("closes the confirmation when the choice between scheduling and sending now changes", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    const { id } = await seed();
+    await signInAs("publish");
+    const user = userEvent.setup();
+    render(await NewsletterPage({ params: Promise.resolve({ id }) }));
+    await user.type(screen.getByLabelText("Send at"), "2026-11-22T09:00");
+    await user.click(screen.getByRole("button", { name: "Schedule…" }));
+    await user.type(await screen.findByLabelText(/type the number of subscribers/), "120");
+    await user.click(screen.getByRole("radio", { name: "Send now" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Send now…" })).toBeEnabled();
   });
 
   it("warns in the dialog when this isn't the live site", async () => {
@@ -646,7 +837,9 @@ describe("the pages", () => {
     const dialog = within(await screen.findByRole("dialog"));
     await user.type(await dialog.findByLabelText(/type the number of subscribers/), "120");
     await user.click(dialog.getByRole("button", { name: "Reschedule: 120 subscribers" }));
-    await waitFor(() => expect(brevo.campaign(campaignId).scheduledAt).toBe(new Date("2026-11-23T10:00").toISOString()));
+    await waitFor(() => expect(navigation.refresh).toHaveBeenCalled());
+    expect(brevo.campaign(campaignId).scheduledAt).toBe(new Date("2026-11-23T10:00").toISOString());
+    navigation.refresh.mockClear();
     view.unmount();
 
     render(await NewsletterPage({ params: Promise.resolve({ id }) }));
@@ -654,7 +847,9 @@ describe("the pages", () => {
     await user.click(screen.getByRole("button", { name: "Keep it scheduled" }));
     await user.click(screen.getByRole("button", { name: "Cancel sending" }));
     await user.click(within(screen.getByRole("dialog", { name: "Cancel sending" })).getByRole("button", { name: "Cancel sending" }));
-    await waitFor(() => expect(brevo.campaign(campaignId).status).toBe("suspended"));
+    await waitFor(() => expect(navigation.refresh).toHaveBeenCalled());
+    expect(brevo.campaign(campaignId).status).toBe("suspended");
+    expect((await row(id)).state).toBe("draft");
   });
 
   it("offers any admin rescheduling and cancelling, and a check with Brevo after an interrupted hand-over", async () => {
@@ -668,14 +863,15 @@ describe("the pages", () => {
     await db.update(newsletters).set({ state: "submitting", submittedAt: new Date(NOW.getTime() - 60_000) }).where(eq(newsletters.id, id));
     await signInAs("publish");
     const second = render(await NewsletterPage({ params: Promise.resolve({ id }) }));
-    expect(screen.getByText(/is being handed to Brevo/)).toBeInTheDocument();
+    expect(screen.getByText(/is being changed in Brevo/)).toBeInTheDocument();
     second.unmount();
 
     vi.setSystemTime(new Date(NOW.getTime() + 10 * 60_000));
     const user = userEvent.setup();
     render(await NewsletterPage({ params: Promise.resolve({ id }) }));
     await user.click(screen.getByRole("button", { name: "Check with Brevo" }));
-    await waitFor(async () => expect((await row(id)).state).toBe("submitted"));
+    await waitFor(() => expect(navigation.refresh).toHaveBeenCalled());
+    expect((await row(id)).state).toBe("submitted");
   });
 });
 

@@ -107,6 +107,12 @@ export default function Composer({
     setConfirming(false);
   };
 
+  // Any change to what is being sent closes an open confirmation, so it is confirmed afresh.
+  const chooseMode = (next: "schedule" | "now") => {
+    setMode(next);
+    setConfirming(false);
+  };
+
   const save = () =>
     startTransition(async () => {
       const result = await saveNewsletter(id, fields, version);
@@ -208,11 +214,11 @@ export default function Composer({
           <fieldset className="flex flex-col gap-2">
             <legend className="sr-only">When</legend>
             <label className="flex items-center gap-2">
-              <input type="radio" name="when" checked={mode === "schedule"} onChange={() => setMode("schedule")} />
+              <input type="radio" name="when" checked={mode === "schedule"} onChange={() => chooseMode("schedule")} />
               Schedule for a date and time
             </label>
             <label className="flex items-center gap-2">
-              <input type="radio" name="when" checked={mode === "now"} onChange={() => setMode("now")} />
+              <input type="radio" name="when" checked={mode === "now"} onChange={() => chooseMode("now")} />
               Send now
             </label>
           </fieldset>
