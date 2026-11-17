@@ -1,5 +1,6 @@
-import { and, asc, eq, or } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { IN_COLLABORATION_QUEUE } from "@/lib/admin-summary";
 import { applications } from "@/drizzle/schema";
 import AdminApplicationsList from "./AdminApplicationsList";
 
@@ -29,23 +30,12 @@ export default async function ApplicationsLayout({
       audience: applications.audience,
     })
     .from(applications)
-    .where(
-      or(
-        eq(applications.status, "pending"),
-        and(
-          or(
-            eq(applications.status, "approved"),
-            eq(applications.status, "rejected"),
-          ),
-          eq(applications.notificationStatus, "failed"),
-        ),
-      ),
-    )
+    .where(IN_COLLABORATION_QUEUE)
     .orderBy(asc(applications.createdAt));
 
   return (
     <div className="flex min-h-full flex-1 flex-col overflow-hidden md:flex-row">
-      <aside className="max-h-64 flex-shrink-0 overflow-y-auto border-b border-brand-black/10 md:max-h-none md:w-96 md:border-b-0 md:border-r">
+      <aside className="max-h-64 flex-shrink-0 overflow-y-auto border-b border-brand-black/10 md:max-h-none md:w-80 xl:w-96 md:border-b-0 md:border-r">
         <h1 className="px-4 pt-6 text-2xl font-light text-brand-black">
           Collaboration applications
         </h1>

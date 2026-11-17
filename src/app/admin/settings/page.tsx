@@ -30,10 +30,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Runtime switches for the site. Deliberately outside the `(protected)` route
- * group: that layout is a desktop split view (fixed 384px sidebar), and this
- * page needs to be usable from a phone. It does its own session check, and
- * is limited to technical admins (see isTechAdminEmail).
+ * Runtime switches for the site. It does its own session check, and is
+ * limited to technical admins (see isTechAdminEmail).
  */
 
 /**
@@ -93,11 +91,7 @@ export default async function AdminSettingsPage({
   ];
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8">
-      <Link href="/admin" className="text-brand-black/70 underline">
-        Back to applications
-      </Link>
-
+    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-2">
         <h1 className="font-sans text-3xl text-brand-black">Settings</h1>
         <p className="text-brand-black/70">Signed in as {session.email}</p>
