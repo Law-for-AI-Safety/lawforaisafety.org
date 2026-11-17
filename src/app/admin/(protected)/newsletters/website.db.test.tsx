@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,8 +9,8 @@ import { brevo } from "../../../../../test/fakes/brevo";
 import { INDEXNOW_KEY, indexNow } from "../../../../../test/fakes/indexnow";
 import { navigation } from "../../../../../test/next-navigation";
 import { cookieJar } from "../../../../../test/next-headers";
-import IssuePage from "../../../updates/[slug]/page";
-import UpdatesPage from "../../../updates/page";
+import IssuePage from "../../../newsletter/[slug]/page";
+import NewsletterSignupPage from "../../../newsletter/page";
 import sitemap from "../../../sitemap";
 import { POST as sweep } from "../../../api/cron/sweep/route";
 import {
@@ -37,8 +37,8 @@ const ADMIN = "reviewer@example.com";
 const FIELDS = { subject: "November update", previewText: "What we did this month", body: "Hello **everyone**." };
 const NOW = new Date("2026-11-15T12:00:00Z");
 const IN_A_WEEK = "2026-11-22T09:00:00.000Z";
-const PAGE = "https://lawforaisafety.org/updates/november-update";
-const LIST = "https://lawforaisafety.org/updates";
+const PAGE = "https://lawforaisafety.org/newsletter/november-update";
+const LIST = "https://lawforaisafety.org/newsletter";
 
 beforeEach(async () => {
   vi.stubEnv("ADMIN_EMAILS", ADMIN);
@@ -57,7 +57,8 @@ const row = async (id: string) => (await db.select().from(newsletters).where(eq(
 const audit = async () =>
   (await db.select().from(adminAuditLog)).filter((r) => r.action.startsWith("newsletter_web")).map((r) => ({ action: r.action, detail: r.detail }));
 const params = (slug: string) => ({ params: Promise.resolve({ slug }) });
-const sitemapUrls = async () => (await sitemap()).map((e) => e.url).filter((url) => url.includes("/updates"));
+/** The sitemap's issue pages; the newsletter page itself is always listed. */
+const sitemapUrls = async () => (await sitemap()).map((e) => e.url).filter((url) => url.startsWith(`${LIST}/`));
 
 /** Whether the issue's page is up, as a visitor would find it. */
 async function isUp(slug = "november-update"): Promise<boolean> {
@@ -134,7 +135,7 @@ describe("ticking an issue for the website", () => {
     expect((await row(id)).webSlug).toBe("november-update");
     expect(await isUp()).toBe(true);
     expect(indexNow.urls()).toEqual([PAGE, LIST]);
-    expect(await sitemapUrls()).toEqual([LIST, PAGE]);
+    expect(await sitemapUrls()).toEqual([PAGE]);
   });
 
   it("on a scheduled issue puts it up once Brevo has sent it, found by the sweep", async () => {
@@ -154,7 +155,7 @@ describe("ticking an issue for the website", () => {
     expect(await sweepOnce()).toMatchObject({ newsletterIssuesUp: 1 });
     expect(await isUp()).toBe(true);
     expect((await row(id)).sentAt).toEqual(new Date("2026-11-22T09:03:00Z"));
-    expect(await sitemapUrls()).toEqual([LIST, PAGE]);
+    expect(await sitemapUrls()).toEqual([PAGE]);
     expect(indexNow.urls()).toEqual([PAGE, LIST]);
     // Already up, so the next sweep leaves it be.
     expect(await sweepOnce()).toMatchObject({ newsletterIssuesUp: 0 });
@@ -169,7 +170,7 @@ describe("ticking an issue for the website", () => {
     // A week on, the session has lapsed.
     await startAdminSession({ email: ADMIN, name: "Admin" });
     render(await NewslettersPage());
-    expect(screen.getByRole("link", { name: "/updates/november-update" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "/newsletter/november-update" })).toBeInTheDocument();
     expect(await isUp()).toBe(true);
     expect(indexNow.urls()).toEqual([PAGE, LIST]);
   });
@@ -194,12 +195,20 @@ describe("ticking an issue for the website", () => {
     expect(await isUp()).toBe(false);
     const callsBefore = brevo.calls.length;
 
-    expect(await setNewsletterOnWebsite(id, true)).toEqual({ ok: true, onWebsite: true, path: "/updates/november-update" });
+    expect(await setNewsletterOnWebsite(id, true)).toEqual({ ok: true, onWebsite: true, path: "/newsletter/november-update" });
     expect(await isUp()).toBe(true);
     expect(indexNow.urls()).toEqual([PAGE, LIST]);
     // Brevo is only asked whether it was sent; nothing about the campaign changes.
     expect(brevo.calls.slice(callsBefore)).toEqual([`GET /v3/emailCampaigns/${brevo.campaigns[0].id}`]);
     expect(await audit()).toEqual([{ action: "newsletter_web_publish", detail: { newsletter: id, subject: "November update", slug: "november-update", live: true } }]);
+  });
+
+  it("never gives an issue the address of a sign-up page", async () => {
+    const { id, version } = await draft({ ...FIELDS, subject: "Confirmed" });
+    await setNewsletterOnWebsite(id, true);
+    await send(id, version);
+    expect((await row(id)).webSlug).toBe("confirmed-2");
+    expect(await isUp("confirmed-2")).toBe(true);
   });
 
   it("gives a second issue with the same subject its own address", async () => {
@@ -208,7 +217,7 @@ describe("ticking an issue for the website", () => {
     await setNewsletterOnWebsite(first.id, true);
     const second = await draft();
     await send(second.id, second.version);
-    expect(await setNewsletterOnWebsite(second.id, true)).toMatchObject({ path: "/updates/november-update-2" });
+    expect(await setNewsletterOnWebsite(second.id, true)).toMatchObject({ path: "/newsletter/november-update-2" });
     expect(await isUp("november-update")).toBe(true);
     expect(await isUp("november-update-2")).toBe(true);
   });
@@ -220,16 +229,17 @@ describe("taking an issue off the website", () => {
     await setNewsletterOnWebsite(id, true);
     await send(id, version);
     expect(await isUp()).toBe(true);
-    render(await UpdatesPage());
+    render(await NewsletterSignupPage());
     expect(screen.getByRole("link", { name: "November update" })).toBeInTheDocument();
     const callsBefore = brevo.calls.length;
     indexNow.reset();
 
-    expect(await setNewsletterOnWebsite(id, false)).toEqual({ ok: true, onWebsite: false, path: "/updates/november-update" });
+    cleanup();
+    expect(await setNewsletterOnWebsite(id, false)).toEqual({ ok: true, onWebsite: false, path: "/newsletter/november-update" });
     expect(await isUp()).toBe(false);
     expect(await sitemapUrls()).toEqual([]);
-    render(await UpdatesPage());
-    expect(screen.getByText("No updates yet.")).toBeInTheDocument();
+    render(await NewsletterSignupPage());
+    expect(screen.queryByRole("region", { name: "Past issues" })).toBeNull();
     expect(brevo.calls.length).toBe(callsBefore);
     expect(brevo.campaigns[0].status).toBe("sent");
     expect(indexNow.urls()).toEqual([PAGE, LIST]);
@@ -245,7 +255,7 @@ describe("taking an issue off the website", () => {
     await setNewsletterOnWebsite(id, true);
     await setNewsletterOnWebsite(id, false);
     await setNewsletterOnWebsite(id, false);
-    expect(await setNewsletterOnWebsite(id, true)).toMatchObject({ onWebsite: true, path: "/updates/november-update" });
+    expect(await setNewsletterOnWebsite(id, true)).toMatchObject({ onWebsite: true, path: "/newsletter/november-update" });
     expect((await audit()).map((a) => a.action)).toEqual(["newsletter_web_publish", "newsletter_web_unpublish", "newsletter_web_publish"]);
   });
 
@@ -273,7 +283,7 @@ describe("taking an issue off the website", () => {
     expect(await row(id)).toMatchObject({ state: "draft", webSlug: "november-update", sentAt: null });
     const other = await draft();
     await send(other.id, other.version);
-    expect(await setNewsletterOnWebsite(other.id, true)).toMatchObject({ path: "/updates/november-update-2" });
+    expect(await setNewsletterOnWebsite(other.id, true)).toMatchObject({ path: "/newsletter/november-update-2" });
   });
 });
 
@@ -332,7 +342,7 @@ describe("an interrupted hand-over", () => {
     expect(await row(id)).toMatchObject({ state: "submitted", webSlug: null });
     expect(error).toHaveBeenCalledWith(expect.stringMatching(/website address/), expect.anything());
     // Ticking it again gives it one.
-    expect(await setNewsletterOnWebsite(id, true)).toMatchObject({ onWebsite: true, path: "/updates/november-update" });
+    expect(await setNewsletterOnWebsite(id, true)).toMatchObject({ onWebsite: true, path: "/newsletter/november-update" });
   });
 });
 
@@ -343,7 +353,7 @@ describe("the admin pages", () => {
     render(await NewsletterPage({ params: Promise.resolve({ id }) }));
     expect(screen.getByText(/Only subscribers get it/)).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: "Also publish on the website" }));
-    await waitFor(() => expect(screen.getByText(/It goes up under \/updates once it has been sent/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/It goes up under \/newsletter once it has been sent/)).toBeInTheDocument());
     expect(navigation.refresh).toHaveBeenCalled();
     expect((await row(id)).webPublished).toBe(true);
   });
@@ -354,7 +364,7 @@ describe("the admin pages", () => {
     await send(id, version);
     const user = userEvent.setup();
     render(await NewsletterPage({ params: Promise.resolve({ id }) }));
-    expect(screen.getByRole("link", { name: "/updates/november-update" })).toHaveAttribute("href", "/updates/november-update");
+    expect(screen.getByRole("link", { name: "/newsletter/november-update" })).toHaveAttribute("href", "/newsletter/november-update");
     await user.click(screen.getByRole("checkbox", { name: "Also publish on the website" }));
     await waitFor(() => expect(screen.getByText(/Only subscribers get it/)).toBeInTheDocument());
     expect(await isUp()).toBe(false);
@@ -378,7 +388,7 @@ describe("the admin pages", () => {
     await setNewsletterOnWebsite(later.id, true);
     await draft({ ...FIELDS, subject: "Event next week" });
     render(await NewslettersPage());
-    expect(screen.getByRole("link", { name: "/updates/november-update" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "/newsletter/november-update" })).toBeInTheDocument();
     expect(screen.getByText("Goes on the website once sent")).toBeInTheDocument();
   });
 });

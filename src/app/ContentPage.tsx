@@ -16,10 +16,13 @@ export default function ContentPage({
   children,
   center = false,
   gap = 4,
+  footerSignup = true,
 }: {
   children: ReactNode;
   center?: boolean;
   gap?: 4 | 6;
+  /** Off on a page with a newsletter sign-up of its own, or in the sign-up's own flow. */
+  footerSignup?: boolean;
 }) {
   const gapClass = gap === 6 ? "gap-6" : "gap-4";
   return (
@@ -32,7 +35,7 @@ export default function ContentPage({
           {children}
         </div>
       </main>
-      <Footer />
+      <Footer signup={footerSignup} />
     </>
   );
 }

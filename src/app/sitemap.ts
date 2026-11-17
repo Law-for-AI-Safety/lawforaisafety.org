@@ -7,7 +7,7 @@ import { connection } from "next/server";
 import { getCachedOpportunities } from "@/opportunities/data";
 import { openOpportunities } from "@/opportunities/filter";
 import { issuesOnWebsite } from "@/lib/newsletter-website";
-import { issuePath, UPDATES_PATH } from "@/newsletter/website";
+import { issuePath, NEWSLETTER_PATH } from "@/newsletter/website";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Rendered per request rather than at build time, since opportunities live in the database.
@@ -32,13 +32,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  // Newsletter issues on the website, and their list while it has any. An issue taken down is a
-  // 404, so it leaves here at once.
-  if (issues.length > 0) {
-    entries.push({ url: `${SITE_URL}${UPDATES_PATH}`, lastModified: new Date(issues[0].sentAt), changeFrequency: "weekly", priority: 0.6 });
-    for (const issue of issues) {
-      entries.push({ url: `${SITE_URL}${issuePath(issue.slug)}`, lastModified: new Date(issue.sentAt), changeFrequency: "yearly", priority: 0.5 });
-    }
+  // The newsletter's page, with the sign-up, and each issue on the website. An issue taken down
+  // is a 404, so it leaves here at once.
+  entries.push({
+    url: `${SITE_URL}${NEWSLETTER_PATH}`,
+    ...(issues.length > 0 && { lastModified: new Date(issues[0].sentAt) }),
+    changeFrequency: "weekly",
+    priority: 0.6,
+  });
+  for (const issue of issues) {
+    entries.push({ url: `${SITE_URL}${issuePath(issue.slug)}`, lastModified: new Date(issue.sentAt), changeFrequency: "yearly", priority: 0.5 });
   }
 
   // Only while the policy is actually served: a sitemap that lists a URL

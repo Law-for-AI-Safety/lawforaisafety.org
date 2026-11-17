@@ -9,7 +9,7 @@ import { emails } from "../../../test/fakes/email";
 import { turnstile } from "../../../test/fakes/turnstile";
 import IssuePage, { generateMetadata } from "./[slug]/page";
 import { GET as shareImage } from "./[slug]/share-image/route";
-import UpdatesPage from "./page";
+import NewsletterPage from "./page";
 import { dataCache } from "../../../test/next-cache";
 
 /**
@@ -50,27 +50,29 @@ beforeEach(async () => {
 
 const params = (slug: string) => ({ params: Promise.resolve({ slug }) });
 
-describe("the updates list", () => {
+describe("the newsletter page", () => {
   it("lists only issues on the website, newest first, with their date and summary", async () => {
-    render(await UpdatesPage());
-    const items = screen.getAllByRole("listitem").map((li) => within(li).getByRole("link").textContent);
+    render(await NewsletterPage());
+    const past = within(screen.getByRole("region", { name: "Past issues" }));
+    const items = past.getAllByRole("listitem").map((li) => within(li).getByRole("link").textContent);
     expect(items).toEqual(["November update", "October update"]);
-    expect(screen.getByRole("link", { name: "November update" })).toHaveAttribute("href", "/updates/november-update");
+    expect(screen.getByRole("link", { name: "November update" })).toHaveAttribute("href", "/newsletter/november-update");
     expect(screen.getByText("10 November 2026")).toHaveAttribute("dateTime", "2026-11-10T09:00:00.000Z");
     expect(screen.getByText("What we did this month")).toBeInTheDocument();
     // Without preview text, the start of the body stands in.
     expect(screen.getByText("A quieter month.")).toBeInTheDocument();
-    const signup = within(screen.getByRole("region", { name: "Get these by email" }));
+    const signup = within(screen.getByRole("region", { name: "Sign up" }));
     expect(signup.getByRole("textbox", { name: "Email address" })).toBeRequired();
     expect(signup.getByRole("button", { name: "Subscribe" })).toBeInTheDocument();
     expect(signup.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy-policy");
   });
 
-  it("says when there are none", async () => {
+  it("is the sign-up alone while no issue is on the website, with no second sign-up in the footer", async () => {
     await db.delete(newsletters);
-    render(await UpdatesPage());
-    expect(screen.getByText("No updates yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("list")).toBeNull();
+    render(await NewsletterPage());
+    expect(screen.queryByRole("region", { name: "Past issues" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Subscribe" })).toHaveLength(1);
+    expect(screen.queryByRole("region", { name: "Get our newsletter" })).toBeNull();
   });
 });
 
@@ -86,7 +88,8 @@ describe("an issue's page", () => {
     expect(external).toHaveAttribute("target", "_blank");
     expect(external).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.getByText("Fish & chips, 3 < 4.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "All updates" })).toHaveAttribute("href", "/updates");
+    expect(screen.getByRole("link", { name: "All issues" })).toHaveAttribute("href", "/newsletter");
+    expect(screen.getAllByRole("button", { name: "Subscribe" })).toHaveLength(1);
   });
 
   it("signs a reader up to the newsletter, confirmed by email as on the homepage", async () => {
@@ -107,14 +110,14 @@ describe("an issue's page", () => {
   });
 
   it("has its own title, description, canonical address and share card", async () => {
-    const image = { url: "/updates/november-update/share-image", width: 1200, height: 630, alt: "November update" };
+    const image = { url: "/newsletter/november-update/share-image", width: 1200, height: 630, alt: "November update" };
     expect(await generateMetadata(params("november-update"))).toEqual({
-      title: "November update | Updates | Law for AI Safety",
+      title: "November update | Newsletter | Law for AI Safety",
       description: "What we did this month",
-      alternates: { canonical: "/updates/november-update" },
+      alternates: { canonical: "/newsletter/november-update" },
       openGraph: {
         type: "article",
-        url: "/updates/november-update",
+        url: "/newsletter/november-update",
         title: "November update",
         description: "What we did this month",
         publishedTime: "2026-11-10T09:00:00.000Z",
@@ -123,7 +126,7 @@ describe("an issue's page", () => {
       },
       twitter: { card: "summary_large_image", images: [image] },
     });
-    const response = await shareImage(new Request("http://localhost/updates/november-update/share-image"), params("november-update"));
+    const response = await shareImage(new Request("http://localhost/newsletter/november-update/share-image"), params("november-update"));
     expect(response.headers.get("content-type")).toBe("image/png");
   });
 

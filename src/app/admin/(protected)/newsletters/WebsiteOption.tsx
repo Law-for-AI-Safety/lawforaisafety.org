@@ -3,7 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UPDATES_PATH } from "@/newsletter/website";
+import { NEWSLETTER_PATH } from "@/newsletter/website";
 import { setNewsletterOnWebsite } from "./actions";
 
 export type WebsiteStanding = {
@@ -57,11 +57,11 @@ export default function WebsiteOption({ id, initial }: { id: string; initial: We
             <Link href={standing.path} target="_blank" className="underline">
               {standing.path}
             </Link>
-            , and listed under <Link href={UPDATES_PATH} target="_blank" className="underline">{UPDATES_PATH}</Link>. Untick to take it
+            , and listed under <Link href={NEWSLETTER_PATH} target="_blank" className="underline">{NEWSLETTER_PATH}</Link>. Untick to take it
             down; the email is not affected.
           </>
         ) : (
-          <>It goes up under {UPDATES_PATH} once it has been sent, and stays until this is unticked.</>
+          <>It goes up under {NEWSLETTER_PATH} once it has been sent, and stays until this is unticked.</>
         )}
       </p>
       {error && (

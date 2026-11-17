@@ -27,8 +27,8 @@ export default async function NewslettersPage() {
         <p className="text-brand-black/70">
           Write the newsletter here, send yourself a test, then schedule it or send it now. Brevo sends it to everyone on
           the newsletter list. An issue can also go on the website, under{" "}
-          <Link href="/updates" className="underline">
-            /updates
+          <Link href="/newsletter" className="underline">
+            /newsletter
           </Link>
           , once sent.
         </p>

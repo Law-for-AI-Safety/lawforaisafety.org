@@ -13,16 +13,19 @@ const SITE_NAME = "Law for AI Safety";
 
 /**
  * A content page: nav, the apply toast, each block in its band, and the footer. The preview
- * passes `renderBlock` to wrap each rendered block.
+ * passes `renderBlock` to wrap each rendered block, and `footerSignup={false}`, since only the
+ * blocks' forms are disabled there.
  */
 export default function PageView({
   slug,
   page,
   renderBlock = (_index, block) => block,
+  footerSignup = true,
 }: {
   slug: string;
   page: Pick<PageContent, "blocks">;
   renderBlock?: (index: number, block: ReactNode) => ReactNode;
+  footerSignup?: boolean;
 }) {
   const path = pagePath(slug);
   const tones = bandTones(page.blocks.map((block) => block.type));
@@ -38,8 +41,18 @@ export default function PageView({
         <Fragment key={i}>{renderBlock(i, <Block block={block} tone={tones[i]} path={path} id={anchors[i]} />)}</Fragment>
       ))}
 
-      <Footer />
+      <Footer signup={footerSignup && !hasNewsletterSignup(page)} />
     </main>
+  );
+}
+
+/**
+ * Whether the page shows the newsletter sign-up itself (the contact section's, with its form
+ * open), so the footer leaves its own out rather than show two.
+ */
+export function hasNewsletterSignup(page: Pick<PageContent, "blocks">): boolean {
+  return page.blocks.some(
+    (block) => block.type === "applicationSection" && block.form !== "redLines" && block.showForm && Boolean(block.newsletterHeading),
   );
 }
 

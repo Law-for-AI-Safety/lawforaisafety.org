@@ -7,7 +7,26 @@ import WipeSubmitButton from "../WipeSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
 import { FIELD_CLASSES } from "./field-styles";
 
-export default function NewsletterForm() {
+/** Colours for each background the form sits on: the site's light bands, or the dark footer. */
+const TONES = {
+  light: { message: "text-brand-navy", error: "text-brand-red", button: "bg-brand-navy" },
+  dark: { message: "text-brand-white", error: "text-brand-white border-l-4 border-brand-red pl-3", button: "bg-brand-red" },
+};
+
+/**
+ * The newsletter sign-up: an email, posted to `/api/newsletter`, which sends a link to confirm.
+ * `deferVerification` waits to load Cloudflare's check until the visitor starts on the form, for
+ * a form on every page (the footer's) that most visitors never use.
+ */
+export default function NewsletterForm({
+  tone = "light",
+  deferVerification = false,
+}: {
+  tone?: keyof typeof TONES;
+  deferVerification?: boolean;
+} = {}) {
+  const colours = TONES[tone];
+  const [engaged, setEngaged] = useState(!deferVerification);
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
   const renderedAt = useRenderedAt();
@@ -15,7 +34,7 @@ export default function NewsletterForm() {
 
   if (status === "done") {
     return (
-      <p role="status" className="text-lg text-brand-navy">
+      <p role="status" className={`text-lg ${colours.message}`}>
         Thanks. Check your inbox to confirm your subscription.
       </p>
     );
@@ -24,6 +43,7 @@ export default function NewsletterForm() {
   return (
     <form
       className="flex flex-col gap-3"
+      onFocus={() => setEngaged(true)}
       onSubmit={async (event) => {
         event.preventDefault();
         setStatus("submitting");
@@ -82,7 +102,7 @@ export default function NewsletterForm() {
         <WipeSubmitButton
           type="submit"
           disabled={!renderedAt || status === "submitting"}
-          className={`bg-brand-navy px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden${
+          className={`${colours.button} px-6 py-3 text-lg text-brand-white text-center rounded-sm overflow-hidden${
             status === "submitting" ? " opacity-60" : ""
           }`}
           hoverBg="rgba(255,255,255,0.15)"
@@ -91,10 +111,10 @@ export default function NewsletterForm() {
         </WipeSubmitButton>
       </div>
 
-      <TurnstileWidget />
+      {engaged && <TurnstileWidget />}
 
       {error && (
-        <p role="alert" className="text-lg text-brand-red">
+        <p role="alert" className={`text-lg ${colours.error}`}>
           {error}
         </p>
       )}

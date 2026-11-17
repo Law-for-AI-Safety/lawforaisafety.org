@@ -2,14 +2,25 @@ import { normalizeRuns, parseRichText, serializeRichText, type RichText, type Ru
 import { slugify, uniqueSlug } from "../opportunities/slug";
 
 /**
- * Newsletter issues on the website, at /updates/<slug>. An admin ticks an issue to have it there,
+ * Newsletter issues on the website, at /newsletter/<slug>. An admin ticks an issue to have it there,
  * before or after sending. It shows only once Brevo has said it was sent, and only while it stays
  * ticked. Its page is the body as sent: once Brevo has an issue it can't be edited.
  */
 
-export const UPDATES_PATH = "/updates";
+/**
+ * The newsletter's page, with the sign-up and the issues on the website, and what it is called
+ * (its heading, and the footer's link). Each issue's page sits under it.
+ */
+export const NEWSLETTER_PATH = "/newsletter";
+export const NEWSLETTER_LABEL = "Newsletter";
 
-export const issuePath = (slug: string) => `${UPDATES_PATH}/${slug}`;
+/**
+ * The pages of the sign-up flow under /newsletter (src/app/newsletter), which no issue may take
+ * as its address. A test checks this against the folders there.
+ */
+export const RESERVED_ISSUE_SLUGS: readonly string[] = ["confirm", "confirmed", "invalid"];
+
+export const issuePath = (slug: string) => `${NEWSLETTER_PATH}/${slug}`;
 
 /** The fields that decide whether, and where, an issue is on the website. */
 export type WebsiteRow = {
@@ -83,7 +94,13 @@ export function issueSummary(previewText: string, body: string): string {
   return `${(space > MAX_SUMMARY / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.]+$/, "")}…`;
 }
 
-/** The issue's address on the website, from its subject, unique among `taken`. */
+/** What an issue's address is made from: its subject, as a slug. */
+export const issueSlugBase = (subject: string) => slugify(subject) || "issue";
+
+/**
+ * The issue's address on the website: `issueSlugBase`, numbered when it is among `taken` (every
+ * address in use that starts with it) or a page of the sign-up flow.
+ */
 export function issueSlug(subject: string, taken: ReadonlySet<string>): string {
-  return uniqueSlug(slugify(subject) || "update", taken);
+  return uniqueSlug(issueSlugBase(subject), new Set([...RESERVED_ISSUE_SLUGS, ...taken]));
 }

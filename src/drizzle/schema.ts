@@ -662,7 +662,7 @@ export const newsletters = pgTable("newsletters", {
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
   // When Brevo reported it sent; once set, it is final and Brevo is not asked again.
   sentAt: timestamp("sent_at", { withTimezone: true }),
-  // Whether the issue is also a page on the website, at /updates/<web_slug>. It is shown only
+  // Whether the issue is also a page on the website, at /newsletter/<web_slug>. It is shown only
   // once Brevo says it was sent (src/newsletter/website.ts), so it can be ticked before sending.
   // The slug is given when the issue is handed to Brevo, or ticked afterwards, and kept for good
   // once it has been sent, so an issue taken down and put back keeps its address.

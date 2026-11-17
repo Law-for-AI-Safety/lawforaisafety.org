@@ -8,9 +8,9 @@ import { size } from "@/app/og-image";
 import Rule from "@/cms/blocks/Rule";
 import { issueOnWebsite } from "@/lib/newsletter-website";
 import { formatIssueDate } from "@/newsletter/dates";
-import { issuePath, UPDATES_PATH } from "@/newsletter/website";
+import { issuePath, NEWSLETTER_LABEL, NEWSLETTER_PATH } from "@/newsletter/website";
 import IssueBody from "../IssueBody";
-import NewsletterSignup from "../NewsletterSignup";
+import NewsletterSignup from "@/app/NewsletterSignup";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const path = issuePath(issue.slug);
   const image = { url: `${path}/share-image`, width: size.width, height: size.height, alt: issue.subject };
   return {
-    title: `${issue.subject} | Updates | Law for AI Safety`,
+    title: `${issue.subject} | ${NEWSLETTER_LABEL} | Law for AI Safety`,
     description: issue.summary || undefined,
     alternates: { canonical: path },
     openGraph: {
@@ -53,9 +53,9 @@ export default async function IssuePage({ params }: Props) {
   const { slug } = await params;
   const issue = await load(slug);
   return (
-    <ContentPage gap={6}>
-      <Link href={UPDATES_PATH} className="text-base font-light text-brand-navy underline hover:text-brand-black w-fit">
-        All updates
+    <ContentPage gap={6} footerSignup={false}>
+      <Link href={NEWSLETTER_PATH} className="text-base font-light text-brand-navy underline hover:text-brand-black w-fit">
+        All issues
       </Link>
       <article className="flex flex-col gap-6">
         <header className="flex flex-col gap-3">
@@ -70,7 +70,7 @@ export default async function IssuePage({ params }: Props) {
         <IssueBody body={issue.body} />
       </article>
       <Rule />
-      <NewsletterSignup heading="Get the next one by email" />
+      <NewsletterSignup heading="Get the next one by email" id="issue-signup" />
     </ContentPage>
   );
 }

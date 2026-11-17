@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import FooterYear from "./FooterYear";
+import NewsletterSignup from "./NewsletterSignup";
+import { NEWSLETTER_LABEL, NEWSLETTER_PATH } from "@/newsletter/website";
 import { detailValue } from "./organisation";
 import { isPolicyServed } from "./privacy-policy/visibility";
 
@@ -37,12 +39,21 @@ function identificationParts(): string[] {
   ].filter((part): part is string => Boolean(part));
 }
 
-export default function Footer() {
+/**
+ * The site footer: the newsletter sign-up (unless `signup` is off, on a page with a sign-up of
+ * its own), the site links and the identification line.
+ */
+export default function Footer({ signup = true }: { signup?: boolean }) {
   const identification = identificationParts();
 
   return (
     <footer className="bg-brand-black px-8 md:px-16 py-12">
       <div className="max-w-4xl mx-auto flex flex-col gap-4">
+        {signup && (
+          <div className="pb-10 mb-6 border-b border-brand-white/15">
+            <NewsletterSignup heading="Get our newsletter" id="footer-newsletter" tone="dark" />
+          </div>
+        )}
         <div className="flex flex-row justify-between items-center gap-6">
           <Image
             src="/logo.svg"
@@ -55,6 +66,9 @@ export default function Footer() {
             <span>© <FooterYear builtYear={new Date().getFullYear()} /> Law for AI Safety. All rights reserved.</span>
             <Link href="/opportunities" className="underline hover:text-brand-white">
               Opportunities
+            </Link>
+            <Link href={NEWSLETTER_PATH} className="underline hover:text-brand-white">
+              {NEWSLETTER_LABEL}
             </Link>
             {isPolicyServed() && (
               <Link href="/privacy-policy" className="underline hover:text-brand-white">

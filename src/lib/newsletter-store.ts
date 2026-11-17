@@ -2,7 +2,7 @@ import { and, desc, eq, isNotNull, isNull, like, lte, ne, sql } from "drizzle-or
 import { db } from "@/lib/db";
 import { newsletters } from "@/drizzle/schema";
 import type { NewsletterFields } from "@/newsletter/template";
-import { issueSlug } from "@/newsletter/website";
+import { issueSlug, issueSlugBase } from "@/newsletter/website";
 
 /**
  * Database reads and writes for newsletters. Callers check permissions first
@@ -160,8 +160,10 @@ export async function ensureWebSlug(id: string): Promise<NewsletterRow | null> {
   for (let attempt = 0; ; attempt++) {
     const current = await getNewsletter(id);
     if (!current || current.webSlug !== null || !current.webPublished || current.state !== "submitted") return current;
-    const base = issueSlug(current.subject, new Set());
-    const taken = await db.select({ slug: newsletters.webSlug }).from(newsletters).where(like(newsletters.webSlug, `${base}%`));
+    const taken = await db
+      .select({ slug: newsletters.webSlug })
+      .from(newsletters)
+      .where(like(newsletters.webSlug, `${issueSlugBase(current.subject)}%`));
     const slug = issueSlug(current.subject, new Set(taken.map((t) => t.slug).filter((s) => s !== null)));
     try {
       const [row] = await db

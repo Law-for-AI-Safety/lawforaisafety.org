@@ -2,10 +2,10 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { getCampaign } from "@/lib/brevo-campaigns";
 import { notifyIndexNowLater } from "@/lib/indexnow";
 import { listUnconfirmedWebsiteIssues, listWebsiteIssues, markSent, type NewsletterRow } from "@/lib/newsletter-store";
-import { issuePath, issueSummary, UPDATES_PATH, websiteBody } from "@/newsletter/website";
+import { issuePath, issueSummary, NEWSLETTER_PATH, websiteBody } from "@/newsletter/website";
 
 /**
- * The public reads of newsletter issues on the website (/updates), and the step that puts a
+ * The public reads of newsletter issues on the website (/newsletter), and the step that puts a
  * ticked issue up: Brevo saying it was sent. Only what the pages show leaves the reads: never
  * who wrote or sent an issue, nor an issue that is not ticked or not sent.
  */
@@ -65,7 +65,7 @@ export function clearWebsiteIssues(): void {
 
 /** Tells the search engines an issue's page, and the list, have changed. */
 export function announceIssue(slug: string): void {
-  notifyIndexNowLater([issuePath(slug), UPDATES_PATH]);
+  notifyIndexNowLater([issuePath(slug), NEWSLETTER_PATH]);
 }
 
 /**
