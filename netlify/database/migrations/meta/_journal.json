@@ -225,6 +225,13 @@
       "when": 1794933892882,
       "tag": "0031_stale_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794938136189,
+      "tag": "0032_wild_avengers",
+      "breakpoints": true
     }
   ]
 }

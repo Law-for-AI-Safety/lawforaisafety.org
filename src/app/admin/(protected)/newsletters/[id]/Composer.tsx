@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RichTextField from "@/app/admin/cms/[slug]/RichTextField";
@@ -67,6 +67,7 @@ export default function Composer({
   initialTestedVersion,
   me,
   sender,
+  website,
 }: {
   id: string;
   initial: NewsletterFields;
@@ -74,6 +75,8 @@ export default function Composer({
   initialTestedVersion: number | null;
   me: string;
   sender: string;
+  /** The "Also publish on the website" choice, which saves on its own. */
+  website: ReactNode;
 }) {
   const router = useRouter();
   const [fields, setFields] = useState(initial);
@@ -247,6 +250,8 @@ export default function Composer({
             />
           )}
         </section>
+
+        {website}
 
         <button type="button" onClick={remove} disabled={pending} className="self-start text-sm text-brand-red underline">
           Delete this draft

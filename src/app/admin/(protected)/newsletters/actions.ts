@@ -15,11 +15,13 @@ import {
   updateCampaign,
 } from "@/lib/brevo-campaigns";
 import { isProductionDeploy } from "@/lib/deploy-context";
+import { notifyIndexNowLater } from "@/lib/indexnow";
 import { sendNewsletterTestEmail } from "@/lib/email";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import {
   claimForSubmit,
   claimSubmitted,
+  ensureWebSlug,
   getNewsletter,
   insertNewsletter,
   markSubmitted,
@@ -28,6 +30,7 @@ import {
   removeNewsletter,
   returnToDraft,
   setCampaignId,
+  setWebPublished,
   unclaimSubmitted,
   writeNewsletter,
   type NewsletterRow,
@@ -42,6 +45,8 @@ import {
 } from "@/newsletter/template";
 import { scheduleProblem, STUCK_AFTER_MS } from "@/newsletter/schedule";
 import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
+import { clearWebsiteIssues } from "@/lib/newsletter-website";
+import { isOnWebsite, issuePath, UPDATES_PATH } from "@/newsletter/website";
 
 /**
  * The newsletter's server actions. Each is a public endpoint: it checks the caller's permission
@@ -350,6 +355,7 @@ export async function scheduleNewsletter(
     action: scheduleAt ? "newsletter_schedule" : "newsletter_send_now",
     detail: { newsletter: newsletterId, campaign: campaignId, subject: fields.subject.trim(), at: sendAt.toISOString(), subscribers: count },
   });
+  await handedOver(newsletterId);
   return { ok: true };
 }
 
@@ -407,6 +413,8 @@ export async function rescheduleNewsletter(id: unknown, when: unknown, typedCoun
     return brevoFailure(err, "reschedule the newsletter");
   }
   await unclaimSubmitted(newsletterId, time.at);
+  // A ticked issue goes up on the website at its new time, not the cached old one.
+  if (scheduled.row.webPublished) clearWebsiteIssues();
   await recordAdminAction({
     actorEmail: actor.email,
     action: "newsletter_reschedule",
@@ -432,6 +440,7 @@ export async function cancelNewsletter(id: unknown): Promise<{ ok: true } | Refu
     return brevoFailure(err, "cancel the newsletter");
   }
   await returnToDraft(args.data, actor.email);
+  backToDraft(scheduled.row);
   await recordAdminAction({
     actorEmail: actor.email,
     action: "newsletter_cancel",
@@ -470,8 +479,13 @@ export async function recoverNewsletter(id: unknown): Promise<{ ok: true } | Ref
   }
   if (campaign === null) await releaseClaim(args.data, { clearCampaign: true });
   else if (campaign.status === "draft") await releaseClaim(args.data);
-  else if (STOPPED.includes(campaign.status)) await returnToDraft(args.data, actor.email);
-  else await markSubmitted(args.data, campaign.scheduledAt ?? campaign.sentAt ?? new Date(claimed), row.submittedBy ?? actor.email);
+  else if (STOPPED.includes(campaign.status)) {
+    await returnToDraft(args.data, actor.email);
+    backToDraft(row);
+  } else {
+    await markSubmitted(args.data, campaign.scheduledAt ?? campaign.sentAt ?? new Date(claimed), row.submittedBy ?? actor.email);
+    await handedOver(args.data);
+  }
   return { ok: true };
 }
 
@@ -504,10 +518,75 @@ export async function reopenNewsletter(id: unknown): Promise<{ ok: true } | Refu
     return { ok: false, reason: "locked", message: "Brevo still has this newsletter going out, so it can't be reopened." };
   }
   await returnToDraft(args.data, actor.email);
+  backToDraft(current);
   await recordAdminAction({
     actorEmail: actor.email,
     action: "newsletter_cancel",
     detail: { newsletter: args.data, campaign: current.brevoCampaignId, reopened: campaign?.status ?? "deleted" },
   });
   return { ok: true };
+}
+
+/**
+ * After Brevo has taken an issue: a ticked one gets its website address, and goes up on the
+ * website at its send time, at once for one sent now.
+ */
+async function handedOver(id: string): Promise<void> {
+  // The email is with Brevo by now, so a failure here must not report the send as failed. The
+  // issue then has no address yet; unticking and ticking it again gives it one.
+  let row;
+  try {
+    row = await ensureWebSlug(id);
+  } catch (err) {
+    console.error(`[newsletter] Could not give newsletter ${id} its website address`, err);
+    return;
+  }
+  if (!row?.webPublished) return;
+  clearWebsiteIssues();
+  if (row.webSlug && isOnWebsite(row, new Date())) notifyIndexNowLater([issuePath(row.webSlug), UPDATES_PATH]);
+}
+
+/**
+ * After an issue becomes a draft again: a ticked one comes off the website. `was` is the row as
+ * it stood before, mid-change or not, so a page that was up is announced as gone.
+ */
+function backToDraft(was: NewsletterRow): void {
+  if (!was.webPublished) return;
+  clearWebsiteIssues();
+  if (was.webSlug && isOnWebsite({ ...was, state: "submitted" }, new Date())) notifyIndexNowLater([issuePath(was.webSlug), UPDATES_PATH]);
+}
+
+export type WebsiteResult = { ok: true; onWebsite: boolean; path: string | null } | Refusal;
+
+/**
+ * Ticks the issue to be on the website as well (`on`), or takes it off. Works at any stage: a
+ * draft or scheduled issue goes up once sent, a sent one at once. Taking it off changes nothing
+ * in the email, sent or still to go.
+ */
+export async function setNewsletterOnWebsite(id: unknown, on: unknown): Promise<WebsiteResult> {
+  const actor = await requireNewsletter();
+  if (!actor.ok) return actor;
+  const args = z.tuple([idArg, z.boolean()]).safeParse([id, on]);
+  if (!args.success) return INVALID;
+  const [newsletterId, publish] = args.data;
+
+  const before = await getNewsletter(newsletterId);
+  if (!before) return NOT_FOUND;
+  const now = new Date();
+  const wasUp = isOnWebsite(before, now);
+  let row = await setWebPublished(newsletterId, publish);
+  if (!row) return NOT_FOUND;
+  if (publish) row = (await ensureWebSlug(newsletterId)) ?? row;
+  const isUp = isOnWebsite(row, now);
+  clearWebsiteIssues();
+  if (row.webSlug && wasUp !== isUp) notifyIndexNowLater([issuePath(row.webSlug), UPDATES_PATH]);
+
+  if (before.webPublished !== publish) {
+    await recordAdminAction({
+      actorEmail: actor.email,
+      action: publish ? "newsletter_web_publish" : "newsletter_web_unpublish",
+      detail: { newsletter: newsletterId, subject: row.subject.trim(), slug: row.webSlug, live: publish ? isUp : wasUp },
+    });
+  }
+  return { ok: true, onWebsite: isUp, path: row.webSlug ? issuePath(row.webSlug) : null };
 }

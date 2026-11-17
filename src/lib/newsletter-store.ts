@@ -1,7 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, like } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsletters } from "@/drizzle/schema";
 import type { NewsletterFields } from "@/newsletter/template";
+import { issueSlug } from "@/newsletter/website";
 
 /**
  * Database reads and writes for newsletters. Callers check permissions first
@@ -128,8 +129,53 @@ export async function returnToDraft(id: string, email: string): Promise<void> {
       scheduledAt: null,
       submittedBy: null,
       submittedAt: null,
+      // It never went out, so it has no address yet; a later send gives one from its subject then.
+      webSlug: null,
       updatedBy: email,
       updatedAt: new Date(),
     })
     .where(eq(newsletters.id, id));
+}
+
+/** Ticks or unticks the issue for the website. Returns the row as it now is, or null when there is none. */
+export async function setWebPublished(id: string, on: boolean): Promise<NewsletterRow | null> {
+  const [row] = await db.update(newsletters).set({ webPublished: on }).where(eq(newsletters.id, id)).returning();
+  return row ?? null;
+}
+
+const isUniqueViolation = (e: unknown): boolean =>
+  typeof e === "object" && e !== null && "cause" in e
+    ? isUniqueViolation((e as { cause: unknown }).cause)
+    : typeof e === "object" && e !== null && (e as { code?: unknown }).code === "23505";
+
+/**
+ * Gives a ticked issue that Brevo has its website address, from its subject, if it has none yet.
+ * Returns the row as it now is. Two issues racing for one address: the loser tries the next.
+ */
+export async function ensureWebSlug(id: string): Promise<NewsletterRow | null> {
+  for (let attempt = 0; ; attempt++) {
+    const current = await getNewsletter(id);
+    if (!current || current.webSlug !== null || !current.webPublished || current.state !== "submitted") return current;
+    const base = issueSlug(current.subject, new Set());
+    const taken = await db.select({ slug: newsletters.webSlug }).from(newsletters).where(like(newsletters.webSlug, `${base}%`));
+    const slug = issueSlug(current.subject, new Set(taken.map((t) => t.slug).filter((s) => s !== null)));
+    try {
+      const [row] = await db
+        .update(newsletters)
+        .set({ webSlug: slug })
+        .where(and(eq(newsletters.id, id), isNull(newsletters.webSlug)))
+        .returning();
+      return row ?? getNewsletter(id);
+    } catch (err) {
+      if (!isUniqueViolation(err) || attempt >= 4) throw err;
+    }
+  }
+}
+
+/** Ticked issues Brevo has, with an address: the ones that are, or will be once sent, on the website. */
+export async function listWebsiteIssues(): Promise<NewsletterRow[]> {
+  return db
+    .select()
+    .from(newsletters)
+    .where(and(eq(newsletters.webPublished, true), eq(newsletters.state, "submitted")));
 }

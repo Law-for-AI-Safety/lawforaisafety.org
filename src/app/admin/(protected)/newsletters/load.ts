@@ -2,6 +2,8 @@ import { getCampaign, type Campaign } from "@/lib/brevo-campaigns";
 import { markSent, type NewsletterRow } from "@/lib/newsletter-store";
 import { STUCK_AFTER_MS } from "@/newsletter/schedule";
 import { newsletterStatus, type NewsletterStatus } from "@/newsletter/status";
+import { isOnWebsite, issuePath } from "@/newsletter/website";
+import type { WebsiteStanding } from "./WebsiteOption";
 
 /**
  * The newsletter's status, asking Brevo while its campaign can still change. Once Brevo says it
@@ -35,4 +37,9 @@ export async function statusesOf(rows: NewsletterRow[]): Promise<NewsletterStatu
   };
   await Promise.all(Array.from({ length: Math.min(BREVO_CONCURRENCY, rows.length) }, worker));
   return statuses;
+}
+
+/** Where the issue stands on the website, for the "Also publish on the website" choice. */
+export function websiteStanding(row: NewsletterRow, now = new Date()): WebsiteStanding {
+  return { on: row.webPublished, live: isOnWebsite(row, now), path: row.webSlug ? issuePath(row.webSlug) : null };
 }

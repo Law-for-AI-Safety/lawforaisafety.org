@@ -6,6 +6,8 @@ import { SITE_URL, siteDirs, sitemapEntries } from "@/cms/site";
 import { connection } from "next/server";
 import { getCachedOpportunities } from "@/opportunities/data";
 import { openOpportunities } from "@/opportunities/filter";
+import { issuesOnWebsite } from "@/lib/newsletter-website";
+import { issuePath, UPDATES_PATH } from "@/newsletter/website";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Rendered per request rather than at build time, since opportunities live in the database.
@@ -26,6 +28,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.6,
     });
+  }
+
+  // Newsletter issues on the website, and their list while it has any. An issue taken down is a
+  // 404, so it leaves here at once.
+  const issues = await issuesOnWebsite(new Date());
+  if (issues.length > 0) {
+    entries.push({ url: `${SITE_URL}${UPDATES_PATH}`, lastModified: new Date(issues[0].sentAt), changeFrequency: "weekly", priority: 0.6 });
+    for (const issue of issues) {
+      entries.push({ url: `${SITE_URL}${issuePath(issue.slug)}`, lastModified: new Date(issue.sentAt), changeFrequency: "yearly", priority: 0.5 });
+    }
   }
 
   // Only while the policy is actually served: a sitemap that lists a URL
