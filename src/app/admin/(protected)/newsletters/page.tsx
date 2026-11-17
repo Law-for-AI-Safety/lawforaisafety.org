@@ -5,7 +5,6 @@ import { requireNewsletter } from "@/lib/newsletter-access";
 import { listNewsletters } from "@/lib/newsletter-store";
 import { statusOf } from "./load";
 import NewNewsletterButton from "./NewNewsletterButton";
-import NoNewsletterAccess from "./NoNewsletterAccess";
 import StatusBadge from "./StatusBadge";
 
 export const metadata: Metadata = {
@@ -15,11 +14,8 @@ export const metadata: Metadata = {
 
 /** Every newsletter written here: drafts, scheduled and sent, most recently changed first. */
 export default async function NewslettersPage() {
-  const actor = await requireNewsletter("write");
-  if (!actor.ok) {
-    if (actor.reason === "signed_out") redirect("/admin/login");
-    return <NoNewsletterAccess />;
-  }
+  const actor = await requireNewsletter();
+  if (!actor.ok) redirect("/admin/login");
   const rows = await listNewsletters();
   const statuses = await Promise.all(rows.map(statusOf));
 

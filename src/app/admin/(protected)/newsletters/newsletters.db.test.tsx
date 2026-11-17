@@ -32,16 +32,15 @@ vi.mock("next/headers", () => import("../../../../../test/next-headers"));
  * the checks before anything reaches the list, what Brevo is sent, and the pages.
  */
 
-type Who = "signed out" | "not in ADMIN_EMAILS" | "no role" | "draft" | "publish" | "superadmin";
+type Who = "signed out" | "not in ADMIN_EMAILS" | "regular admin" | "draft" | "publish" | "superadmin";
 const EMAIL: Record<Exclude<Who, "signed out">, string> = {
   "not in ADMIN_EMAILS": "stranger@example.com",
-  "no role": "reviewer@example.com",
+  "regular admin": "reviewer@example.com",
   draft: "draft@example.com",
   publish: "publish@example.com",
   superadmin: "tech@example.com",
 };
-const ALL: Who[] = ["signed out", "not in ADMIN_EMAILS", "no role", "draft", "publish", "superadmin"];
-const refusal = (who: Who) => (who === "signed out" || who === "not in ADMIN_EMAILS" ? "signed_out" : "forbidden");
+const ALL: Who[] = ["signed out", "not in ADMIN_EMAILS", "regular admin", "draft", "publish", "superadmin"];
 
 async function signInAs(who: Who) {
   cookieJar.reset();
@@ -101,8 +100,9 @@ async function seedScheduled(): Promise<{ id: string; campaignId: number }> {
 
 describe("permission matrix", () => {
   describe.each(ALL)("%s", (who) => {
-    const canWrite = who === "draft" || who === "publish" || who === "superadmin";
-    const canSend = who === "publish" || who === "superadmin";
+    // Every admin may do everything with the newsletter, whatever their website-editing role.
+    const canWrite = who !== "signed out" && who !== "not in ADMIN_EMAILS";
+    const canSend = canWrite;
 
     it(`${canWrite ? "can" : "cannot"} write, save, test-send and delete a draft`, async () => {
       const { id, version } = await seed({ tested: false });
@@ -113,14 +113,14 @@ describe("permission matrix", () => {
       if (canWrite) {
         expect(created).toMatchObject({ ok: true });
         expect(saved).toEqual({ ok: true, version: version + 1, problems: {} });
-        expect(tested).toEqual({ ok: true, to: EMAIL[who as "draft"] });
-        expect(emails.to(EMAIL[who as "draft"])).toHaveLength(1);
-        expect(await row(id)).toMatchObject({ subject: "Changed", updatedBy: EMAIL[who as "draft"], testedVersion: version + 1 });
+        expect(tested).toEqual({ ok: true, to: EMAIL[who as "regular admin"] });
+        expect(emails.to(EMAIL[who as "regular admin"])).toHaveLength(1);
+        expect(await row(id)).toMatchObject({ subject: "Changed", updatedBy: EMAIL[who as "regular admin"], testedVersion: version + 1 });
         expect(await deleteNewsletter(id, version + 1)).toEqual({ ok: true });
         expect(await row(id)).toBeUndefined();
       } else {
         for (const result of [created, saved, tested, await deleteNewsletter(id, version)]) {
-          expect(result).toMatchObject({ ok: false, reason: refusal(who) });
+          expect(result).toMatchObject({ ok: false, reason: "signed_out" });
         }
         expect(await row(id)).toMatchObject({ subject: FIELDS.subject, testedVersion: null });
         expect(emails.sent).toEqual([]);
@@ -140,7 +140,7 @@ describe("permission matrix", () => {
         expect((await audit()).map((a) => a.action)).toEqual(["newsletter_schedule", "newsletter_reschedule", "newsletter_cancel"]);
       } else {
         for (const result of [scheduled, await getSendList(), await rescheduleNewsletter(id, IN_A_WEEK, 120), await cancelNewsletter(id), await recoverNewsletter(id)]) {
-          expect(result).toMatchObject({ ok: false, reason: refusal(who) });
+          expect(result).toMatchObject({ ok: false, reason: "signed_out" });
         }
         expect(brevo.campaigns).toEqual([]);
         expect(await audit()).toEqual([]);
@@ -156,18 +156,20 @@ describe("permission matrix", () => {
           continue;
         }
         const { unmount } = render(await page());
-        if (canWrite) expect(screen.queryByText("No access to the newsletter")).toBeNull();
-        else expect(screen.getByRole("heading", { name: "No access to the newsletter" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
         unmount();
       }
     });
 
-    it(`${canWrite ? "sees" : "does not see"} the Newsletter link in the admin nav`, async () => {
-      if (who === "signed out" || who === "not in ADMIN_EMAILS") return;
+    it(`${canWrite ? "sees" : "is signed out of"} the Newsletter link in the admin sidebar`, async () => {
       await signInAs(who);
+      if (!canWrite) {
+        await expect(ProtectedAdminLayout({ children: null })).rejects.toThrow("NEXT_REDIRECT:/admin/login");
+        return;
+      }
       render(await ProtectedAdminLayout({ children: null }));
-      if (canWrite) expect(screen.getByRole("link", { name: "Newsletter" })).toHaveAttribute("href", "/admin/newsletters");
-      else expect(screen.queryByRole("link", { name: "Newsletter" })).toBeNull();
+      const sidebar = within(screen.getByRole("navigation", { name: "Admin" }));
+      expect(sidebar.getByRole("link", { name: "Newsletter" })).toHaveAttribute("href", "/admin/newsletters");
     });
   });
 });
@@ -549,13 +551,13 @@ describe("the pages", () => {
     expect(screen.getByRole("heading", { name: "No such newsletter" })).toBeInTheDocument();
   });
 
-  it("lets a drafter write and test, but not send", async () => {
+  it("gives a regular admin, with no website-editing role, the whole editor including sending", async () => {
     const { id } = await seed({ tested: false });
-    await signInAs("draft");
+    await signInAs("regular admin");
     render(await NewsletterPage({ params: Promise.resolve({ id }) }));
     expect(screen.getByLabelText("Subject")).toHaveValue("November update");
-    expect(screen.getByText(/ask someone who has it to schedule it/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Schedule…" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Schedule…" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Send now" })).toBeInTheDocument();
     const preview = screen.getByTitle("Email preview") as HTMLIFrameElement;
     expect(preview.getAttribute("srcdoc")).toContain("Hello <strong>everyone</strong>.");
   });
@@ -655,11 +657,12 @@ describe("the pages", () => {
     await waitFor(() => expect(brevo.campaign(campaignId).status).toBe("suspended"));
   });
 
-  it("offers to check with Brevo after an interrupted hand-over, and tells a drafter who can act", async () => {
+  it("offers any admin rescheduling and cancelling, and a check with Brevo after an interrupted hand-over", async () => {
     const { id } = await seedScheduled();
-    await signInAs("draft");
+    await signInAs("regular admin");
     const first = render(await NewsletterPage({ params: Promise.resolve({ id }) }));
-    expect(screen.getByText(/Someone with permission to publish website pages can reschedule or cancel it/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reschedule" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel sending" })).toBeInTheDocument();
     first.unmount();
 
     await db.update(newsletters).set({ state: "submitting", submittedAt: new Date(NOW.getTime() - 60_000) }).where(eq(newsletters.id, id));

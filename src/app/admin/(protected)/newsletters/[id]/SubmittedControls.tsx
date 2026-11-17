@@ -15,14 +15,12 @@ export default function SubmittedControls({
   subject,
   status,
   stuck,
-  canSend,
   scheduledAt,
 }: {
   id: string;
   subject: string;
   status: NewsletterStatus["kind"];
   stuck: boolean;
-  canSend: boolean;
   scheduledAt: string | null;
 }) {
   const router = useRouter();
@@ -40,12 +38,6 @@ export default function SubmittedControls({
         router.refresh();
       } else setError(result.message);
     });
-
-  if (!canSend) {
-    return status === "scheduled" ? (
-      <p className="text-brand-black/70">Someone with permission to publish website pages can reschedule or cancel it.</p>
-    ) : null;
-  }
 
   if (status === "submitting") {
     return stuck ? (

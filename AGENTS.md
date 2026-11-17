@@ -15,8 +15,8 @@ To check a change in a browser as a particular admin, never use LinkedIn. `npm r
 Each account signs in on its own localhost subdomain of the dev server's port, by opening `/api/admin/dev-login` there:
 
 - `tech.localhost` → `tech@example.com`, technical admin: everything
-- `publish.localhost` → `publish@example.com`, edits and publishes pages, sends the newsletter
-- `draft.localhost` → `draft@example.com`, edits page drafts, writes and test-sends the newsletter
+- `publish.localhost` → `publish@example.com`, edits and publishes pages
+- `draft.localhost` → `draft@example.com`, edits page drafts
 - `reviewer.localhost` → `reviewer@example.com`, reviews applications only
 
 For example `http://publish.localhost:3001/api/admin/dev-login` (add `?next=/admin/cms` to land elsewhere). Cookies are kept per subdomain, so several accounts can be open side by side, and plain `localhost` stays signed out. `?as=publish` signs in on any host. The route answers 404 anywhere but `next dev`.

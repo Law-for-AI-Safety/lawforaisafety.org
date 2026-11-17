@@ -36,6 +36,7 @@ export const NAV_ITEMS: AdminNavItem[] = [
   { group: "Review", href: "/admin/applications", label: "Collaboration", count: { key: "collaboration", label: "waiting" } },
   { group: "Review", href: "/admin/red-lines-dialogue", label: "Red Lines", count: { key: "redLines", label: "waiting" } },
   { group: "Publish", href: "/admin/cms", label: "Website pages", show: (a) => a.cmsEdit },
+  { group: "Publish", href: "/admin/newsletters", label: "Newsletter" },
   {
     group: "Publish",
     href: "/admin/opportunities",

@@ -52,7 +52,6 @@ export type Refusal = {
   ok: false;
   reason:
     | "signed_out"
-    | "forbidden"
     | "invalid"
     | "not_found"
     | "conflict"
@@ -105,7 +104,7 @@ const fieldsOf = (row: NewsletterRow): NewsletterFields => ({
 });
 
 export async function createNewsletter(): Promise<{ ok: true; id: string } | Refusal> {
-  const actor = await requireNewsletter("write");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   return { ok: true, id: await insertNewsletter(actor.email) };
 }
@@ -114,7 +113,7 @@ export type SaveResult = { ok: true; version: number; problems: FieldProblems } 
 
 /** Saves the draft, if it is still at `version`. Unfinished drafts save too, with what they still need. */
 export async function saveNewsletter(id: unknown, fields: unknown, version: unknown): Promise<SaveResult> {
-  const actor = await requireNewsletter("write");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   const args = z.tuple([idArg, fieldsArg, versionArg]).safeParse([id, fields, version]);
   if (!args.success) return INVALID;
@@ -133,7 +132,7 @@ function refusalFor(row: NewsletterRow | null, version: number): Refusal {
 }
 
 export async function deleteNewsletter(id: unknown, version: unknown): Promise<{ ok: true } | Refusal> {
-  const actor = await requireNewsletter("write");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   const args = z.tuple([idArg, versionArg]).safeParse([id, version]);
   if (!args.success) return INVALID;
@@ -163,7 +162,7 @@ async function readyDraft(id: string, version: number): Promise<{ ok: true; row:
 
 /** Sends the saved draft at `version` to the signed-in admin, marked as a test. */
 export async function sendTestNewsletter(id: unknown, version: unknown): Promise<{ ok: true; to: string } | Refusal> {
-  const actor = await requireNewsletter("write");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   const args = z.tuple([idArg, versionArg]).safeParse([id, version]);
   if (!args.success) return INVALID;
@@ -188,7 +187,7 @@ export type ListSummary = { ok: true; name: string; subscribers: number; product
 
 /** The list a send goes to, with its live subscriber count, for the confirmation step. */
 export async function getSendList(): Promise<ListSummary> {
-  const actor = await requireNewsletter("send");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   try {
     const list = await getNewsletterList();
@@ -235,7 +234,7 @@ export async function scheduleNewsletter(
   when: unknown,
   typedCount: unknown,
 ): Promise<{ ok: true } | Refusal> {
-  const actor = await requireNewsletter("send");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   const args = z.tuple([idArg, versionArg, whenArg.nullable(), countArg]).safeParse([id, version, when, typedCount]);
   if (!args.success) return INVALID;
@@ -313,7 +312,7 @@ async function scheduledNewsletter(id: string): Promise<{ ok: true; row: Newslet
 
 /** Moves a scheduled newsletter to `when`, confirmed with the typed subscriber count as when it was first scheduled. */
 export async function rescheduleNewsletter(id: unknown, when: unknown, typedCount: unknown): Promise<{ ok: true } | Refusal> {
-  const actor = await requireNewsletter("send");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   const args = z.tuple([idArg, whenArg, countArg]).safeParse([id, when, typedCount]);
   if (!args.success) return INVALID;
@@ -340,7 +339,7 @@ export async function rescheduleNewsletter(id: unknown, when: unknown, typedCoun
 
 /** Stops a scheduled newsletter going out, and makes it an editable draft again. */
 export async function cancelNewsletter(id: unknown): Promise<{ ok: true } | Refusal> {
-  const actor = await requireNewsletter("send");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   const args = idArg.safeParse(id);
   if (!args.success) return INVALID;
@@ -367,7 +366,7 @@ export async function cancelNewsletter(id: unknown): Promise<{ ok: true } | Refu
  * or one still a Brevo draft, makes it an editable draft again.
  */
 export async function recoverNewsletter(id: unknown): Promise<{ ok: true } | Refusal> {
-  const actor = await requireNewsletter("send");
+  const actor = await requireNewsletter();
   if (!actor.ok) return actor;
   const args = idArg.safeParse(id);
   if (!args.success) return INVALID;

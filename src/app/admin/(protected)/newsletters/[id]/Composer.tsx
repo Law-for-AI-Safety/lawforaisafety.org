@@ -57,15 +57,14 @@ function TextField({
 
 /**
  * The newsletter editor: subject, preview text and body on one side, the email exactly as it
- * will look on the other. Then, in order: save, send yourself a test, and (for those who may
- * send) schedule or send now, through a confirmation step.
+ * will look on the other. Then, in order: save, send yourself a test, and schedule or send now,
+ * through a confirmation step.
  */
 export default function Composer({
   id,
   initial,
   initialVersion,
   initialTestedVersion,
-  canSend,
   me,
   sender,
 }: {
@@ -73,7 +72,6 @@ export default function Composer({
   initial: NewsletterFields;
   initialVersion: number;
   initialTestedVersion: number | null;
-  canSend: boolean;
   me: string;
   sender: string;
 }) {
@@ -207,49 +205,40 @@ export default function Composer({
 
         <section className="flex flex-col gap-3 border-t border-brand-black/10 pt-4">
           <h2 className="font-sans text-xl text-brand-black">Send to the list</h2>
-          {!canSend ? (
-            <p className="text-brand-black/70">
-              Sending needs permission to publish website pages. Once it&apos;s ready and tested, ask someone who has it to
-              schedule it.
-            </p>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="sr-only">When</legend>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="when" checked={mode === "schedule"} onChange={() => setMode("schedule")} />
+              Schedule for a date and time
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="when" checked={mode === "now"} onChange={() => setMode("now")} />
+              Send now
+            </label>
+          </fieldset>
+          {mode === "schedule" && <WhenPicker label="Send at" value={when} onChange={(v) => { setWhen(v); setConfirming(false); }} />}
+          {sendBlocker && <p className="text-sm text-brand-black/70">{sendBlocker}</p>}
+          {!confirming ? (
+            <button
+              type="button"
+              disabled={!!sendBlocker || pending}
+              onClick={() => setConfirming(true)}
+              className="self-start rounded-sm border-2 border-brand-red px-4 py-2 text-brand-red disabled:opacity-40"
+            >
+              {mode === "schedule" ? "Schedule…" : "Send now…"}
+            </button>
           ) : (
-            <>
-              <fieldset className="flex flex-col gap-2">
-                <legend className="sr-only">When</legend>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="when" checked={mode === "schedule"} onChange={() => setMode("schedule")} />
-                  Schedule for a date and time
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="when" checked={mode === "now"} onChange={() => setMode("now")} />
-                  Send now
-                </label>
-              </fieldset>
-              {mode === "schedule" && <WhenPicker label="Send at" value={when} onChange={(v) => { setWhen(v); setConfirming(false); }} />}
-              {sendBlocker && <p className="text-sm text-brand-black/70">{sendBlocker}</p>}
-              {!confirming ? (
-                <button
-                  type="button"
-                  disabled={!!sendBlocker || pending}
-                  onClick={() => setConfirming(true)}
-                  className="self-start rounded-sm border-2 border-brand-red px-4 py-2 text-brand-red disabled:opacity-40"
-                >
-                  {mode === "schedule" ? "Schedule…" : "Send now…"}
-                </button>
-              ) : (
-                <ConfirmSend
-                  subject={fields.subject.trim()}
-                  at={at}
-                  action="Schedule"
-                  onClose={() => setConfirming(false)}
-                  onConfirm={async (count) => {
-                    const result = await scheduleNewsletter(id, version, at ? at.toISOString() : null, count);
-                    if (result.ok) router.refresh();
-                    return result;
-                  }}
-                />
-              )}
-            </>
+            <ConfirmSend
+              subject={fields.subject.trim()}
+              at={at}
+              action="Schedule"
+              onClose={() => setConfirming(false)}
+              onConfirm={async (count) => {
+                const result = await scheduleNewsletter(id, version, at ? at.toISOString() : null, count);
+                if (result.ok) router.refresh();
+                return result;
+              }}
+            />
           )}
         </section>
 

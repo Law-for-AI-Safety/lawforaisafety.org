@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { newsletterCan, requireNewsletter } from "@/lib/newsletter-access";
+import { requireNewsletter } from "@/lib/newsletter-access";
 import { getNewsletter } from "@/lib/newsletter-store";
 import { emailSender } from "@/lib/email";
 import { renderNewsletterHtml } from "@/newsletter/template";
 import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
 import { statusOf } from "../load";
-import NoNewsletterAccess from "../NoNewsletterAccess";
 import StatusBadge from "../StatusBadge";
 import Composer from "./Composer";
 import SubmittedControls from "./SubmittedControls";
@@ -29,11 +28,8 @@ function senderLabel(): string {
 
 /** One newsletter: the editor while it is a draft, or where it stands once Brevo has it. */
 export default async function NewsletterPage({ params }: { params: Promise<{ id: string }> }) {
-  const actor = await requireNewsletter("write");
-  if (!actor.ok) {
-    if (actor.reason === "signed_out") redirect("/admin/login");
-    return <NoNewsletterAccess />;
-  }
+  const actor = await requireNewsletter();
+  if (!actor.ok) redirect("/admin/login");
   const { id } = await params;
   const row = /^[0-9a-f-]{36}$/i.test(id) ? await getNewsletter(id) : null;
   if (!row) {
@@ -46,7 +42,6 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
       </main>
     );
   }
-  const canSend = newsletterCan(actor.access, "send");
   const sender = senderLabel();
   const fields = { subject: row.subject, previewText: row.previewText, body: row.body };
 
@@ -57,7 +52,6 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
         initial={fields}
         initialVersion={row.version}
         initialTestedVersion={row.testedVersion}
-        canSend={canSend}
         me={actor.email}
         sender={sender}
       />
@@ -77,7 +71,7 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
         </div>
         {row.submittedBy && <p className="text-sm text-brand-black/70">Handed to Brevo by {row.submittedBy}.</p>}
       </div>
-      <SubmittedControls id={row.id} subject={row.subject} status={status.kind} stuck={status.kind === "submitting" && status.stuck} canSend={canSend} scheduledAt={status.kind === "scheduled" ? status.at.toISOString() : null} />
+      <SubmittedControls id={row.id} subject={row.subject} status={status.kind} stuck={status.kind === "submitting" && status.stuck} scheduledAt={status.kind === "scheduled" ? status.at.toISOString() : null} />
       <iframe
         title="The newsletter as sent"
         srcDoc={renderNewsletterHtml(fields, { siteUrl: siteUrl(), unsubscribeHref: TEST_UNSUBSCRIBE_HREF })}

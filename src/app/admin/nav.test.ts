@@ -23,8 +23,8 @@ describe("activeHref", () => {
 });
 
 describe("visibleTo", () => {
-  it("shows every admin the review areas and nothing gated", () => {
-    expect(visibleTo(NAV_ITEMS, NOBODY).map((item) => item.label)).toEqual(["Collaboration", "Red Lines"]);
+  it("shows every admin the review areas and the newsletter, and nothing gated", () => {
+    expect(visibleTo(NAV_ITEMS, NOBODY).map((item) => item.label)).toEqual(["Collaboration", "Red Lines", "Newsletter"]);
     expect(visibleTo(ACCOUNT_ITEMS, NOBODY)).toEqual([]);
   });
 

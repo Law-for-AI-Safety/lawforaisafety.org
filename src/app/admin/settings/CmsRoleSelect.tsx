@@ -7,8 +7,8 @@ type Choice = "none" | "draft" | "publish";
 
 const LABELS: Record<Choice, string> = {
   none: "No access",
-  draft: "Can edit drafts and write the newsletter",
-  publish: "Can edit, publish and send the newsletter",
+  draft: "Can edit drafts",
+  publish: "Can edit and publish",
 };
 
 /** One person's website-editing permission, saved as soon as it is changed. */

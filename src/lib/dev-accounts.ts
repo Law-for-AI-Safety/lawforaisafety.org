@@ -22,8 +22,8 @@ export type DevAccount = {
 
 export const DEV_ACCOUNTS: readonly DevAccount[] = [
   { key: "tech", email: "tech@example.com", name: "Tess Tech (dev)", access: "technical admin: everything", tech: true, cms: null },
-  { key: "publish", email: "publish@example.com", name: "Pat Publisher (dev)", access: "reviews, edits and publishes pages, sends the newsletter", tech: false, cms: "publish" },
-  { key: "draft", email: "draft@example.com", name: "Drew Drafter (dev)", access: "reviews, edits page drafts, writes the newsletter", tech: false, cms: "draft" },
+  { key: "publish", email: "publish@example.com", name: "Pat Publisher (dev)", access: "reviews, edits and publishes pages", tech: false, cms: "publish" },
+  { key: "draft", email: "draft@example.com", name: "Drew Drafter (dev)", access: "reviews, edits page drafts", tech: false, cms: "draft" },
   { key: "reviewer", email: "reviewer@example.com", name: "Robin Reviewer (dev)", access: "reviews applications only", tech: false, cms: null },
 ];
 
