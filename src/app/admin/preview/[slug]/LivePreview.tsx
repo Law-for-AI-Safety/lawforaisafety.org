@@ -139,7 +139,7 @@ export default function LivePreview({ slug, initial, live, of }: Props) {
   return (
     <div onClickCapture={openLinksOutside}>
       <FormPreview>
-        <PageView slug={slug} page={{ blocks: rendered.map((b) => b.shown) }} renderBlock={frame} />
+        <PageView slug={slug} page={{ blocks: rendered.map((b) => b.shown) }} renderBlock={frame} footerSignup={false} />
       </FormPreview>
       <p role="note" className="fixed inset-x-0 bottom-0 z-50 bg-brand-red px-4 py-2 text-center font-sans text-brand-white">
         Preview of {shown}. {anyUnfinished ? "Blocks that are not finished are outlined in red." : "Visitors do not see this version until it is published."}

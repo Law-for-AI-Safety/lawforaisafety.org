@@ -262,6 +262,8 @@ export const adminAuditAction = pgEnum("admin_audit_action", [
   "newsletter_send_now",
   "newsletter_reschedule",
   "newsletter_cancel",
+  "newsletter_web_publish",
+  "newsletter_web_unpublish",
 ]);
 
 // Append-only record of who did what in the admin panel. The application row
@@ -660,4 +662,10 @@ export const newsletters = pgTable("newsletters", {
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
   // When Brevo reported it sent; once set, it is final and Brevo is not asked again.
   sentAt: timestamp("sent_at", { withTimezone: true }),
+  // Whether the issue is also a page on the website, at /newsletter/<web_slug>. It is shown only
+  // once Brevo says it was sent (src/newsletter/website.ts), so it can be ticked before sending.
+  // The slug is given when the issue is handed to Brevo, or ticked afterwards, and kept for good
+  // once it has been sent, so an issue taken down and put back keeps its address.
+  webPublished: boolean("web_published").notNull().default(false),
+  webSlug: text("web_slug").unique(),
 });

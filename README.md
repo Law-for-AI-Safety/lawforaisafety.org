@@ -56,6 +56,16 @@ Never run `drizzle-kit migrate` or `push` against the Netlify database, and neve
 
 You'll also need real values for `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_ID`/`SECRET`, `RESEND_API_KEY`, `SLACK_WEBHOOK_URL`/`SLACK_BOT_TOKEN`, and the generated secrets (`SESSION_SECRET`, `EMAIL_HASH_SECRET`) — see `.env.example` for what each is for.
 
+## Newsletter
+
+Every admin writes, tests and schedules the newsletter at `/admin/newsletters`; Brevo sends it to the list. An issue can also go on the website: tick **Also publish on the website** on the issue, before or after sending. It is off by default, so an issue about an event or a deadline stays in inboxes only.
+
+- `/newsletter` is the newsletter's page: the sign-up, then the issues on the website, newest first. Each issue has its own page at `/newsletter/<slug from the subject>`, with a share card and a sitemap entry, and is announced to IndexNow as it goes up or comes down. The sign-up flow's pages (`/newsletter/confirm`, `confirmed`, `invalid`) are reserved: no issue takes their address (`RESERVED_ISSUE_SLUGS`, checked by a test against the folders there).
+- A ticked issue is shown only once Brevo says it was sent, never just because its send time has passed. A send now is checked at once. A scheduled one goes up when someone next opens the newsletter admin page, or at the latest at the next run of the sweep (every 6 hours, `src/app/api/cron/sweep`). It gets its address when Brevo takes it, and keeps it for good once it has been sent, so the address never passes to another issue.
+- Unticking takes the page down at once (a 404, out of the list and the sitemap). The email, sent or scheduled, is never touched. Cancelling a scheduled issue also keeps it off the website.
+- The page shows the body as sent, through the CMS rich-text renderer, without Brevo's merge tags (`{{ contact.FIRSTNAME }}`), which have no subscriber to fill them in. A sent issue can't be edited, so a correction on the website means unticking it.
+- The sign-up form (`src/app/NewsletterSignup.tsx`, the homepage's form) is in the footer of every page that has no sign-up of its own: not the homepage, `/newsletter`, an issue's page, or the confirmation pages. The footer's form loads Cloudflare Turnstile only once a visitor starts on it.
+
 ## Images
 
 `images.unoptimized: true` is set (independent of the deploy target — see below), so Next's image optimizer does not run — images must be pre-optimized before commit.

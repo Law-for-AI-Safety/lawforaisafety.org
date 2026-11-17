@@ -3,6 +3,7 @@ import { sweepOldDrafts } from "@/lib/applicant-flow";
 import { sweepOldRedLinesDrafts, sweepRejectedRedLinesApplications } from "@/lib/red-lines-flow";
 import { sweepDecidedSubmissions, sweepOldSubmissionDrafts } from "@/lib/opportunity-submission-flow";
 import { sweepUnconfirmedSignups } from "@/lib/newsletter-signup";
+import { confirmSentIssues } from "@/lib/newsletter-website";
 import { announceRecentlyClosed } from "@/lib/opportunities-flow";
 import { sweepRateLimitHits } from "@/lib/rate-limit";
 import { hasBearerSecret } from "@/lib/timing-safe-equal";
@@ -21,7 +22,8 @@ const CLOSED_WINDOW_MS = 12 * 60 * 60 * 1000;
  * confirmed (24 hours), newsletter signups never confirmed (7 days), opportunity submissions
  * decided and Red Lines Dialogues applications rejected over a year ago, and rate-limit
  * counters (1 hour). It also tells the search engines about opportunities that have closed since
- * recent runs (see `announceRecentlyClosed`).
+ * recent runs (see `announceRecentlyClosed`), and puts up newsletter issues ticked for the
+ * website once Brevo has sent them (see `confirmSentIssues`).
  *
  * Called every 6 hours by netlify/functions/sweep-expired-data.mts. The sweeps also
  * run opportunistically when someone submits a form, but on a quiet site
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
     newsletterSignups,
     rateLimitHits,
     closedOpportunities,
+    newsletterIssuesUp,
   ] = await Promise.all([
     sweepOldDrafts(),
     sweepOldRedLinesDrafts(),
@@ -54,6 +57,7 @@ export async function POST(request: Request) {
     sweepUnconfirmedSignups(),
     sweepRateLimitHits(),
     announceRecentlyClosed(new Date(), CLOSED_WINDOW_MS),
+    confirmSentIssues(new Date()),
   ]);
 
   const result = {
@@ -65,6 +69,7 @@ export async function POST(request: Request) {
     newsletterSignups,
     rateLimitHits,
     closedOpportunities,
+    newsletterIssuesUp,
   };
   console.log(`[cron] Swept expired data: ${JSON.stringify(result)}`);
   return NextResponse.json(result);
