@@ -27,6 +27,10 @@ const ACTION_LABELS: Record<string, string> = {
   cms_draft_discard: "Discarded a page draft",
   cms_publish: "Tried to publish a page",
   sessions_end: "Ended someone's sessions",
+  newsletter_schedule: "Scheduled a newsletter",
+  newsletter_send_now: "Sent a newsletter",
+  newsletter_reschedule: "Rescheduled a newsletter",
+  newsletter_cancel: "Cancelled a scheduled newsletter",
 };
 
 const MAX_ENTRIES = 100;

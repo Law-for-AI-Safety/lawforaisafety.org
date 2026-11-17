@@ -211,6 +211,20 @@
       "when": 1794593226317,
       "tag": "0029_greedy_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794769354202,
+      "tag": "0030_rich_echo",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794933892882,
+      "tag": "0031_stale_zeigeist",
+      "breakpoints": true
     }
   ]
 }

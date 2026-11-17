@@ -2,6 +2,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { fakeFetch, routeOrigin } from "./fakes/network";
 import { github, GITHUB_API } from "./fakes/github";
 import { emails } from "./fakes/email";
+import { brevo, NEWSLETTER_LIST_ID } from "./fakes/brevo";
 import { turnstile } from "./fakes/turnstile";
 import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
@@ -18,6 +19,7 @@ Object.assign(process.env, {
   ADMIN_EMAILS: "admin@example.com",
   BREVO_API_KEY: "test-brevo-key",
   BREVO_FROM_EMAIL: "noreply@example.org",
+  BREVO_LIST_ID: String(NEWSLETTER_LIST_ID),
   EMAIL_HASH_SECRET: "test-email-hash-secret",
   NEXT_PUBLIC_SITE_URL: "https://lawforaisafety.test",
   // Read when the widget module loads, so it is set before any test imports it.
@@ -53,6 +55,7 @@ routeOrigin(GITHUB_API, (request) => github.handle(request));
 beforeEach(() => {
   dataCache.reset();
   emails.reset();
+  brevo.reset();
   turnstile.reset();
   github.reset();
   oauthProviders.reset();

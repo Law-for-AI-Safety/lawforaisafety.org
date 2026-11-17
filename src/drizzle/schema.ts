@@ -258,6 +258,10 @@ export const adminAuditAction = pgEnum("admin_audit_action", [
   "cms_withdraw",
   "cms_publish_outcome",
   "sessions_end",
+  "newsletter_schedule",
+  "newsletter_send_now",
+  "newsletter_reschedule",
+  "newsletter_cancel",
 ]);
 
 // Append-only record of who did what in the admin panel. The application row
@@ -622,3 +626,38 @@ export const opportunitySubmissions = pgTable(
   },
   (table) => [index("opportunity_submissions_status_idx").on(table.status)],
 );
+
+export const newsletterState = pgEnum("newsletter_state", ["draft", "submitting", "submitted"]);
+
+// A newsletter written in the admin panel. Brevo sends it and holds the list; this row holds the
+// editable source, which Brevo cannot (it keeps only rendered HTML). `body` is a CMS rich-text
+// string (src/cms/rich-text.ts). `version` goes up on every save, and a save names the version it
+// started from, so a stale save is refused. `testedVersion` is the version last test-sent, and
+// sending needs it to equal `version`.
+//
+// `state` is `draft` while it can be edited, `submitting` while a request is changing its Brevo
+// campaign (handing it over, rescheduling or cancelling: the claim that stops a double click or two
+// admins at once doing it twice), and `submitted` once Brevo has it. A change whose outcome Brevo
+// left unclear stays `submitting` until an admin checks with Brevo. Whether it has gone out is read
+// from Brevo, by `brevoCampaignId`, except `sentAt`, kept once Brevo says it was sent, which cannot
+// change. A campaign created but not yet scheduled keeps its id, and the next attempt reuses it;
+// cancelling suspends the campaign in Brevo and clears the id.
+export const newsletters = pgTable("newsletters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subject: text("subject").notNull().default(""),
+  previewText: text("preview_text").notNull().default(""),
+  body: text("body").notNull().default(""),
+  version: integer("version").notNull().default(1),
+  testedVersion: integer("tested_version"),
+  state: newsletterState("state").notNull().default("draft"),
+  brevoCampaignId: integer("brevo_campaign_id"),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  createdBy: text("created_by").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  submittedBy: text("submitted_by"),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }),
+  // When Brevo reported it sent; once set, it is final and Brevo is not asked again.
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+});
