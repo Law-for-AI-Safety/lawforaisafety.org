@@ -40,6 +40,9 @@ A Google sign-in that doesn't start from a LinkedIn session can't tell which
 LinkedIn address is the same person, so it closes LinkedIn only for the
 Workspace address. Ask admins to switch from the banner.
 
+A LinkedIn account that reports a Workspace address is refused from the
+start, with a message to use Google: its owner holds that Workspace account.
+
 `ADMIN_LINKEDIN_KEEP_EMAILS` lists the LinkedIn addresses that stay open even
 after their owner has moved (comma-separated, each also in `ADMIN_EMAILS`).
 Keep it as short as possible: every address on it can reach the admin panel

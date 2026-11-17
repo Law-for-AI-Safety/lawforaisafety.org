@@ -11,6 +11,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   workspace:
     "Use your Law for AI Safety Google account. Personal Google accounts and other organisations' accounts can't access the admin area.",
   forbidden: "That account isn't authorised to access the admin area.",
+  use_google:
+    "That LinkedIn account uses your Law for AI Safety address, so log in with your Law for AI Safety Google account instead.",
   moved:
     "You've moved to your Law for AI Safety Google account, so LinkedIn login is closed for you. Log in with Google instead.",
 };

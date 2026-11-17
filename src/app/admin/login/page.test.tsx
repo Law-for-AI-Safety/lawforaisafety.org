@@ -28,6 +28,10 @@ describe("the admin login page", () => {
     ],
     ["forbidden", "That account isn't authorised to access the admin area."],
     [
+      "use_google",
+      "That LinkedIn account uses your Law for AI Safety address, so log in with your Law for AI Safety Google account instead.",
+    ],
+    [
       "moved",
       "You've moved to your Law for AI Safety Google account, so LinkedIn login is closed for you. Log in with Google instead.",
     ],

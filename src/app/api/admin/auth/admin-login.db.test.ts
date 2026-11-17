@@ -250,11 +250,16 @@ describe("switching from LinkedIn to Google", () => {
     expect(await signInAs(ADMIN)).toBe("/admin");
   });
 
-  it("closes LinkedIn for a Workspace address that LinkedIn also reports", async () => {
+  it("refuses a LinkedIn account that reports a Workspace address, once Google login is set up", async () => {
     vi.stubEnv("ADMIN_EMAILS", `sam@${DOMAIN}`);
-    expect(await linkedinSignIn({ ...SAM_LINKEDIN, email: `sam@${DOMAIN}` })).toBe("/admin");
-    expect(await switchToGoogle(ADMIN)).toBe("/admin");
-    expect(await linkedinSignIn({ ...SAM_LINKEDIN, email: `sam@${DOMAIN}` })).toBe("/admin/login?error=moved");
+    const onWorkspace = { ...SAM_LINKEDIN, email: `Sam@${DOMAIN}` };
+    expect(await linkedinSignIn(onWorkspace)).toBe("/admin/login?error=use_google");
+    expect(await liveSessions()).toEqual([]);
+    vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", `sam@${DOMAIN}`);
+    expect(await linkedinSignIn(onWorkspace)).toBe("/admin");
+    vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", "");
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
+    expect(await linkedinSignIn(onWorkspace)).toBe("/admin");
   });
 
   it("leaves a personal address open when Google is used without a LinkedIn session to match it to", async () => {
@@ -276,7 +281,11 @@ describe("switching from LinkedIn to Google", () => {
   it("keeps LinkedIn open for an admin on ADMIN_LINKEDIN_KEEP_EMAILS", async () => {
     vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", " Sam@Personal.example ");
     await linkedinSignIn(SAM_LINKEDIN);
+    const otherDevice = cookieJar.get("admin_session")!.value;
+    await linkedinSignIn(SAM_LINKEDIN);
     expect(await switchToGoogle(ADMIN)).toBe("/admin");
+    cookieJar.set("admin_session", otherDevice);
+    expect(await getAdminSession()).toEqual({ email: "sam@personal.example", name: "Sam Admin" });
     expect(await linkedinSignIn(SAM_LINKEDIN)).toBe("/admin");
   });
 

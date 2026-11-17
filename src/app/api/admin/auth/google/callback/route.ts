@@ -8,6 +8,7 @@ import {
   adminWorkspaceDomain,
   isAdminWorkspaceAccount,
   isOnWorkspaceDomain,
+  mayKeepLinkedin,
   retireLinkedin,
 } from "@/lib/admin-workspace";
 import {
@@ -72,12 +73,13 @@ export async function GET(request: Request) {
 
   // The browser's current session, if it came from LinkedIn (an address off the Workspace
   // domain), is how this Workspace account is matched to the admin's LinkedIn address: both
-  // are closed to LinkedIn from now on, and every LinkedIn session of theirs ends.
+  // are closed to LinkedIn from now on, and every LinkedIn session of theirs ends, unless
+  // they are an admin who keeps LinkedIn.
   const previous = await getAdminSession();
   const linkedinEmail =
     previous && !isOnWorkspaceDomain(previous.email, domain) ? previous.email : null;
   await retireLinkedin(linkedinEmail ? [userInfo.email, linkedinEmail] : [userInfo.email], userInfo.email);
-  if (linkedinEmail) await endSessionsOf(linkedinEmail, userInfo.email);
+  if (linkedinEmail && !mayKeepLinkedin(linkedinEmail)) await endSessionsOf(linkedinEmail, userInfo.email);
 
   await startAdminSession({ email: userInfo.email, name: userInfo.name });
   // Kept so the task tracker can offer people by name; see adminPeople.
