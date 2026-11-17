@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, like } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, like, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsletters } from "@/drizzle/schema";
 import type { NewsletterFields } from "@/newsletter/template";
@@ -119,7 +119,11 @@ export async function markSent(id: string, sentAt: Date): Promise<void> {
   await db.update(newsletters).set({ sentAt }).where(eq(newsletters.id, id));
 }
 
-/** Back to an editable draft once its campaign is stopped. A test of the same version still counts. */
+/**
+ * Back to an editable draft once its campaign is stopped. A test of the same version still counts.
+ * One that went out keeps its website address, so the address never passes to another issue;
+ * one that never went out frees it, for a later send to take one from its subject.
+ */
 export async function returnToDraft(id: string, email: string): Promise<void> {
   await db
     .update(newsletters)
@@ -129,8 +133,8 @@ export async function returnToDraft(id: string, email: string): Promise<void> {
       scheduledAt: null,
       submittedBy: null,
       submittedAt: null,
-      // It never went out, so it has no address yet; a later send gives one from its subject then.
-      webSlug: null,
+      webSlug: sql`CASE WHEN ${newsletters.sentAt} IS NULL THEN NULL ELSE ${newsletters.webSlug} END`,
+      sentAt: null,
       updatedBy: email,
       updatedAt: new Date(),
     })
@@ -172,10 +176,47 @@ export async function ensureWebSlug(id: string): Promise<NewsletterRow | null> {
   }
 }
 
-/** Ticked issues Brevo has, with an address: the ones that are, or will be once sent, on the website. */
-export async function listWebsiteIssues(): Promise<NewsletterRow[]> {
+/** What the public pages show of an issue on the website, its body aside. */
+export type WebsiteIssueRow = { slug: string; subject: string; previewText: string; body: string; sentAt: Date };
+
+const onWebsite = and(
+  eq(newsletters.webPublished, true),
+  ne(newsletters.state, "draft"),
+  isNotNull(newsletters.webSlug),
+  isNotNull(newsletters.sentAt),
+);
+
+/** The issues on the website (`isOnWebsite` in src/newsletter/website.ts), newest first. */
+export async function listWebsiteIssues(): Promise<WebsiteIssueRow[]> {
+  // Both are set on every row `onWebsite` matches.
+  return db
+    .select({
+      slug: sql<string>`${newsletters.webSlug}`,
+      subject: newsletters.subject,
+      previewText: newsletters.previewText,
+      body: newsletters.body,
+      sentAt: sql<Date>`${newsletters.sentAt}`.mapWith(newsletters.sentAt),
+    })
+    .from(newsletters)
+    .where(onWebsite)
+    .orderBy(desc(newsletters.sentAt));
+}
+
+/**
+ * Ticked issues Brevo was given to send by `now` that it hasn't yet been heard to have sent: the
+ * ones to ask Brevo about, so they go up once it has.
+ */
+export async function listUnconfirmedWebsiteIssues(now: Date): Promise<NewsletterRow[]> {
   return db
     .select()
     .from(newsletters)
-    .where(and(eq(newsletters.webPublished, true), eq(newsletters.state, "submitted")));
+    .where(
+      and(
+        eq(newsletters.webPublished, true),
+        eq(newsletters.state, "submitted"),
+        isNull(newsletters.sentAt),
+        isNotNull(newsletters.brevoCampaignId),
+        lte(newsletters.scheduledAt, now),
+      ),
+    );
 }

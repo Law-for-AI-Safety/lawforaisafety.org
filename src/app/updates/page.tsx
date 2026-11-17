@@ -6,7 +6,7 @@ import Rule from "@/cms/blocks/Rule";
 import { issuesOnWebsite } from "@/lib/newsletter-website";
 import { formatIssueDate } from "@/newsletter/dates";
 import { issuePath, UPDATES_PATH } from "@/newsletter/website";
-import SignupNote from "./SignupNote";
+import NewsletterSignup from "./NewsletterSignup";
 
 const DESCRIPTION = "News from Law for AI Safety, from our newsletter.";
 
@@ -18,18 +18,17 @@ export const metadata: Metadata = {
 
 /** The newsletter issues put on the website, newest first. */
 export default async function UpdatesPage() {
-  // Rendered per request, never prerendered: Netlify builds have no database, and a scheduled
-  // issue goes up at its send time. `connection()` makes the page dynamic while leaving on the
-  // data cache the issues are read through.
+  // Rendered per request, never prerendered: Netlify builds have no database, and issues go up
+  // and come down at any time. `connection()` makes the page dynamic while leaving on the data
+  // cache the issues are read through.
   await connection();
-  const issues = await issuesOnWebsite(new Date());
+  const issues = await issuesOnWebsite();
 
   return (
     <ContentPage gap={6}>
       <h1 className="text-[2.625rem] md:text-[4.125rem] font-light text-brand-black leading-[1.1] tracking-tight">Updates</h1>
       <Rule />
       <p className="text-xl md:text-2xl font-light text-brand-navy/85 leading-relaxed max-w-2xl">{DESCRIPTION}</p>
-      <SignupNote />
       {issues.length === 0 ? (
         <p className="text-lg font-light text-brand-navy/85">No updates yet.</p>
       ) : (
@@ -49,6 +48,7 @@ export default async function UpdatesPage() {
           ))}
         </ul>
       )}
+      <NewsletterSignup heading="Get these by email" />
     </ContentPage>
   );
 }

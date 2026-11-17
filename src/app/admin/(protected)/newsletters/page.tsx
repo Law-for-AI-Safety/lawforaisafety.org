@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import { listNewsletters } from "@/lib/newsletter-store";
-import { statusesOf } from "./load";
+import { statusesOf, withSent } from "./load";
 import NewNewsletterButton from "./NewNewsletterButton";
 import StatusBadge from "./StatusBadge";
 import { isOnWebsite, issuePath } from "@/newsletter/website";
@@ -19,7 +19,6 @@ export default async function NewslettersPage() {
   if (!actor.ok) redirect("/admin/login");
   const rows = await listNewsletters();
   const statuses = await statusesOf(rows);
-  const now = new Date();
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
@@ -51,7 +50,7 @@ export default async function NewslettersPage() {
                 </span>
                 {row.webPublished && (
                   <span className="text-sm text-brand-black/60">
-                    {isOnWebsite(row, now) && row.webSlug ? (
+                    {isOnWebsite(withSent(row, statuses[i])) && row.webSlug ? (
                       <>
                         On the website at{" "}
                         <Link href={issuePath(row.webSlug)} className="underline">

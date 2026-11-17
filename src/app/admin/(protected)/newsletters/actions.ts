@@ -15,7 +15,6 @@ import {
   updateCampaign,
 } from "@/lib/brevo-campaigns";
 import { isProductionDeploy } from "@/lib/deploy-context";
-import { notifyIndexNowLater } from "@/lib/indexnow";
 import { sendNewsletterTestEmail } from "@/lib/email";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import {
@@ -45,8 +44,8 @@ import {
 } from "@/newsletter/template";
 import { scheduleProblem, STUCK_AFTER_MS } from "@/newsletter/schedule";
 import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
-import { clearWebsiteIssues } from "@/lib/newsletter-website";
-import { isOnWebsite, issuePath, UPDATES_PATH } from "@/newsletter/website";
+import { announceIssue, clearWebsiteIssues, confirmSent } from "@/lib/newsletter-website";
+import { isOnWebsite, issuePath } from "@/newsletter/website";
 
 /**
  * The newsletter's server actions. Each is a public endpoint: it checks the caller's permission
@@ -413,8 +412,6 @@ export async function rescheduleNewsletter(id: unknown, when: unknown, typedCoun
     return brevoFailure(err, "reschedule the newsletter");
   }
   await unclaimSubmitted(newsletterId, time.at);
-  // A ticked issue goes up on the website at its new time, not the cached old one.
-  if (scheduled.row.webPublished) clearWebsiteIssues();
   await recordAdminAction({
     actorEmail: actor.email,
     action: "newsletter_reschedule",
@@ -528,8 +525,9 @@ export async function reopenNewsletter(id: unknown): Promise<{ ok: true } | Refu
 }
 
 /**
- * After Brevo has taken an issue: a ticked one gets its website address, and goes up on the
- * website at its send time, at once for one sent now.
+ * After Brevo has taken an issue: a ticked one gets its website address, and goes up once Brevo
+ * says it was sent: asked at once, for a send now, and otherwise by the sweep or the next visit to
+ * the newsletter page.
  */
 async function handedOver(id: string): Promise<void> {
   // The email is with Brevo by now, so a failure here must not report the send as failed. The
@@ -541,19 +539,14 @@ async function handedOver(id: string): Promise<void> {
     console.error(`[newsletter] Could not give newsletter ${id} its website address`, err);
     return;
   }
-  if (!row?.webPublished) return;
-  clearWebsiteIssues();
-  if (row.webSlug && isOnWebsite(row, new Date())) notifyIndexNowLater([issuePath(row.webSlug), UPDATES_PATH]);
+  if (row?.webPublished) await confirmSent(row);
 }
 
-/**
- * After an issue becomes a draft again: a ticked one comes off the website. `was` is the row as
- * it stood before, mid-change or not, so a page that was up is announced as gone.
- */
+/** After an issue becomes a draft again: a ticked one comes off the website, if it was up. */
 function backToDraft(was: NewsletterRow): void {
   if (!was.webPublished) return;
   clearWebsiteIssues();
-  if (was.webSlug && isOnWebsite({ ...was, state: "submitted" }, new Date())) notifyIndexNowLater([issuePath(was.webSlug), UPDATES_PATH]);
+  if (isOnWebsite(was)) announceIssue(was.webSlug);
 }
 
 export type WebsiteResult = { ok: true; onWebsite: boolean; path: string | null } | Refusal;
@@ -572,21 +565,42 @@ export async function setNewsletterOnWebsite(id: unknown, on: unknown): Promise<
 
   const before = await getNewsletter(newsletterId);
   if (!before) return NOT_FOUND;
-  const now = new Date();
-  const wasUp = isOnWebsite(before, now);
   let row = await setWebPublished(newsletterId, publish);
   if (!row) return NOT_FOUND;
-  if (publish) row = (await ensureWebSlug(newsletterId)) ?? row;
-  const isUp = isOnWebsite(row, now);
+  let slugFailed = false;
+  let announced = false;
+  if (publish) {
+    try {
+      row = (await ensureWebSlug(newsletterId)) ?? row;
+    } catch (err) {
+      console.error(`[newsletter] Could not give newsletter ${newsletterId} its website address`, err);
+      slugFailed = true;
+    }
+    // Sent before it was ticked, with no one asking Brevo since: ask now, so it goes up at once.
+    // `confirmSent` announces it when it does.
+    if (row.webSlug !== null && (await confirmSent(row))) {
+      announced = true;
+      row = (await getNewsletter(newsletterId)) ?? row;
+    }
+  }
   clearWebsiteIssues();
-  if (row.webSlug && wasUp !== isUp) notifyIndexNowLater([issuePath(row.webSlug), UPDATES_PATH]);
-
+  const wasUp = isOnWebsite(before);
+  const isUp = isOnWebsite(row);
+  if (isOnWebsite(row) && !wasUp && !announced) announceIssue(row.webSlug);
+  else if (isOnWebsite(before) && !isUp) announceIssue(before.webSlug);
   if (before.webPublished !== publish) {
     await recordAdminAction({
       actorEmail: actor.email,
       action: publish ? "newsletter_web_publish" : "newsletter_web_unpublish",
       detail: { newsletter: newsletterId, subject: row.subject.trim(), slug: row.webSlug, live: publish ? isUp : wasUp },
     });
+  }
+  if (slugFailed) {
+    return {
+      ok: false,
+      reason: "conflict",
+      message: "It is ticked, but couldn't be given its website address, so it isn't up yet. Tick it again to retry.",
+    };
   }
   return { ok: true, onWebsite: isUp, path: row.webSlug ? issuePath(row.webSlug) : null };
 }

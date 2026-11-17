@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { HONEYPOT_FIELD_NAME } from "@/lib/abuse-protection";
 import RenderedAtField, { useRenderedAt } from "./RenderedAtField";
 import WipeSubmitButton from "../WipeSubmitButton";
@@ -11,10 +11,11 @@ export default function NewsletterForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
   const renderedAt = useRenderedAt();
+  const emailId = useId();
 
   if (status === "done") {
     return (
-      <p className="text-lg text-brand-navy">
+      <p role="status" className="text-lg text-brand-navy">
         Thanks. Check your inbox to confirm your subscription.
       </p>
     );
@@ -66,10 +67,15 @@ export default function NewsletterForm() {
       <RenderedAtField value={renderedAt} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <label htmlFor={emailId} className="sr-only">
+          Email address
+        </label>
         <input
+          id={emailId}
           type="email"
           name="email"
           required
+          autoComplete="email"
           placeholder="you@example.com"
           className={`flex-1 text-brand-black ${FIELD_CLASSES}`}
         />
@@ -87,7 +93,11 @@ export default function NewsletterForm() {
 
       <TurnstileWidget />
 
-      {error && <p className="text-lg text-brand-red">{error}</p>}
+      {error && (
+        <p role="alert" className="text-lg text-brand-red">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

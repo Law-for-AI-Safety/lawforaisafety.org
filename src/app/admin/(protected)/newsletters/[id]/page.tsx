@@ -6,7 +6,7 @@ import { getNewsletter } from "@/lib/newsletter-store";
 import { emailSender } from "@/lib/email";
 import { renderNewsletterHtml } from "@/newsletter/template";
 import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
-import { statusOf, websiteStanding } from "../load";
+import { statusOf, websiteStanding, withSent } from "../load";
 import StatusBadge from "../StatusBadge";
 import WebsiteOption from "../WebsiteOption";
 import Composer from "./Composer";
@@ -74,7 +74,7 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
         {row.submittedBy && <p className="text-sm text-brand-black/70">Handed to Brevo by {row.submittedBy}.</p>}
       </div>
       <SubmittedControls id={row.id} subject={row.subject} status={status.kind} stuck={status.kind === "submitting" && status.stuck} scheduledAt={status.kind === "scheduled" ? status.at.toISOString() : null} />
-      <WebsiteOption id={row.id} initial={websiteStanding(row)} />
+      <WebsiteOption id={row.id} initial={websiteStanding(withSent(row, status))} />
       <iframe
         title="The newsletter as sent"
         srcDoc={renderNewsletterHtml(fields, { siteUrl: siteUrl(), unsubscribeHref: TEST_UNSUBSCRIBE_HREF })}

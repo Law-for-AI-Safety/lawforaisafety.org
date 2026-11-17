@@ -10,7 +10,7 @@ import { issueOnWebsite } from "@/lib/newsletter-website";
 import { formatIssueDate } from "@/newsletter/dates";
 import { issuePath, UPDATES_PATH } from "@/newsletter/website";
 import IssueBody from "../IssueBody";
-import SignupNote from "../SignupNote";
+import NewsletterSignup from "../NewsletterSignup";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -22,7 +22,7 @@ const load = cache(async (slug: string) => {
   // Rendered per request: Netlify builds have no database, and an issue can be taken down at
   // any time. `connection()` makes the page dynamic while leaving on the data cache.
   await connection();
-  const issue = await issueOnWebsite(slug, new Date());
+  const issue = await issueOnWebsite(slug);
   if (!issue) notFound();
   return issue;
 });
@@ -70,7 +70,7 @@ export default async function IssuePage({ params }: Props) {
         <IssueBody body={issue.body} />
       </article>
       <Rule />
-      <SignupNote />
+      <NewsletterSignup heading="Get the next one by email" />
     </ContentPage>
   );
 }

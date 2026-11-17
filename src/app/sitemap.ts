@@ -15,13 +15,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // the public pages, so a crawler's visit needn't wake the database.
   await connection();
 
+  const [opportunities, issues] = await Promise.all([getCachedOpportunities(), issuesOnWebsite()]);
+
   // Content pages are dated by their files' updatedAt; see sitemapEntries.
   const entries: MetadataRoute.Sitemap = sitemapEntries(siteDirs());
 
   // Opportunity detail pages have a dynamic segment, so sitemapEntries() (which
   // excludes any route with a `[` segment) never sees them; add them by hand. A closed
   // listing's page stays up but is noindex, so it is left out here too.
-  for (const opportunity of openOpportunities(await getCachedOpportunities(), new Date())) {
+  for (const opportunity of openOpportunities(opportunities, new Date())) {
     entries.push({
       url: `${SITE_URL}/opportunities/${opportunity.slug}`,
       lastModified: new Date(opportunity.publishedAt),
@@ -32,7 +34,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Newsletter issues on the website, and their list while it has any. An issue taken down is a
   // 404, so it leaves here at once.
-  const issues = await issuesOnWebsite(new Date());
   if (issues.length > 0) {
     entries.push({ url: `${SITE_URL}${UPDATES_PATH}`, lastModified: new Date(issues[0].sentAt), changeFrequency: "weekly", priority: 0.6 });
     for (const issue of issues) {

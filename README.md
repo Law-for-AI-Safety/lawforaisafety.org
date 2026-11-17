@@ -60,10 +60,10 @@ You'll also need real values for `LINKEDIN_CLIENT_ID`/`SECRET`, `GOOGLE_CLIENT_I
 
 Every admin writes, tests and schedules the newsletter at `/admin/newsletters`; Brevo sends it to the list. An issue can also go on the website: tick **Also publish on the website** on the issue, before or after sending. It is off by default, so an issue about an event or a deadline stays in inboxes only.
 
-- A ticked issue is shown only once it has been sent: at once for a send now, at its send time for a scheduled one. It gets its address, `/updates/<slug from the subject>`, when Brevo takes it, and keeps it while it stays sent.
-- `/updates` lists the issues on the website, newest first. Each has its own page, share card and sitemap entry, and is announced to IndexNow as it goes up or comes down.
+- A ticked issue is shown only once Brevo says it was sent, never just because its send time has passed. A send now is checked at once. A scheduled one goes up when someone next opens the newsletter page, or at the latest at the next run of the sweep (every 6 hours, `src/app/api/cron/sweep`). It gets its address, `/updates/<slug from the subject>`, when Brevo takes it, and keeps it for good once it has been sent, so the address never passes to another issue.
+- `/updates` lists the issues on the website, newest first. Each has its own page, share card and sitemap entry, and is announced to IndexNow as it goes up or comes down. Both pages have the newsletter sign-up form, the homepage's.
 - Unticking takes the page down at once (a 404, out of the list and the sitemap). The email, sent or scheduled, is never touched. Cancelling a scheduled issue also keeps it off the website.
-- The page shows the body exactly as sent, through the CMS rich-text renderer. A sent issue can't be edited, so a correction on the website means unticking it.
+- The page shows the body as sent, through the CMS rich-text renderer, without Brevo's merge tags (`{{ contact.FIRSTNAME }}`), which have no subscriber to fill them in. A sent issue can't be edited, so a correction on the website means unticking it.
 
 ## Images
 

@@ -12,12 +12,12 @@ import { cookieJar } from "../../../../../test/next-headers";
 import IssuePage from "../../../updates/[slug]/page";
 import UpdatesPage from "../../../updates/page";
 import sitemap from "../../../sitemap";
+import { POST as sweep } from "../../../api/cron/sweep/route";
 import {
   cancelNewsletter,
   createNewsletter,
   recoverNewsletter,
   reopenNewsletter,
-  rescheduleNewsletter,
   saveNewsletter,
   scheduleNewsletter,
   sendTestNewsletter,
@@ -44,6 +44,7 @@ beforeEach(async () => {
   vi.stubEnv("ADMIN_EMAILS", ADMIN);
   vi.stubEnv("DEPLOY_CONTEXT", "production");
   vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY);
+  vi.stubEnv("CRON_SECRET", "test-cron-secret");
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   await db.delete(newsletters);
@@ -80,6 +81,29 @@ async function draft(fields = FIELDS): Promise<{ id: string; version: number }> 
   return { id: created.id, version: saved.version };
 }
 
+/** Plays Brevo finishing a scheduled campaign. */
+function sentByBrevo(campaignId: number, at: string) {
+  Object.assign(brevo.campaign(campaignId), { status: "sent", sentDate: at });
+}
+
+async function sweepOnce(): Promise<Record<string, number>> {
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  const response = await sweep(new Request("https://lawforaisafety.test/api/cron/sweep", { method: "POST", headers: { Authorization: "Bearer test-cron-secret" } }));
+  return response.json();
+}
+
+/** Runs `fn` while the database refuses every website address, as if each were taken. */
+async function refuseSlugs(fn: () => Promise<void>) {
+  await db.execute(`CREATE OR REPLACE FUNCTION refuse_slug() RETURNS trigger AS $$ BEGIN
+    IF NEW.web_slug IS NOT NULL THEN RAISE unique_violation USING MESSAGE = 'taken'; END IF; RETURN NEW; END $$ LANGUAGE plpgsql`);
+  await db.execute("CREATE TRIGGER refuse_slug BEFORE UPDATE ON newsletters FOR EACH ROW EXECUTE FUNCTION refuse_slug()");
+  try {
+    await fn();
+  } finally {
+    await db.execute("DROP TRIGGER refuse_slug ON newsletters");
+  }
+}
+
 async function send(id: string, version: number, when: string | null = null) {
   const result = await scheduleNewsletter(id, version, when, 120);
   if (!result.ok) throw new Error(result.message);
@@ -113,33 +137,55 @@ describe("ticking an issue for the website", () => {
     expect(await sitemapUrls()).toEqual([LIST, PAGE]);
   });
 
-  it("on a scheduled issue puts it up at its send time", async () => {
+  it("on a scheduled issue puts it up once Brevo has sent it, found by the sweep", async () => {
     const { id, version } = await draft();
     await setNewsletterOnWebsite(id, true);
     await send(id, version, IN_A_WEEK);
     expect((await row(id)).webSlug).toBe("november-update");
-    // Read before the send time, so the cached list holds it, still not shown.
+    expect(await isUp()).toBe(false);
+
+    // Its send time passing is not enough: Brevo may not have sent it.
+    vi.setSystemTime(new Date(IN_A_WEEK));
+    expect(await sweepOnce()).toMatchObject({ newsletterIssuesUp: 0 });
     expect(await isUp()).toBe(false);
     expect(await sitemapUrls()).toEqual([]);
-    expect(indexNow.urls()).toEqual([]);
 
-    vi.setSystemTime(new Date(IN_A_WEEK));
+    sentByBrevo(brevo.campaigns[0].id, "2026-11-22T09:03:00.000Z");
+    expect(await sweepOnce()).toMatchObject({ newsletterIssuesUp: 1 });
     expect(await isUp()).toBe(true);
+    expect((await row(id)).sentAt).toEqual(new Date("2026-11-22T09:03:00Z"));
     expect(await sitemapUrls()).toEqual([LIST, PAGE]);
+    expect(indexNow.urls()).toEqual([PAGE, LIST]);
+    // Already up, so the next sweep leaves it be.
+    expect(await sweepOnce()).toMatchObject({ newsletterIssuesUp: 0 });
   });
 
-  it("on a rescheduled issue puts it up at its new time", async () => {
+  it("on a scheduled issue puts it up when the newsletter page learns from Brevo it was sent", async () => {
     const { id, version } = await draft();
     await setNewsletterOnWebsite(id, true);
     await send(id, version, IN_A_WEEK);
-    expect(await isUp()).toBe(false);
-    const later = "2026-11-29T09:00:00.000Z";
-    expect(await rescheduleNewsletter(id, later, 120)).toEqual({ ok: true });
-
     vi.setSystemTime(new Date(IN_A_WEEK));
-    expect(await isUp()).toBe(false);
-    vi.setSystemTime(new Date(later));
+    sentByBrevo(brevo.campaigns[0].id, IN_A_WEEK);
+    // A week on, the session has lapsed.
+    await startAdminSession({ email: ADMIN, name: "Admin" });
+    render(await NewslettersPage());
+    expect(screen.getByRole("link", { name: "/updates/november-update" })).toBeInTheDocument();
     expect(await isUp()).toBe(true);
+    expect(indexNow.urls()).toEqual([PAGE, LIST]);
+  });
+
+  it("stays down while Brevo can't be asked, and is tried again", async () => {
+    const { id, version } = await draft();
+    await setNewsletterOnWebsite(id, true);
+    await send(id, version, IN_A_WEEK);
+    vi.setSystemTime(new Date(IN_A_WEEK));
+    sentByBrevo(brevo.campaigns[0].id, IN_A_WEEK);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    brevo.failNext("GET /v3/emailCampaigns");
+    expect(await sweepOnce()).toMatchObject({ newsletterIssuesUp: 0 });
+    expect(error).toHaveBeenCalledWith(expect.stringMatching(/Could not check with Brevo/), expect.anything());
+    expect(await isUp()).toBe(false);
+    expect(await sweepOnce()).toMatchObject({ newsletterIssuesUp: 1 });
   });
 
   it("after sending puts it up at once, and leaves the email alone", async () => {
@@ -151,7 +197,8 @@ describe("ticking an issue for the website", () => {
     expect(await setNewsletterOnWebsite(id, true)).toEqual({ ok: true, onWebsite: true, path: "/updates/november-update" });
     expect(await isUp()).toBe(true);
     expect(indexNow.urls()).toEqual([PAGE, LIST]);
-    expect(brevo.calls.length).toBe(callsBefore);
+    // Brevo is only asked whether it was sent; nothing about the campaign changes.
+    expect(brevo.calls.slice(callsBefore)).toEqual([`GET /v3/emailCampaigns/${brevo.campaigns[0].id}`]);
     expect(await audit()).toEqual([{ action: "newsletter_web_publish", detail: { newsletter: id, subject: "November update", slug: "november-update", live: true } }]);
   });
 
@@ -222,6 +269,11 @@ describe("taking an issue off the website", () => {
     expect(await reopenNewsletter(id)).toEqual({ ok: true });
     expect(await isUp()).toBe(false);
     expect(indexNow.urls()).toEqual([PAGE, LIST]);
+    // It went out, so it keeps its address: another issue with the same subject can't take it.
+    expect(await row(id)).toMatchObject({ state: "draft", webSlug: "november-update", sentAt: null });
+    const other = await draft();
+    await send(other.id, other.version);
+    expect(await setNewsletterOnWebsite(other.id, true)).toMatchObject({ path: "/updates/november-update-2" });
   });
 });
 
@@ -258,19 +310,25 @@ describe("an interrupted hand-over", () => {
     expect(await isUp()).toBe(false);
   });
 
+  it("says so when ticking can't give the issue its website address, and records the tick", async () => {
+    const { id, version } = await draft();
+    await send(id, version);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await refuseSlugs(async () => {
+      expect(await setNewsletterOnWebsite(id, true)).toMatchObject({ ok: false, message: expect.stringMatching(/couldn't be given its website address/) });
+    });
+    expect(await row(id)).toMatchObject({ webPublished: true, webSlug: null });
+    expect((await audit()).map((a) => a.action)).toEqual(["newsletter_web_publish"]);
+    expect(await setNewsletterOnWebsite(id, true)).toMatchObject({ ok: true, onWebsite: true });
+  });
+
   it("still reports the send when the website address can't be given", async () => {
     const { id, version } = await draft();
     await setNewsletterOnWebsite(id, true);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    // The database refuses every address, as if each were taken: the store gives up after a few tries.
-    await db.execute(`CREATE OR REPLACE FUNCTION refuse_slug() RETURNS trigger AS $$ BEGIN
-      IF NEW.web_slug IS NOT NULL THEN RAISE unique_violation USING MESSAGE = 'taken'; END IF; RETURN NEW; END $$ LANGUAGE plpgsql`);
-    await db.execute("CREATE TRIGGER refuse_slug BEFORE UPDATE ON newsletters FOR EACH ROW EXECUTE FUNCTION refuse_slug()");
-    try {
+    await refuseSlugs(async () => {
       expect(await scheduleNewsletter(id, version, null, 120)).toEqual({ ok: true });
-    } finally {
-      await db.execute("DROP TRIGGER refuse_slug ON newsletters");
-    }
+    });
     expect(await row(id)).toMatchObject({ state: "submitted", webSlug: null });
     expect(error).toHaveBeenCalledWith(expect.stringMatching(/website address/), expect.anything());
     // Ticking it again gives it one.

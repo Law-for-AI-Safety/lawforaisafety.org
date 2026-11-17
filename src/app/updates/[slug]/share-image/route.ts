@@ -7,7 +7,7 @@ import { renderShareImage } from "../../../og-image";
 // an issue on the website now. The issue's page points its Open Graph and X images here.
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const issue = await issueOnWebsite(slug, new Date());
+  const issue = await issueOnWebsite(slug);
   if (!issue) notFound();
   return renderShareImage(issue.subject);
 }

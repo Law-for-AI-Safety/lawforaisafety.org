@@ -1,42 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { formatIssueDate } from "./dates";
-import { isBoundForWebsite, isOnWebsite, issuePath, issueSlug, issueSummary, sentDate, UPDATES_PATH, type WebsiteRow } from "./website";
+import { isOnWebsite, issuePath, issueSlug, issueSummary, UPDATES_PATH, websiteBody, type WebsiteRow } from "./website";
 
-const NOW = new Date("2026-11-15T12:00:00Z");
 const SENT: WebsiteRow = {
   state: "submitted",
   webPublished: true,
   webSlug: "november-update",
-  scheduledAt: new Date("2026-11-10T09:00:00Z"),
-  sentAt: null,
+  sentAt: new Date("2026-11-10T09:00:00Z"),
 };
 
 describe("whether an issue is on the website", () => {
-  it("is once ticked, handed to Brevo, given an address and past its send time", () => {
-    expect(isOnWebsite(SENT, NOW)).toBe(true);
-    expect(isOnWebsite({ ...SENT, scheduledAt: NOW }, NOW)).toBe(true);
+  it("is once ticked, given an address and sent by Brevo's word, also while a change to it is checked", () => {
+    expect(isOnWebsite(SENT)).toBe(true);
+    expect(isOnWebsite({ ...SENT, state: "submitting" })).toBe(true);
   });
 
-  it("is not while unticked, a draft, mid-change, without an address or before its send time", () => {
-    expect(isOnWebsite({ ...SENT, webPublished: false }, NOW)).toBe(false);
-    expect(isOnWebsite({ ...SENT, state: "draft" }, NOW)).toBe(false);
-    expect(isOnWebsite({ ...SENT, state: "submitting" }, NOW)).toBe(false);
-    expect(isOnWebsite({ ...SENT, webSlug: null }, NOW)).toBe(false);
-    expect(isOnWebsite({ ...SENT, scheduledAt: null }, NOW)).toBe(false);
-    expect(isOnWebsite({ ...SENT, scheduledAt: new Date("2026-11-15T12:00:01Z") }, NOW)).toBe(false);
-  });
-
-  it("counts a scheduled issue as bound for the website before its send time", () => {
-    const later = { ...SENT, scheduledAt: new Date("2026-12-01T09:00:00Z") };
-    expect(isBoundForWebsite(later)).toBe(true);
-    expect(isOnWebsite(later, NOW)).toBe(false);
-  });
-
-  it("dates an issue by when Brevo said it went, else by when it was given", () => {
-    expect(sentDate(SENT)).toEqual(SENT.scheduledAt);
-    const brevoSaid = new Date("2026-11-10T09:02:00Z");
-    expect(sentDate({ ...SENT, sentAt: brevoSaid })).toEqual(brevoSaid);
-    expect(isOnWebsite({ ...SENT, scheduledAt: null, sentAt: brevoSaid }, NOW)).toBe(true);
+  it("is not while unticked, a draft, without an address, or not yet heard to be sent", () => {
+    expect(isOnWebsite({ ...SENT, webPublished: false })).toBe(false);
+    expect(isOnWebsite({ ...SENT, state: "draft" })).toBe(false);
+    expect(isOnWebsite({ ...SENT, webSlug: null })).toBe(false);
+    expect(isOnWebsite({ ...SENT, sentAt: null })).toBe(false);
   });
 });
 
@@ -50,6 +33,23 @@ describe("an issue's address", () => {
   it("is numbered when taken, and has a fallback for a subject with no letters", () => {
     expect(issueSlug("Update", new Set(["update", "update-2"]))).toBe("update-3");
     expect(issueSlug("🎉 !!", new Set())).toBe("update");
+  });
+});
+
+describe("an issue's body on the website", () => {
+  it("is the email's, unchanged when it has no merge tags", () => {
+    const body = "Hello **everyone**.\n\n- [Apply](/field-building)";
+    expect(websiteBody(body)).toBe(body);
+  });
+
+  it("leaves out Brevo's merge tags, which have no subscriber to fill them in", () => {
+    expect(websiteBody("Hi {{ contact.FIRSTNAME }}, welcome.\n\nMore **news**.")).toBe("Hi, welcome.\n\nMore **news**.");
+    expect(websiteBody("{{ contact.FIRSTNAME }}, hello.")).toBe(", hello.");
+    expect(websiteBody("**Dear {{contact.NAME}}**\n\n{{ params.X }}\n\n- {{ a }}\n- Point\n\n- {{ b }}")).toBe("**Dear**\n\n- Point");
+  });
+
+  it("is left as it is when it can't be read", () => {
+    expect(websiteBody("**{{ x }}")).toBe("**{{ x }}");
   });
 });
 
