@@ -12,11 +12,13 @@ import {
   retireLinkedin,
 } from "@/lib/admin-workspace";
 import {
+  endAdminSession,
   endSessionsOf,
   getAdminSession,
   isAdminEmailAllowed,
   startAdminSession,
 } from "@/lib/session";
+import { takeSwitchFrom } from "@/lib/admin-switch-cookie";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
     (await verifyAdminOAuthState(state!)) &&
     (await oauthStateCookieMatches("admin", state));
   await clearOAuthStateCookie("admin");
+  const switchFrom = await takeSwitchFrom();
 
   if (!stateOk) {
     return seeOther("/admin/login?error=invalid");
@@ -71,15 +74,22 @@ export async function GET(request: Request) {
     return seeOther("/admin/login?error=forbidden");
   }
 
-  // The browser's current session, if it came from LinkedIn (an address off the Workspace
-  // domain), is how this Workspace account is matched to the admin's LinkedIn address: both
-  // are closed to LinkedIn from now on, and every LinkedIn session of theirs ends, unless
-  // they are an admin who keeps LinkedIn.
+  // A login started from the "Switch to Google" banner, in a browser still holding the same
+  // LinkedIn session (an address off the Workspace domain), is how this Workspace account is
+  // matched to the admin's LinkedIn address: both are closed to LinkedIn from now on, and
+  // every LinkedIn session of theirs ends, unless they are an admin who keeps LinkedIn. Any
+  // other Google login closes LinkedIn for the Workspace address only.
   const previous = await getAdminSession();
   const linkedinEmail =
-    previous && !isOnWorkspaceDomain(previous.email, domain) ? previous.email : null;
+    previous &&
+    switchFrom === previous.email.toLowerCase() &&
+    !isOnWorkspaceDomain(previous.email, domain)
+      ? previous.email
+      : null;
   await retireLinkedin(linkedinEmail ? [userInfo.email, linkedinEmail] : [userInfo.email], userInfo.email);
   if (linkedinEmail && !mayKeepLinkedin(linkedinEmail)) await endSessionsOf(linkedinEmail, userInfo.email);
+  // This browser's earlier session is replaced, so it ends rather than lingering as live.
+  if (previous) await endAdminSession();
 
   await startAdminSession({ email: userInfo.email, name: userInfo.name });
   // Kept so the task tracker can offer people by name; see adminPeople.

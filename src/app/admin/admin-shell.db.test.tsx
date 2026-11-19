@@ -191,7 +191,7 @@ describe("moving admins from LinkedIn to Google", () => {
     await signInAs("reviewer");
     render(await ProtectedAdminLayout({ children: null }));
     expect(banner()).toHaveTextContent("You're signed in with LinkedIn");
-    expect(within(banner()!).getByRole("link", { name: "Switch to Google" })).toHaveAttribute("href", "/api/admin/auth/google");
+    expect(within(banner()!).getByRole("link", { name: "Switch to Google" })).toHaveAttribute("href", "/api/admin/auth/google?switch=1");
   });
 
   it("doesn't ask a Workspace account, an admin who keeps LinkedIn, or anyone before Google login is set up", async () => {

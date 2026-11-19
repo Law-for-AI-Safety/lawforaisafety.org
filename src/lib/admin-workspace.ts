@@ -5,10 +5,16 @@ import type { OAuthUserInfo } from "@/lib/oauth";
 
 /**
  * The organisation's Google Workspace domain, or null while ADMIN_GOOGLE_DOMAIN is unset.
- * Kept in an env var rather than in code because the repository is public.
+ * Kept in an env var rather than in code because the repository is public. A leading `@` or
+ * a trailing dot is dropped, so a value copied from an address or a DNS record still matches.
  */
 export function configuredAdminWorkspaceDomain(): string | null {
-  return (process.env.ADMIN_GOOGLE_DOMAIN ?? "").trim().toLowerCase() || null;
+  const domain = (process.env.ADMIN_GOOGLE_DOMAIN ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, "")
+    .replace(/\.$/, "");
+  return domain || null;
 }
 
 /**

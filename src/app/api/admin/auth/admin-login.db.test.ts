@@ -29,7 +29,7 @@ function location(response: Response) {
 /** Opens the login route in a fresh browser, and returns the state Google would hand back. */
 async function startLogin(): Promise<string> {
   cookieJar.reset();
-  const response = await login.GET();
+  const response = await googleLogin();
   return new URL(location(response)!).searchParams.get("state")!;
 }
 
@@ -55,11 +55,13 @@ async function linkedinSignIn(user: ProviderUser, { fresh = true } = {}) {
   return location(await linkedinCallback.GET(new Request(`${APP_ORIGIN}/api/admin/auth/linkedin/callback?${query}`)));
 }
 
-/** Google login from a browser that is still signed in with LinkedIn. */
+/** The "Switch to Google" banner, clicked in a browser still signed in with LinkedIn. */
 async function switchToGoogle(user: ProviderUser) {
-  const state = new URL(location(await login.GET())!).searchParams.get("state")!;
+  const state = new URL(location(await googleLogin("?switch=1"))!).searchParams.get("state")!;
   return location(await callback({ code: oauthProviders.signIn("google", user), state }));
 }
+
+const googleLogin = (query = "") => login.GET(new Request(`${APP_ORIGIN}/api/admin/auth/google${query}`));
 
 const liveSessions = async () =>
   (await db.select().from(adminSessions)).filter((row) => row.endedAt === null).map((row) => row.email);
@@ -80,7 +82,7 @@ beforeEach(async () => {
 
 describe("starting an admin login", () => {
   it("sends the browser to Google, offering only the Workspace's accounts", async () => {
-    const response = await login.GET();
+    const response = await googleLogin();
     const url = new URL(location(response)!);
     expect(`${url.origin}${url.pathname}`).toBe("https://accounts.google.com/o/oauth2/v2/auth");
     expect(url.searchParams.get("client_id")).toBe("test-google-client");
@@ -91,13 +93,13 @@ describe("starting an admin login", () => {
 
   it("refuses to start without a Workspace domain configured", async () => {
     vi.stubEnv("ADMIN_GOOGLE_DOMAIN", " ");
-    await expect(login.GET()).rejects.toThrow("Missing required env var: ADMIN_GOOGLE_DOMAIN");
+    await expect(googleLogin()).rejects.toThrow("Missing required env var: ADMIN_GOOGLE_DOMAIN");
     expect(cookieJar.get("admin_oauth_state")).toBeUndefined();
   });
 
   it("refuses to start without the site's address", async () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
-    await expect(login.GET()).rejects.toThrow("Missing required env var: NEXT_PUBLIC_SITE_URL");
+    await expect(googleLogin()).rejects.toThrow("Missing required env var: NEXT_PUBLIC_SITE_URL");
   });
 });
 
@@ -111,6 +113,11 @@ describe("coming back from Google", () => {
     const [entry] = await db.select().from(adminAuditLog);
     expect(entry).toMatchObject({ actorEmail: `sam@${DOMAIN}`, action: "login", detail: { provider: "google" } });
     expect(await db.select().from(adminPeople)).toMatchObject([{ email: `sam@${DOMAIN}`, name: "Sam Admin" }]);
+  });
+
+  it("reads a domain written with a leading @ or a trailing dot", async () => {
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", ` @${DOMAIN}. `);
+    expect(await signInAs(ADMIN)).toBe("/admin");
   });
 
   it("matches the domain and the address whatever their case", async () => {
@@ -260,6 +267,52 @@ describe("switching from LinkedIn to Google", () => {
     vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", "");
     vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
     expect(await linkedinSignIn(onWorkspace)).toBe("/admin");
+  });
+
+  it("links nothing when Google login is started from the login page, even over a LinkedIn session", async () => {
+    vi.stubEnv("ADMIN_EMAILS", `sam@${DOMAIN},kim@personal.example`);
+    const kim = { ...SAM_LINKEDIN, sub: "linkedin-sub-2", name: "Kim", email: "kim@personal.example" };
+    await linkedinSignIn(kim);
+    const kimsLaptop = cookieJar.get("admin_session")!.value;
+    await linkedinSignIn(kim);
+    // Sam signs in with Google on the browser Kim left signed in.
+    const state = new URL(location(await googleLogin())!).searchParams.get("state")!;
+    expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state }))).toBe("/admin");
+
+    expect((await db.select().from(adminLinkedinRetired)).map((row) => row.email)).toEqual([`sam@${DOMAIN}`]);
+    // Kim's session in this browser is replaced and ends; the one on Kim's laptop is untouched.
+    expect((await liveSessions()).sort()).toEqual(["kim@personal.example", `sam@${DOMAIN}`]);
+    cookieJar.set("admin_session", kimsLaptop);
+    expect(await getAdminSession()).toMatchObject({ email: "kim@personal.example" });
+    expect(await linkedinSignIn(kim)).toBe("/admin");
+  });
+
+  it("links nothing when the switch was asked for by a different session than the one returning", async () => {
+    await linkedinSignIn(SAM_LINKEDIN);
+    await googleLogin("?switch=1");
+    cookieJar.set("admin_switch_from", "someone@personal.example");
+    const state = new URL(location(await googleLogin())!).searchParams.get("state")!;
+    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
+    cookieJar.set("admin_switch_from", "someone@personal.example");
+    expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state }))).toBe("/admin");
+    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
+    expect(await linkedinSignIn(SAM_LINKEDIN)).toBe("/admin");
+  });
+
+  it("asks nobody to switch when the banner's link is opened signed out", async () => {
+    cookieJar.reset();
+    await googleLogin("?switch=1");
+    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
+  });
+
+  it("forgets a switch request when Google login comes back with a bad state", async () => {
+    await linkedinSignIn(SAM_LINKEDIN);
+    await googleLogin("?switch=1");
+    expect(cookieJar.get("admin_switch_from")?.value).toBe("sam@personal.example");
+    expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state: "forged" }))).toBe(
+      "/admin/login?error=invalid",
+    );
+    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
   });
 
   it("leaves a personal address open when Google is used without a LinkedIn session to match it to", async () => {

@@ -36,9 +36,11 @@ reach them. Each admin moves once:
    LinkedIn sessions end. `/admin/settings` → LinkedIn logins shows who has
    moved.
 
-A Google sign-in that doesn't start from a LinkedIn session can't tell which
-LinkedIn address is the same person, so it closes LinkedIn only for the
-Workspace address. Ask admins to switch from the banner.
+Only the banner links the two addresses: it is clicked by whoever holds the
+LinkedIn session, so another admin signing in with Google on a shared browser
+can't close their LinkedIn login. A Google sign-in started anywhere else
+closes LinkedIn only for the Workspace address, so ask admins to switch from
+the banner.
 
 A LinkedIn account that reports a Workspace address is refused from the
 start, with a message to use Google: its owner holds that Workspace account.
