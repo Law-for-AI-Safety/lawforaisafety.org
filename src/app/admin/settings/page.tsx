@@ -23,6 +23,7 @@ import { endSessions } from "./session-actions";
 import { setCmsRole } from "./cms-actions";
 import { listPeople } from "@/lib/admin-people";
 import { listCmsRoles } from "@/lib/cms-store";
+import { linkedinRetirements, mayKeepLinkedin } from "@/lib/admin-workspace";
 
 export const metadata: Metadata = {
   title: "LAIS - Settings",
@@ -82,6 +83,12 @@ export default async function AdminSettingsPage({
   const logins = await getAdminLogins();
   const signedIn = await listSignedInAdmins();
   const pinned = pinnedAdminSubs();
+  const moved = await linkedinRetirements(logins.map((login) => login.email));
+  const movedTo = (email: string) => {
+    const googleEmail = moved.get(email.toLowerCase());
+    if (!googleEmail) return "Not moved to Google yet";
+    return `Moved to ${googleEmail}, ${mayKeepLinkedin(email) ? "keeps LinkedIn" : "LinkedIn closed"}`;
+  };
   const cmsRoles = new Map((await listCmsRoles()).map((r) => [r.email, r.permission]));
   // Everyone who has logged in, plus anyone holding a CMS role who has not (so it can be removed).
   const known = await listPeople();
@@ -284,11 +291,17 @@ export default async function AdminSettingsPage({
 
       <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl text-brand-black">Admin logins</h2>
+          <h2 className="text-xl text-brand-black">LinkedIn logins</h2>
           <p className="text-brand-black/70">
-            The LinkedIn account each admin has signed in with. To lock admin
-            login to these exact accounts, put the ids (comma-separated) in
-            the ADMIN_LINKEDIN_SUBS environment variable and redeploy.
+            The LinkedIn account each admin has signed in with. To lock
+            LinkedIn login to these exact accounts, put the ids
+            (comma-separated) in the ADMIN_LINKEDIN_SUBS environment variable
+            and redeploy.
+          </p>
+          <p className="text-brand-black/70">
+            Admin login is moving to Google. Once an admin switches to their
+            Workspace account, LinkedIn login closes for them, unless they are
+            in ADMIN_LINKEDIN_KEEP_EMAILS.
           </p>
           <p className="text-sm text-brand-black/60">
             {pinned.length > 0
@@ -323,6 +336,9 @@ export default async function AdminSettingsPage({
                     (pinned.includes(login.linkedinSub)
                       ? " · pinned"
                       : " · not pinned, can no longer log in")}
+                </span>
+                <span className="text-sm text-brand-black/60">
+                  {movedTo(login.email)}
                 </span>
               </li>
             ))}

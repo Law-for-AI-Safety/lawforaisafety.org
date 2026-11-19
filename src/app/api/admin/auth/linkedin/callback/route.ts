@@ -10,6 +10,12 @@ import {
   isAdminSubAllowed,
   isAdminSubPinningConfigured,
 } from "@/lib/session";
+import {
+  configuredAdminWorkspaceDomain,
+  isLinkedinRetired,
+  isOnWorkspaceDomain,
+  mayKeepLinkedin,
+} from "@/lib/admin-workspace";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -66,6 +72,20 @@ export async function GET(request: Request) {
     return seeOther("/admin/login?error=forbidden");
   }
 
+  // Closed once its owner has signed in with their Workspace Google account, so the
+  // Workspace's 2-step verification and suspension can't be sidestepped through LinkedIn.
+  // A LinkedIn account reporting a Workspace address is closed from the start: its owner
+  // holds that Workspace account, so can sign in with it.
+  if (!mayKeepLinkedin(userInfo.email)) {
+    const domain = configuredAdminWorkspaceDomain();
+    if (domain && isOnWorkspaceDomain(userInfo.email, domain)) {
+      return seeOther("/admin/login?error=use_google");
+    }
+    if (await isLinkedinRetired(userInfo.email)) {
+      return seeOther("/admin/login?error=moved");
+    }
+  }
+
   if (!isAdminSubPinningConfigured()) {
     // Also shown on /admin/settings → Admin logins, which is the easier place to collect it.
     console.log(
@@ -82,7 +102,7 @@ export async function GET(request: Request) {
   await recordAdminAction({
     actorEmail: userInfo.email,
     action: "login",
-    detail: { linkedinSub: userInfo.sub },
+    detail: { provider: "linkedin", linkedinSub: userInfo.sub },
   });
 
   return seeOther("/admin");

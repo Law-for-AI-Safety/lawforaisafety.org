@@ -1,6 +1,13 @@
 import { route } from "./network";
 
-export type ProviderUser = { sub: string; name: string; email: string; emailVerified?: boolean };
+export type ProviderUser = {
+  sub: string;
+  name: string;
+  email: string;
+  emailVerified?: boolean;
+  /** Google's `hd` claim, which it sends only for an account a Workspace manages. */
+  hostedDomain?: string;
+};
 
 const ENDPOINTS = {
   linkedin: { token: "https://www.linkedin.com/oauth/v2/accessToken", userinfo: "https://api.linkedin.com/v2/userinfo" },
@@ -48,7 +55,13 @@ class FakeOAuthProviders {
   userinfo(request: Request): Response {
     const user = this.tokens.get(request.headers.get("Authorization")?.replace(/^Bearer /, "") ?? "");
     if (!user) return new Response("Unauthorized", { status: 401 });
-    return Response.json({ sub: user.sub, name: user.name, email: user.email, email_verified: user.emailVerified ?? true });
+    return Response.json({
+      sub: user.sub,
+      name: user.name,
+      email: user.email,
+      email_verified: user.emailVerified ?? true,
+      ...(user.hostedDomain === undefined ? {} : { hd: user.hostedDomain }),
+    });
   }
 }
 
