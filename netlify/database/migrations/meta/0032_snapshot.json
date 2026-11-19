@@ -1,5 +1,5 @@
 {
-  "id": "7f7c0685-a18f-4945-8b98-bf3125624616",
+  "id": "580176e8-1a0f-4056-ba90-303d8918f81e",
   "prevId": "9aae9344-4b22-4d13-9c32-80115177108d",
   "version": "7",
   "dialect": "postgresql",
@@ -65,38 +65,6 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.admin_linkedin_retired": {
-      "name": "admin_linkedin_retired",
-      "schema": "",
-      "columns": {
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "google_email": {
-          "name": "google_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "retired_at": {
-          "name": "retired_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -851,12 +819,33 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "web_published": {
+          "name": "web_published",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "web_slug": {
+          "name": "web_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "newsletters_web_slug_unique": {
+          "name": "newsletters_web_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "web_slug"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -2006,7 +1995,9 @@
         "newsletter_schedule",
         "newsletter_send_now",
         "newsletter_reschedule",
-        "newsletter_cancel"
+        "newsletter_cancel",
+        "newsletter_web_publish",
+        "newsletter_web_unpublish"
       ]
     },
     "public.application_audience": {

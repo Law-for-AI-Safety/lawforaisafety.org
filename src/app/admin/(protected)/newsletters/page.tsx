@@ -3,9 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import { listNewsletters } from "@/lib/newsletter-store";
-import { statusesOf } from "./load";
+import { statusesOf, withSent } from "./load";
 import NewNewsletterButton from "./NewNewsletterButton";
 import StatusBadge from "./StatusBadge";
+import { isOnWebsite, issuePath } from "@/newsletter/website";
 
 export const metadata: Metadata = {
   title: "LAIS - Newsletter",
@@ -25,7 +26,11 @@ export default async function NewslettersPage() {
         <h1 className="font-sans text-3xl text-brand-black">Newsletter</h1>
         <p className="text-brand-black/70">
           Write the newsletter here, send yourself a test, then schedule it or send it now. Brevo sends it to everyone on
-          the newsletter list.
+          the newsletter list. An issue can also go on the website, under{" "}
+          <Link href="/newsletter" className="underline">
+            /newsletter
+          </Link>
+          , once sent.
         </p>
       </div>
       <NewNewsletterButton />
@@ -43,6 +48,20 @@ export default async function NewslettersPage() {
                   Last edited by {row.updatedBy}
                   {row.submittedBy && row.state === "submitted" && ` · sent to Brevo by ${row.submittedBy}`}
                 </span>
+                {row.webPublished && (
+                  <span className="text-sm text-brand-black/60">
+                    {isOnWebsite(withSent(row, statuses[i])) && row.webSlug ? (
+                      <>
+                        On the website at{" "}
+                        <Link href={issuePath(row.webSlug)} className="underline">
+                          {issuePath(row.webSlug)}
+                        </Link>
+                      </>
+                    ) : (
+                      "Goes on the website once sent"
+                    )}
+                  </span>
+                )}
               </div>
               <StatusBadge status={statuses[i]} />
             </li>

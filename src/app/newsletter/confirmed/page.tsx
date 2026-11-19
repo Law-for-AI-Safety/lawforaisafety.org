@@ -2,7 +2,7 @@ import ContentPage from "../../ContentPage";
 
 export default function NewsletterConfirmedPage() {
   return (
-    <ContentPage center>
+    <ContentPage center footerSignup={false}>
       <h1 className="font-sans text-4xl text-brand-black">
         Subscription confirmed
       </h1>

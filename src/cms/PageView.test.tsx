@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import content from "../../content/field-building.json";
 import homeContent from "../../content/home.json";
-import PageView, { blockAnchors, pageMetadata } from "./PageView";
+import PageView, { blockAnchors, hasNewsletterSignup, pageMetadata } from "./PageView";
 import { parsePage, type PageContent } from "./schema";
 
 const fieldBuilding = parsePage("field-building", content);
@@ -135,5 +135,38 @@ describe("the homepage", () => {
     const grids = { blocks: [home.blocks[0], team, team, team] };
     expect(blockAnchors("home", grids)).toEqual([undefined, "team", "advisors", undefined]);
     expect(blockAnchors("a-new-page", grids)).toEqual([undefined, "team", undefined, undefined]);
+  });
+});
+
+describe("the footer's newsletter sign-up", () => {
+  const home = parsePage("home", homeContent);
+  const footerSignup = () => screen.queryByRole("region", { name: "Get our newsletter" });
+
+  it("is in the footer of a page without one of its own, beside a link to the newsletter page", () => {
+    render(<PageView slug="field-building" page={fieldBuilding} />);
+    expect(hasNewsletterSignup(fieldBuilding)).toBe(false);
+    expect(within(footerSignup()!).getByRole("button", { name: "Subscribe" })).toBeInTheDocument();
+    expect(within(screen.getByRole("contentinfo")).getByRole("link", { name: "Newsletter" })).toHaveAttribute("href", "/newsletter");
+  });
+
+  it("is left out where the page has its own, so there is only one", () => {
+    render(<PageView slug="home" page={home} />);
+    expect(hasNewsletterSignup(home)).toBe(true);
+    expect(footerSignup()).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Subscribe" })).toHaveLength(1);
+  });
+
+  it("is left out of the preview, whose forms can't be used", () => {
+    render(<PageView slug="field-building" page={fieldBuilding} footerSignup={false} />);
+    expect(footerSignup()).toBeNull();
+  });
+
+  it("comes back when the page's own form is closed or has no newsletter part", () => {
+    const withSection = (change: object): PageContent => ({
+      ...home,
+      blocks: home.blocks.map((block) => (block.type === "applicationSection" ? { ...block, ...change } : block)),
+    });
+    expect(hasNewsletterSignup(withSection({ showForm: false }))).toBe(false);
+    expect(hasNewsletterSignup(withSection({ newsletterHeading: undefined }))).toBe(false);
   });
 });

@@ -6,6 +6,8 @@ import { SITE_URL, siteDirs, sitemapEntries } from "@/cms/site";
 import { connection } from "next/server";
 import { getCachedOpportunities } from "@/opportunities/data";
 import { openOpportunities } from "@/opportunities/filter";
+import { issuesOnWebsite } from "@/lib/newsletter-website";
+import { issuePath, NEWSLETTER_PATH } from "@/newsletter/website";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Rendered per request rather than at build time, since opportunities live in the database.
@@ -13,19 +15,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // the public pages, so a crawler's visit needn't wake the database.
   await connection();
 
+  const [opportunities, issues] = await Promise.all([getCachedOpportunities(), issuesOnWebsite()]);
+
   // Content pages are dated by their files' updatedAt; see sitemapEntries.
   const entries: MetadataRoute.Sitemap = sitemapEntries(siteDirs());
 
   // Opportunity detail pages have a dynamic segment, so sitemapEntries() (which
   // excludes any route with a `[` segment) never sees them; add them by hand. A closed
   // listing's page stays up but is noindex, so it is left out here too.
-  for (const opportunity of openOpportunities(await getCachedOpportunities(), new Date())) {
+  for (const opportunity of openOpportunities(opportunities, new Date())) {
     entries.push({
       url: `${SITE_URL}/opportunities/${opportunity.slug}`,
       lastModified: new Date(opportunity.publishedAt),
       changeFrequency: "weekly",
       priority: 0.6,
     });
+  }
+
+  // The newsletter's page, with the sign-up, and each issue on the website. An issue taken down
+  // is a 404, so it leaves here at once.
+  entries.push({
+    url: `${SITE_URL}${NEWSLETTER_PATH}`,
+    ...(issues.length > 0 && { lastModified: new Date(issues[0].sentAt) }),
+    changeFrequency: "weekly",
+    priority: 0.6,
+  });
+  for (const issue of issues) {
+    entries.push({ url: `${SITE_URL}${issuePath(issue.slug)}`, lastModified: new Date(issue.sentAt), changeFrequency: "yearly", priority: 0.5 });
   }
 
   // Only while the policy is actually served: a sitemap that lists a URL

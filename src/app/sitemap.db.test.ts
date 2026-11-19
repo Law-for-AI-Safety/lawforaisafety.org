@@ -40,7 +40,13 @@ describe("sitemap.xml", () => {
 
   it("leaves out the admin, the flows' steps and anything not a page", async () => {
     const urls = (await sitemap()).map((e) => e.url);
-    for (const url of urls) expect(url).not.toMatch(/\/(admin|api|apply|newsletter|og-assets)\b|\/(confirm|retry)$|\[/);
+    for (const url of urls) expect(url).not.toMatch(/\/(admin|api|apply|og-assets)\b|\/(confirm|confirmed|invalid|retry)$|\[/);
+  });
+
+  it("lists the newsletter page, with its sign-up, even before any issue is on the website", async () => {
+    const urls = (await sitemap()).map((e) => e.url);
+    expect(urls).toContain("https://lawforaisafety.org/newsletter");
+    expect(urls.filter((url) => url.includes("/newsletter/"))).toEqual([]);
   });
 
   it("lists the opportunities board and every opportunity's own page", async () => {

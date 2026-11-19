@@ -95,6 +95,8 @@ const nextConfig: NextConfig = {
     "/admin/preview/**": CMS_RUNTIME_FILES,
     // Prerendered at build time; traced as well in case a page is ever rendered on request.
     "/[slug]": ["./content/*.json"],
+    // A newsletter issue's share card is made on request, from the fonts and logos it reads.
+    "/updates/[slug]/share-image": ["./src/app/og-assets/*"],
   },
 };
 

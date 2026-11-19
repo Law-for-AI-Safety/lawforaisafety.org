@@ -21,7 +21,7 @@ export default async function NewsletterConfirmPage({
   const { token } = await searchParams;
 
   return (
-    <ContentPage center>
+    <ContentPage center footerSignup={false}>
       <h1 className="font-sans text-4xl text-brand-black">
         Confirm your subscription
       </h1>
