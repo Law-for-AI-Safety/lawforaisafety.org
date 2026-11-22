@@ -64,7 +64,9 @@ beforeEach(() => {
   afterTasks.reset();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // A cached read refreshing in the background finishes, or fails, in the test that started it.
+  await dataCache.settle();
   vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
