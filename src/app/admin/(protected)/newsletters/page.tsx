@@ -26,11 +26,11 @@ export default async function NewslettersPage() {
         <h1 className="font-sans text-3xl text-brand-black">Newsletter</h1>
         <p className="text-brand-black/70">
           Write the newsletter here, send yourself a test, then schedule it or send it now. Brevo sends it to everyone on
-          the newsletter list. An issue can also go on the website, under{" "}
+          the newsletter list. Each issue also goes on the website, under{" "}
           <Link href="/newsletter" className="underline">
             /newsletter
           </Link>
-          , once sent.
+          , once sent, unless it is unticked.
         </p>
       </div>
       <NewNewsletterButton />
@@ -48,19 +48,18 @@ export default async function NewslettersPage() {
                   Last edited by {row.updatedBy}
                   {row.submittedBy && row.state === "submitted" && ` · sent to Brevo by ${row.submittedBy}`}
                 </span>
-                {row.webPublished && (
-                  <span className="text-sm text-brand-black/60">
-                    {isOnWebsite(withSent(row, statuses[i])) && row.webSlug ? (
-                      <>
-                        On the website at{" "}
-                        <Link href={issuePath(row.webSlug)} className="underline">
-                          {issuePath(row.webSlug)}
-                        </Link>
-                      </>
-                    ) : (
-                      "Goes on the website once sent"
-                    )}
-                  </span>
+                {row.webPublished ? (
+                  isOnWebsite(withSent(row, statuses[i])) &&
+                  row.webSlug && (
+                    <span className="text-sm text-brand-black/60">
+                      On the website at{" "}
+                      <Link href={issuePath(row.webSlug)} className="underline">
+                        {issuePath(row.webSlug)}
+                      </Link>
+                    </span>
+                  )
+                ) : (
+                  <span className="text-sm text-brand-black/60">Not for the website</span>
                 )}
               </div>
               <StatusBadge status={statuses[i]} />

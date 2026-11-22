@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -138,7 +138,7 @@ describe("a new issue", () => {
     expect(box).toBeChecked();
     expect(screen.getByText(/It goes up under \/newsletter once it has been sent/)).toBeInTheDocument();
     await user.click(box);
-    await waitFor(() => expect(screen.getByText(/Untick this for an issue about events or deadlines/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Leave this unticked for an issue about events or deadlines/)).toBeInTheDocument());
     expect((await row(created.id)).webPublished).toBe(false);
   });
 });
@@ -413,7 +413,7 @@ describe("the admin pages", () => {
     expect(screen.getByRole("checkbox", { name: "Also publish on the website" })).not.toBeChecked();
   });
 
-  it("say in the list which issues are, or will be, on the website", async () => {
+  it("say in the list which issues are on the website, and which are kept off it", async () => {
     const live = await draft();
     await setNewsletterOnWebsite(live.id, true);
     await send(live.id, live.version);
@@ -421,7 +421,21 @@ describe("the admin pages", () => {
     await setNewsletterOnWebsite(later.id, true);
     await draft({ ...FIELDS, subject: "Event next week" });
     render(await NewslettersPage());
-    expect(screen.getByRole("link", { name: "/newsletter/november-update" })).toBeInTheDocument();
-    expect(screen.getByText("Goes on the website once sent")).toBeInTheDocument();
+    const item = (name: string) => within(screen.getByRole("link", { name }).closest("li")!);
+    expect(item("November update").getByRole("link", { name: "/newsletter/november-update" })).toBeInTheDocument();
+    // Ticked is the usual case, so an unsent ticked issue says nothing; only an unticked one is marked.
+    expect(item("December update").queryByText(/website/)).toBeNull();
+    expect(item("Event next week").getByText("Not for the website")).toBeInTheDocument();
+  });
+
+  it("say in the confirmation step when an issue is kept off the website", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    const { id } = await draft();
+    const user = userEvent.setup();
+    render(await NewsletterPage({ params: Promise.resolve({ id }) }));
+    await user.click(screen.getByRole("radio", { name: "Send now" }));
+    await user.click(screen.getByRole("button", { name: "Send now…" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(await dialog.findByText("Not on the website")).toBeInTheDocument();
   });
 });

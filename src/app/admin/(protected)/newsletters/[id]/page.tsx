@@ -55,6 +55,7 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
         initialTestedVersion={row.testedVersion}
         me={actor.email}
         sender={sender}
+        onWebsite={row.webPublished}
         website={<WebsiteOption id={row.id} initial={websiteStanding(row)} />}
       />
     );

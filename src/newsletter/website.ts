@@ -2,9 +2,9 @@ import { normalizeRuns, parseRichText, serializeRichText, type RichText, type Ru
 import { slugify, uniqueSlug } from "../opportunities/slug";
 
 /**
- * Newsletter issues on the website, at /newsletter/<slug>. An admin ticks an issue to have it there,
- * before or after sending. It shows only once Brevo has said it was sent, and only while it stays
- * ticked. Its page is the body as sent: once Brevo has an issue it can't be edited.
+ * Newsletter issues on the website, at /newsletter/<slug>. A new issue starts ticked to go there,
+ * and an admin can untick or tick it again before or after sending. It shows only once Brevo has
+ * said it was sent, and only while it stays ticked. Its page is the body as sent: once Brevo has an issue it can't be edited.
  */
 
 /**
