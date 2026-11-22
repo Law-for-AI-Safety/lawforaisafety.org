@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,10 +71,15 @@ async function isUp(slug = "november-update"): Promise<boolean> {
   }
 }
 
-/** A saved, tested draft. */
+/**
+ * A saved, tested draft. It is unticked, so each test ticks it when it means to: a new issue
+ * starts ticked (see "a new issue" below), which is set straight in the database here to keep
+ * it out of the audit log.
+ */
 async function draft(fields = FIELDS): Promise<{ id: string; version: number }> {
   const created = await createNewsletter();
   if (!created.ok) throw new Error(created.message);
+  await db.update(newsletters).set({ webPublished: false }).where(eq(newsletters.id, created.id));
   const saved = await saveNewsletter(created.id, fields, 1);
   if (!saved.ok) throw new Error(saved.message);
   const tested = await sendTestNewsletter(created.id, saved.version);
@@ -109,6 +114,34 @@ async function send(id: string, version: number, when: string | null = null) {
   const result = await scheduleNewsletter(id, version, when, 120);
   if (!result.ok) throw new Error(result.message);
 }
+
+describe("a new issue", () => {
+  it("starts ticked, so it goes up once sent with nothing more to do", async () => {
+    const created = await createNewsletter();
+    if (!created.ok) throw new Error(created.message);
+    expect((await row(created.id)).webPublished).toBe(true);
+    const saved = await saveNewsletter(created.id, FIELDS, 1);
+    if (!saved.ok) throw new Error(saved.message);
+    await sendTestNewsletter(created.id, saved.version);
+    await send(created.id, saved.version);
+    expect(await isUp()).toBe(true);
+    expect(indexNow.urls()).toEqual([PAGE, LIST]);
+    expect(await audit()).toEqual([]);
+  });
+
+  it("shows the box ticked in the editor, and unticking it keeps the issue off the website", async () => {
+    const created = await createNewsletter();
+    if (!created.ok) throw new Error(created.message);
+    const user = userEvent.setup();
+    render(await NewsletterPage({ params: Promise.resolve({ id: created.id }) }));
+    const box = screen.getByRole("checkbox", { name: "Also publish on the website" });
+    expect(box).toBeChecked();
+    expect(screen.getByText(/It goes up under \/newsletter once it has been sent/)).toBeInTheDocument();
+    await user.click(box);
+    await waitFor(() => expect(screen.getByText(/Leave this unticked for an issue about events or deadlines/)).toBeInTheDocument());
+    expect((await row(created.id)).webPublished).toBe(false);
+  });
+});
 
 describe("ticking an issue for the website", () => {
   it("is refused to anyone signed out or not an admin, and for a bad argument or unknown issue", async () => {
@@ -380,7 +413,7 @@ describe("the admin pages", () => {
     expect(screen.getByRole("checkbox", { name: "Also publish on the website" })).not.toBeChecked();
   });
 
-  it("say in the list which issues are, or will be, on the website", async () => {
+  it("say in the list which issues are on the website, and which are kept off it", async () => {
     const live = await draft();
     await setNewsletterOnWebsite(live.id, true);
     await send(live.id, live.version);
@@ -388,7 +421,21 @@ describe("the admin pages", () => {
     await setNewsletterOnWebsite(later.id, true);
     await draft({ ...FIELDS, subject: "Event next week" });
     render(await NewslettersPage());
-    expect(screen.getByRole("link", { name: "/newsletter/november-update" })).toBeInTheDocument();
-    expect(screen.getByText("Goes on the website once sent")).toBeInTheDocument();
+    const item = (name: string) => within(screen.getByRole("link", { name }).closest("li")!);
+    expect(item("November update").getByRole("link", { name: "/newsletter/november-update" })).toBeInTheDocument();
+    // Ticked is the usual case, so an unsent ticked issue says nothing; only an unticked one is marked.
+    expect(item("December update").queryByText(/website/)).toBeNull();
+    expect(item("Event next week").getByText("Not for the website")).toBeInTheDocument();
+  });
+
+  it("say in the confirmation step when an issue is kept off the website", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    const { id } = await draft();
+    const user = userEvent.setup();
+    render(await NewsletterPage({ params: Promise.resolve({ id }) }));
+    await user.click(screen.getByRole("radio", { name: "Send now" }));
+    await user.click(screen.getByRole("button", { name: "Send now…" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(await dialog.findByText("Not on the website")).toBeInTheDocument();
   });
 });

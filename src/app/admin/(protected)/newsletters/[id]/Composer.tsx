@@ -68,6 +68,7 @@ export default function Composer({
   me,
   sender,
   website,
+  onWebsite,
 }: {
   id: string;
   initial: NewsletterFields;
@@ -77,6 +78,8 @@ export default function Composer({
   sender: string;
   /** The "Also publish on the website" choice, which saves on its own. */
   website: ReactNode;
+  /** Whether "Also publish on the website" is ticked, for the confirmation step. */
+  onWebsite: boolean;
 }) {
   const router = useRouter();
   const [fields, setFields] = useState(initial);
@@ -241,6 +244,7 @@ export default function Composer({
               subject={fields.subject.trim()}
               at={at}
               action="Schedule"
+              onWebsite={onWebsite}
               onClose={() => setConfirming(false)}
               onConfirm={async (count) => {
                 const result = await scheduleNewsletter(id, version, at ? at.toISOString() : null, count);
