@@ -232,6 +232,13 @@
       "when": 1794938136189,
       "tag": "0032_wild_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795359809130,
+      "tag": "0033_brief_inhumans",
+      "breakpoints": true
     }
   ]
 }

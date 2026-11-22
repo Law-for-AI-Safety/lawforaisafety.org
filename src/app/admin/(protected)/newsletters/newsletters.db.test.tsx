@@ -678,6 +678,8 @@ describe("the pages", () => {
     vi.stubEnv("DEPLOY_CONTEXT", "production");
     const { id: scheduled } = await seedScheduled();
     const { id: sent, version } = await seed({ fields: { ...FIELDS, subject: "October update" } });
+    // Kept off the website: a ticked issue's send is recorded at once, so the list never asks Brevo for its count.
+    await db.update(newsletters).set({ webPublished: false }).where(eq(newsletters.id, sent));
     await scheduleNewsletter(sent, version, null, 120);
     await seed({ tested: false, fields: { ...FIELDS, subject: "December update" } });
     await signInAs("draft");

@@ -665,7 +665,8 @@ export const newsletters = pgTable("newsletters", {
   // Whether the issue is also a page on the website, at /newsletter/<web_slug>. It is shown only
   // once Brevo says it was sent (src/newsletter/website.ts), so it can be ticked before sending.
   // The slug is given when the issue is handed to Brevo, or ticked afterwards, and kept for good
-  // once it has been sent, so an issue taken down and put back keeps its address.
-  webPublished: boolean("web_published").notNull().default(false),
+  // once it has been sent, so an issue taken down and put back keeps its address. A new issue
+  // starts ticked; an admin unticks one that shouldn't stay public (an event, a deadline).
+  webPublished: boolean("web_published").notNull().default(true),
   webSlug: text("web_slug").unique(),
 });
