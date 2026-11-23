@@ -85,35 +85,36 @@ async function signedIn(email: string, name: string): Promise<BrowserContext> {
   return context;
 }
 
-type EditorElement = HTMLElement & {
-  editor: {
-    state: { selection: { from: number; to: number }; doc: { content: { size: number }; textBetween(from: number, to: number): string } };
-    chain(): { focus(): { setTextSelection(range: { from: number; to: number }): { run(): boolean } } };
-  };
-};
+type EditorElement = HTMLElement & { editor: { state: { selection: { from: number; to: number }; doc: { textBetween(from: number, to: number): string } } } };
 
 /**
- * Selects `text`, which ends `fromEnd` characters before the end of `field` (a single
- * paragraph), as dragging across it would, and checks the editor holds exactly that text.
- *
- * The selection is set through the editor rather than with Shift+arrow keys: arrow keys sent
- * straight after typing are sometimes not acted on by Chromium (the caret stays put, with no
- * `selectionchange` and no handler cancelling them), which left this test failing now and then
- * with nothing selected. What is under test is the toolbar, not the browser's caret movement.
+ * Selects `text`, which ends `fromEnd` characters before the end of `field`, and waits until
+ * the editor itself (not only the browser) holds that selection: ProseMirror reads keyboard
+ * selections on `selectionchange`, which fires asynchronously.
  */
 async function select(field: Locator, fromEnd: number, text: string) {
-  const selected = await field.evaluate(
-    (el, [fromEnd, length]) => {
-      const { editor } = el as EditorElement;
-      // The paragraph's text ends one position before the end of the document.
-      const to = editor.state.doc.content.size - 1 - fromEnd;
-      editor.chain().focus().setTextSelection({ from: to - length, to }).run();
-      const { selection, doc } = editor.state;
-      return doc.textBetween(selection.from, selection.to);
+  const page = field.page();
+  await page.keyboard.press("Control+End");
+  for (let i = 0; i < fromEnd; i++) await page.keyboard.press("ArrowLeft");
+  for (let i = 0; i < text.length; i++) await page.keyboard.press("Shift+ArrowLeft");
+  const handle = await field.elementHandle();
+  await page.waitForFunction(
+    ([el, expected]) => {
+      const { selection, doc } = (el as EditorElement).editor.state;
+      return doc.textBetween(selection.from, selection.to) === expected;
     },
-    [fromEnd, text.length] as const,
+    [handle, text] as const,
   );
-  expect(selected).toBe(text);
+}
+
+/**
+ * Waits until `field`'s editor has finished taking focus. On focus, ProseMirror sets a 20ms
+ * timer that puts its own selection back into the page. Keys sent in a burst straight after the
+ * click hold that timer back until after them, and it then undoes a selection they made. A
+ * longer timer set now runs after it.
+ */
+async function focusSettled(field: Locator) {
+  await field.evaluate(() => new Promise((resolve) => setTimeout(resolve, 50)));
 }
 
 /** Presses a toolbar button and waits until it shows as on for the selection. */
@@ -144,8 +145,11 @@ describe("a publisher", () => {
     const hero = page.getByRole("region", { name: "Block 1: Page heading" });
     const lede = hero.getByRole("textbox", { name: "Introduction" });
     await lede.click();
+    await focusSettled(lede);
     await page.keyboard.press("Control+End");
     await page.keyboard.type(" Wavy words and a link");
+    // Left to right, so the arrow keys never cross a formatted run (a mark boundary can take
+    // an extra key press).
     await select(lede, " and a link".length, "Wavy words");
     await format(hero, "Wavy underline");
     await select(lede, " a link".length, "and");
