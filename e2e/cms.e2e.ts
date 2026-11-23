@@ -108,13 +108,15 @@ async function select(field: Locator, fromEnd: number, text: string) {
 }
 
 /**
- * Waits until `field`'s editor has finished taking focus. On focus, ProseMirror sets a 20ms
- * timer that puts its own selection back into the page. Keys sent in a burst straight after the
- * click hold that timer back until after them, and it then undoes a selection they made. A
- * longer timer set now runs after it.
+ * Clicks into `field`'s editor and returns once it has focus and has finished taking it, so keys
+ * sent next act on what they select. Taking focus ends with a timer in prosemirror-view (20ms,
+ * in its focus handler) that writes the editor's own selection back into the page; a burst of
+ * keys can hold it back past themselves. The longer timer here runs after it.
  */
-async function focusSettled(field: Locator) {
-  await field.evaluate(() => new Promise((resolve) => setTimeout(resolve, 50)));
+async function focusEditor(field: Locator) {
+  await field.click();
+  const focused = await field.evaluate((el) => new Promise<boolean>((resolve) => setTimeout(() => resolve(el.contains(document.activeElement)), 50)));
+  expect(focused, "the editor took focus").toBe(true);
 }
 
 /** Presses a toolbar button and waits until it shows as on for the selection. */
@@ -144,8 +146,7 @@ describe("a publisher", () => {
 
     const hero = page.getByRole("region", { name: "Block 1: Page heading" });
     const lede = hero.getByRole("textbox", { name: "Introduction" });
-    await lede.click();
-    await focusSettled(lede);
+    await focusEditor(lede);
     await page.keyboard.press("Control+End");
     await page.keyboard.type(" Wavy words and a link");
     // Left to right, so the arrow keys never cross a formatted run (a mark boundary can take
