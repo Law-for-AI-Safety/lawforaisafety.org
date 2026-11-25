@@ -10,6 +10,7 @@ import {
   isAdminSubAllowed,
   isAdminSubPinningConfigured,
 } from "@/lib/session";
+import { isLinkedinClosedFor, isLinkedinRetired } from "@/lib/admin-workspace";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -66,14 +67,26 @@ export async function GET(request: Request) {
     return seeOther("/admin/login?error=forbidden");
   }
 
+  // Closed for a Workspace address, whose owner can sign in with that account, and once its
+  // owner has switched to Google, so the Workspace's 2-step verification and suspension can't
+  // be sidestepped through LinkedIn. Only while Google login is configured; see
+  // isLinkedinClosedFor.
+  if (isLinkedinClosedFor(userInfo.email, false)) {
+    return seeOther("/admin/login?error=use_google");
+  }
+  // `true` asks whether it would be closed if retired, so the database is read only then.
+  if (isLinkedinClosedFor(userInfo.email, true) && (await isLinkedinRetired(userInfo.email))) {
+    return seeOther("/admin/login?error=moved");
+  }
+
   if (!isAdminSubPinningConfigured()) {
-    // Also shown on /admin/settings → Admin logins, which is the easier place to collect it.
+    // Also shown on /admin/settings → LinkedIn logins, which is the easier place to collect it.
     console.log(
       `[admin-login] ${userInfo.email} signed in with LinkedIn sub ${userInfo.sub} (ADMIN_LINKEDIN_SUBS not set, sub not enforced)`,
     );
   }
 
-  await startAdminSession({ email: userInfo.email, name: userInfo.name });
+  await startAdminSession({ email: userInfo.email, name: userInfo.name, provider: "linkedin" });
   // Kept so the task tracker can offer people by name; see adminPeople.
   await rememberPerson(userInfo.email, userInfo.name);
   // The sub is kept so a technical admin can read every admin's LinkedIn id
@@ -82,7 +95,7 @@ export async function GET(request: Request) {
   await recordAdminAction({
     actorEmail: userInfo.email,
     action: "login",
-    detail: { linkedinSub: userInfo.sub },
+    detail: { provider: "linkedin", linkedinSub: userInfo.sub },
   });
 
   return seeOther("/admin");

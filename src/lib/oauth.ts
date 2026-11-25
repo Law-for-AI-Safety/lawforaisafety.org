@@ -5,6 +5,12 @@ export type OAuthUserInfo = {
   name: string;
   email: string;
   picture: string | null;
+  /**
+   * Google's `hd` claim: the Workspace domain the account belongs to, which only the
+   * Workspace's own administrators can give. Null for a personal account, and always null
+   * for LinkedIn.
+   */
+  hostedDomain: string | null;
 };
 
 type ProviderConfig = {
@@ -52,7 +58,12 @@ function requireEnv(name: string): string {
 
 export function buildAuthorizeUrl(
   provider: OAuthProviderName,
-  { redirectUri, state }: { redirectUri: string; state: string },
+  {
+    redirectUri,
+    state,
+    hostedDomain,
+    selectAccount,
+  }: { redirectUri: string; state: string; hostedDomain?: string; selectAccount?: boolean },
 ): string {
   const config = PROVIDERS[provider];
   const url = new URL(config.authorizeUrl);
@@ -61,6 +72,12 @@ export function buildAuthorizeUrl(
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("scope", config.scope);
   url.searchParams.set("state", state);
+  // Google's account chooser then offers only accounts on that Workspace domain. A hint
+  // for the person signing in, not a check: the callback still has to read `hd`.
+  if (hostedDomain) url.searchParams.set("hd", hostedDomain);
+  // Shows the account chooser even when the browser is signed in to one account, so the
+  // person picks an account rather than being signed in as whoever last used the browser.
+  if (selectAccount) url.searchParams.set("prompt", "select_account");
   return url.toString();
 }
 
@@ -109,6 +126,7 @@ export async function exchangeCodeForUserInfo(
     // Boolean per the OIDC spec; Google's legacy endpoints have returned the string.
     email_verified?: boolean | "true" | "false";
     picture?: string | null;
+    hd?: string;
   };
 
   if (raw.email_verified !== true && raw.email_verified !== "true") {
@@ -123,5 +141,6 @@ export async function exchangeCodeForUserInfo(
     name: raw.name ?? "",
     email: raw.email,
     picture: raw.picture ?? null,
+    hostedDomain: raw.hd ?? null,
   };
 }

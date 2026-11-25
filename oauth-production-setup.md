@@ -2,19 +2,20 @@
 
 Both LinkedIn and Google OAuth apps were originally registered against `localhost:3001` for local dev. Before this goes live on `https://lawforaisafety.org`, the production callback URLs need to be added to both apps' allowed redirect list — otherwise every OAuth attempt (applicant LinkedIn/Google verification, admin login) fails on production even though it works locally, since these providers reject any `redirect_uri` that isn't explicitly registered.
 
-Seven URLs need to be registered in total — four on the LinkedIn app (it's shared between the applicant, admin, Red Lines Dialogues and opportunity submission flows, see `signup-feature-spec.md` → Admin UI → Authentication for why the applicant and admin callbacks must stay on separate routes), three on Google:
+Eight URLs need to be registered in total — four on the LinkedIn app and four on Google, one per flow on each (applicant, admin login, Red Lines Dialogues and opportunity submission; see `signup-feature-spec.md` → Admin UI → Authentication for why the applicant and admin callbacks must stay on separate routes). LinkedIn admin login stays only while admins move to Google:
 
 | Flow | Callback URL |
 |---|---|
 | Applicant — LinkedIn | `https://lawforaisafety.org/api/auth/linkedin/callback` |
 | Applicant — Google | `https://lawforaisafety.org/api/auth/google/callback` |
 | Admin login — LinkedIn | `https://lawforaisafety.org/api/admin/auth/linkedin/callback` |
+| Admin login — Google | `https://lawforaisafety.org/api/admin/auth/google/callback` |
 | Red Lines Dialogues applicant — LinkedIn | `https://lawforaisafety.org/api/red-lines-dialogue/apply/linkedin/callback` |
 | Red Lines Dialogues applicant — Google | `https://lawforaisafety.org/api/red-lines-dialogue/apply/google/callback` |
 | Opportunity submitter — LinkedIn | `https://lawforaisafety.org/api/opportunities/submit/linkedin/callback` |
 | Opportunity submitter — Google | `https://lawforaisafety.org/api/opportunities/submit/google/callback` |
 
-**Status: all seven rows registered**, plus the matching `http://localhost:3001/...` pair for the opportunity submitter routes.
+**Status: seven rows registered**, plus the matching `http://localhost:3001/...` pair for the opportunity submitter routes. Still to do: the admin login Google callback (and `http://localhost:3001/api/admin/auth/google/callback` for local dev).
 
 Direct links to the two consoles (skip the search-around-the-dashboard steps below):
 - LinkedIn Developer Portal, this app's Auth tab: https://www.linkedin.com/developers/apps/248390273/auth
@@ -46,13 +47,15 @@ Direct link: https://console.cloud.google.com/apis/credentials?project=lawforais
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) → select the project this app's OAuth client lives in, or use the direct link above
 2. **APIs & Services** → **Credentials** → find the OAuth 2.0 Client ID in use here (`25953206667-lav0j87psaotga1bvoeot0ffar6vbuc2.apps.googleusercontent.com` — again, a client ID, not a secret, fine to search for)
 3. Open it, find **Authorized redirect URIs**
-4. Add all three:
+4. Add all four:
    - `https://lawforaisafety.org/api/auth/google/callback`
+   - `https://lawforaisafety.org/api/admin/auth/google/callback`
    - `https://lawforaisafety.org/api/red-lines-dialogue/apply/google/callback`
    - `https://lawforaisafety.org/api/opportunities/submit/google/callback`
 5. Save, and add the matching `http://localhost:3001/...` pair for local dev if it isn't there already. Google can take a few minutes to propagate a new redirect URI.
+6. Admin login sends Google an `hd` hint, so its account chooser offers only the Workspace's accounts; the callback then checks the account itself. Nothing else on the client needs changing, and it stays an *External* client because applicants sign in with any Google account.
 
-DONE — all rows.
+DONE except the admin login callback.
 
 ---
 

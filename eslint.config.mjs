@@ -7,8 +7,8 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     // The content route (src/app/[slug]) sits at the root, and this rule reads its dynamic
-    // segment as matching any path, slashes included, so it takes the LinkedIn sign-in
-    // route handler for a page. A full page load is what that link needs.
+    // segment as matching any path, slashes included, so it takes the sign-in route
+    // handlers for pages. A full page load is what those links need.
     files: ["src/app/admin/login/page.tsx"],
     rules: { "@next/next/no-html-link-for-pages": "off" },
   },

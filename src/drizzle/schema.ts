@@ -339,9 +339,23 @@ export const adminSessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     endedBy: text("ended_by"),
+    // How the session was signed in: "google", "linkedin" or "dev" (the local dev login).
+    // Null for sessions from before it was recorded, which all came from LinkedIn.
+    provider: text("provider"),
   },
   (table) => [index("admin_sessions_email_idx").on(table.email)],
 );
+
+// Addresses LinkedIn admin login is closed for, because their owner has signed in with the
+// organisation's Google Workspace account (`googleEmail`). Written at that Google sign-in, for
+// the Workspace address itself and for the address of the LinkedIn session the browser held, so
+// that moving to Google retires the LinkedIn route for that person. ADMIN_LINKEDIN_KEEP_EMAILS
+// overrides it for anyone on that list.
+export const adminLinkedinRetired = pgTable("admin_linkedin_retired", {
+  email: text("email").primaryKey(),
+  googleEmail: text("google_email").notNull(),
+  retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const adminPeople = pgTable("admin_people", {
   email: text("email").primaryKey(),

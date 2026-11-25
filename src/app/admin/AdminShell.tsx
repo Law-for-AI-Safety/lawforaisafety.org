@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { countCollaborationQueue, countMyOverdueTasks, getRedLinesSummary } from "@/lib/admin-summary";
 import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
-import { getAdminSession } from "@/lib/session";
+import { getAdminSessionDetails } from "@/lib/session";
+import { shouldOfferGoogle } from "@/lib/admin-workspace";
 import { getAdminAccess } from "./access";
 import AdminSidebar from "./AdminSidebar";
 import { ACCOUNT_ITEMS, NAV_GROUPS, NAV_ITEMS, visibleTo, type NavCountKey, type ShellGroup } from "./nav";
@@ -28,7 +29,7 @@ function navCount(key: NavCountKey, email: string): Promise<number | null> {
  * await rather than an async component, so a test can render a layout's result directly.
  */
 export async function withAdminShell(children: React.ReactNode): Promise<React.ReactElement> {
-  const session = await getAdminSession();
+  const session = await getAdminSessionDetails();
   if (!session) redirect("/admin/login");
 
   const access = await getAdminAccess(session.email);
@@ -57,7 +58,26 @@ export async function withAdminShell(children: React.ReactNode): Promise<React.R
       <AdminSidebar groups={groups} account={account} name={session.name} />
       {/* Scrolls for ordinary pages; the applications workspace and the page editor opt out
           and scroll their panes independently instead. */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">{children}</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        {shouldOfferGoogle(session) && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-black/15 bg-brand-navy/5 px-4 py-3 text-sm text-brand-black"
+          >
+            <p>
+              You&apos;re signed in with LinkedIn, which admin login is moving away from. Switch to
+              your Law for AI Safety Google account; after that, LinkedIn login stops working for you.
+            </p>
+            {/* A POST, so another site can't start a switch (see the route). */}
+            <form method="post" action="/api/admin/auth/google">
+              <button type="submit" className="bg-brand-navy px-4 py-2 text-brand-white">
+                Switch to Google
+              </button>
+            </form>
+          </div>
+        )}
+        {children}
+      </div>
     </div>
   );
 }

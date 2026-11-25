@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { cache } from "react";
-import { and, count, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { and, count, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { adminSessions } from "@/drizzle/schema";
+import { adminLinkedinRetired, adminSessions } from "@/drizzle/schema";
 import { db } from "@/lib/db";
+import { isLinkedinClosedFor, isLinkedinSession } from "@/lib/admin-workspace";
 import { hashSessionToken } from "@/lib/session-token";
 
 const SESSION_COOKIE_NAME = "admin_session";
@@ -21,8 +22,17 @@ export type AdminSessionPayload = {
   name: string;
 };
 
-/** Starts a session for someone who has just signed in, and gives their browser its cookie. */
-export async function startAdminSession(payload: AdminSessionPayload): Promise<void> {
+/** How a session was signed in. "dev" is the local dev login (src/app/api/admin/dev-login). */
+export type SessionProvider = "google" | "linkedin" | "dev";
+
+/**
+ * Starts a session for someone who has just signed in, and gives their browser its cookie.
+ * `provider` is left out only by tests that don't care how the person signed in; such a
+ * session counts as a LinkedIn one, like those from before the provider was recorded.
+ */
+export async function startAdminSession(
+  payload: AdminSessionPayload & { provider?: SessionProvider },
+): Promise<void> {
   const token = randomBytes(32).toString("base64url");
   const now = new Date();
   await db.delete(adminSessions).where(lt(adminSessions.expiresAt, new Date(now.getTime() - KEEP_DAYS * 24 * 60 * 60 * 1000)));
@@ -33,6 +43,7 @@ export async function startAdminSession(payload: AdminSessionPayload): Promise<v
     createdAt: now,
     lastSeenAt: now,
     expiresAt: new Date(now.getTime() + SESSION_TTL_SECONDS * 1000),
+    provider: payload.provider ?? null,
   });
 
   const cookieStore = await cookies();
@@ -47,27 +58,52 @@ export async function startAdminSession(payload: AdminSessionPayload): Promise<v
 
 const live = () => and(isNull(adminSessions.endedAt), gt(adminSessions.expiresAt, new Date()));
 
+/** Sessions that came from LinkedIn: so recorded, or from before the provider was recorded. */
+const fromLinkedin = () => or(isNull(adminSessions.provider), eq(adminSessions.provider, "linkedin"));
+
+/** The SHA-256 of this browser's session token, or null without one; see admin-switch.ts. */
+export async function currentSessionTokenHash(): Promise<string | null> {
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  return token ? hashSessionToken(token) : null;
+}
+
+/** The signed-in admin, with how their session was signed in (null: from before that was recorded). */
+export type AdminSessionDetails = AdminSessionPayload & { provider: SessionProvider | null };
+
 /**
- * The signed-in admin, or null. Read from the database on each request (once per request
- * when rendering), so a session that is ended stops working on its next request.
+ * The signed-in admin and how they signed in, or null. Read from the database on each request
+ * (once per request when rendering), so a session that is ended stops working on its next
+ * request.
  */
-export const getAdminSession = cache(async (): Promise<AdminSessionPayload | null> => {
+export const getAdminSessionDetails = cache(async (): Promise<AdminSessionDetails | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
-  const [session] = await db
-    .select()
+  const [row] = await db
+    .select({ session: adminSessions, linkedinClosed: adminLinkedinRetired.email })
     .from(adminSessions)
+    .leftJoin(adminLinkedinRetired, eq(adminLinkedinRetired.email, adminSessions.email))
     .where(and(eq(adminSessions.tokenHash, hashSessionToken(token)), live()));
-  if (!session) return null;
+  if (!row) return null;
+  const { session } = row;
+  const provider = session.provider as SessionProvider | null;
   // Checked on every request, not just at login — removing someone from
   // ADMIN_EMAILS ends their session on their next request.
   if (!isAdminEmailAllowed(session.email)) return null;
+  // Likewise a LinkedIn session stops working once LinkedIn login is closed for its address,
+  // wherever it was signed in (admin-workspace.ts).
+  if (isLinkedinSession(provider) && isLinkedinClosedFor(session.email, row.linkedinClosed !== null)) return null;
   if (Date.now() - session.lastSeenAt.getTime() > SEEN_INTERVAL_MS) {
     await db.update(adminSessions).set({ lastSeenAt: new Date() }).where(eq(adminSessions.id, session.id));
   }
-  return { email: session.email, name: session.name };
+  return { email: session.email, name: session.name, provider };
+});
+
+/** The signed-in admin, or null; see getAdminSessionDetails. */
+export const getAdminSession = cache(async (): Promise<AdminSessionPayload | null> => {
+  const details = await getAdminSessionDetails();
+  return details && { email: details.email, name: details.name };
 });
 
 /** Logs this browser out: its session ends, so a copy of the cookie stops working too. */
@@ -89,6 +125,16 @@ export async function endSessionsOf(email: string, endedBy: string): Promise<num
     .update(adminSessions)
     .set({ endedAt: new Date(), endedBy })
     .where(and(eq(adminSessions.email, email.toLowerCase()), live()))
+    .returning({ id: adminSessions.id });
+  return ended.length;
+}
+
+/** Ends every live LinkedIn session of `email`, on every device. Returns how many were ended. */
+export async function endLinkedinSessionsOf(email: string, endedBy: string): Promise<number> {
+  const ended = await db
+    .update(adminSessions)
+    .set({ endedAt: new Date(), endedBy })
+    .where(and(eq(adminSessions.email, email.toLowerCase()), live(), fromLinkedin()))
     .returning({ id: adminSessions.id });
   return ended.length;
 }

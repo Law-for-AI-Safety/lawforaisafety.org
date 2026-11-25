@@ -2,7 +2,9 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cookieJar } from "../../../../test/next-headers";
 import { navigation } from "../../../../test/next-navigation";
-import { adminAuditLog, adminSessions } from "@/drizzle/schema";
+import { adminAuditLog, adminLinkedinRetired, adminSessions } from "@/drizzle/schema";
+import { recordAdminAction } from "@/lib/audit-log";
+import { retireLinkedin } from "@/lib/admin-workspace";
 import { db } from "@/lib/db";
 import { getAdminSession, startAdminSession } from "@/lib/session";
 import AdminSettingsPage from "./page";
@@ -23,6 +25,7 @@ async function signIn(email: string, name: string) {
 beforeEach(async () => {
   await db.delete(adminSessions);
   await db.delete(adminAuditLog);
+  await db.delete(adminLinkedinRetired);
   vi.stubEnv("ADMIN_EMAILS", `${TECH},${KIM}`);
   vi.stubEnv("TECH_ADMIN_EMAILS", TECH);
 });
@@ -74,5 +77,25 @@ describe("the settings page", () => {
     expect(window.confirm).toHaveBeenCalledWith("Log Kim out on every device? They can sign in again unless they are also removed from ADMIN_EMAILS.");
     await waitFor(() => expect(navigation.refresh).toHaveBeenCalled());
     expect((await db.select().from(adminSessions)).filter((s) => s.endedAt !== null).map((s) => s.email)).toEqual([KIM]);
+  });
+});
+
+describe("the LinkedIn logins list", () => {
+  it("says which admins have moved to Google, and whether LinkedIn is closed for them", async () => {
+    for (const [email, sub] of [[KIM, "sub-kim"], ["Lee@example.com", "sub-lee"], [TECH, "sub-tech"]]) {
+      await recordAdminAction({ actorEmail: email, action: "login", detail: { provider: "linkedin", linkedinSub: sub } });
+    }
+    vi.stubEnv("ADMIN_EMAILS", `${TECH},${KIM},lee@example.com`);
+    vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", "lee@example.com");
+    await retireLinkedin([KIM], "kim@lais.example");
+    await retireLinkedin(["lee@example.com"], "lee@lais.example");
+    await signIn(TECH, "Tess");
+
+    render(await AdminSettingsPage({ searchParams: Promise.resolve({}) }));
+    const list = screen.getByRole("heading", { name: "LinkedIn logins" }).closest("section")!;
+    const entry = (email: string) => within(list).getByText(email).closest("li")!;
+    expect(entry(KIM)).toHaveTextContent("Moved to kim@lais.example, LinkedIn closed");
+    expect(entry("Lee@example.com")).toHaveTextContent("Moved to lee@lais.example, keeps LinkedIn");
+    expect(entry(TECH)).toHaveTextContent("Not moved to Google yet");
   });
 });

@@ -8,6 +8,7 @@ import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
 import { countDraftOpportunities } from "@/opportunities/data";
 import { getAdminAccess } from "../access";
 import { ACCOUNT_ITEMS, visibleTo } from "../nav";
+import SwitchProblem from "./SwitchProblem";
 
 export const metadata: Metadata = {
   title: "LAIS - Admin",
@@ -88,7 +89,11 @@ function Unavailable() {
  * The admin front door: what needs attention in every area the signed-in person can use, in
  * the sidebar's order, rather than dropping straight into one queue.
  */
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ switch?: string; lost?: string }>;
+}) {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
 
@@ -106,10 +111,13 @@ export default async function AdminDashboardPage() {
   const tools = visibleTo(ACCOUNT_ITEMS, access);
 
   const firstName = session.name.split(" ")[0] || session.name;
+  // Set when "Switch to Google" was refused; see SwitchProblem.
+  const problem = await searchParams;
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
       <h1 className="font-sans text-3xl text-brand-black">Welcome back, {firstName}</h1>
+      <SwitchProblem code={problem.switch} lost={problem.lost} />
 
       <Card title="Collaboration" links={[{ href: "/admin/applications", label: "Review applications" }]}>
         {applications ? (
