@@ -87,13 +87,13 @@ export async function GET(request: Request) {
   }
 
   if (!isAdminSubPinningConfigured()) {
-    // Also shown on /admin/settings → Admin logins, which is the easier place to collect it.
+    // Also shown on /admin/settings → LinkedIn logins, which is the easier place to collect it.
     console.log(
       `[admin-login] ${userInfo.email} signed in with LinkedIn sub ${userInfo.sub} (ADMIN_LINKEDIN_SUBS not set, sub not enforced)`,
     );
   }
 
-  await startAdminSession({ email: userInfo.email, name: userInfo.name });
+  await startAdminSession({ email: userInfo.email, name: userInfo.name, provider: "linkedin" });
   // Kept so the task tracker can offer people by name; see adminPeople.
   await rememberPerson(userInfo.email, userInfo.name);
   // The sub is kept so a technical admin can read every admin's LinkedIn id

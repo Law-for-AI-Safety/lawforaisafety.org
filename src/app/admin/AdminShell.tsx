@@ -68,9 +68,12 @@ export async function withAdminShell(children: React.ReactNode): Promise<React.R
               You&apos;re signed in with LinkedIn, which admin login is moving away from. Switch to
               your Law for AI Safety Google account; after that, LinkedIn login stops working for you.
             </p>
-            <a href="/api/admin/auth/google?switch=1" className="bg-brand-navy px-4 py-2 text-brand-white">
-              Switch to Google
-            </a>
+            {/* A POST, so another site can't start a switch (see the route). */}
+            <form method="post" action="/api/admin/auth/google">
+              <button type="submit" className="bg-brand-navy px-4 py-2 text-brand-white">
+                Switch to Google
+              </button>
+            </form>
           </div>
         )}
         {children}

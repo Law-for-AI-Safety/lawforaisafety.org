@@ -5,20 +5,22 @@ import {
   oauthStateCookieMatches,
 } from "@/lib/oauth-state-cookie";
 import {
-  adminWorkspaceDomain,
+  configuredAdminWorkspaceDomain,
   isAdminWorkspaceAccount,
   isOnWorkspaceDomain,
   mayKeepLinkedin,
   retireLinkedin,
 } from "@/lib/admin-workspace";
 import {
+  currentSessionTokenHash,
   endAdminSession,
+  endLinkedinSessionsOf,
   endSessionsOf,
   getAdminSession,
   isAdminEmailAllowed,
   startAdminSession,
 } from "@/lib/session";
-import { takeSwitchFrom } from "@/lib/admin-switch-cookie";
+import { switchAdmin, takeSwitchFor } from "@/lib/admin-switch";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
     (await verifyAdminOAuthState(state!)) &&
     (await oauthStateCookieMatches("admin", state));
   await clearOAuthStateCookie("admin");
-  const switchFrom = await takeSwitchFrom();
+  const switching = await takeSwitchFor(await currentSessionTokenHash());
 
   if (!stateOk) {
     return seeOther("/admin/login?error=invalid");
@@ -49,7 +51,8 @@ export async function GET(request: Request) {
   if (!siteUrl) {
     throw new Error("Missing required env var: NEXT_PUBLIC_SITE_URL");
   }
-  const domain = adminWorkspaceDomain();
+  const domain = configuredAdminWorkspaceDomain();
+  if (!domain) return seeOther("/admin/login?error=unavailable");
 
   let userInfo;
   try {
@@ -74,31 +77,29 @@ export async function GET(request: Request) {
     return seeOther("/admin/login?error=forbidden");
   }
 
-  // A login started from the "Switch to Google" banner, in a browser still holding the same
-  // LinkedIn session (an address off the Workspace domain), is how this Workspace account is
-  // matched to the admin's LinkedIn address: both are closed to LinkedIn from now on, and
-  // every LinkedIn session of theirs ends, unless they are an admin who keeps LinkedIn. Any
-  // other Google login closes LinkedIn for the Workspace address only.
+  // A login started from "Switch to Google" by the LinkedIn session this browser still holds
+  // (an address off the Workspace domain) is how this Workspace account is matched to the
+  // admin's LinkedIn address; see admin-switch.ts. Any other Google login closes LinkedIn for
+  // the Workspace address only.
   const previous = await getAdminSession();
   const linkedinEmail =
-    previous &&
-    switchFrom === previous.email.toLowerCase() &&
-    !isOnWorkspaceDomain(previous.email, domain)
-      ? previous.email
-      : null;
-  await retireLinkedin(linkedinEmail ? [userInfo.email, linkedinEmail] : [userInfo.email], userInfo.email);
-  if (linkedinEmail && !mayKeepLinkedin(linkedinEmail)) await endSessionsOf(linkedinEmail, userInfo.email);
+    switching && previous && !isOnWorkspaceDomain(previous.email, domain) ? previous.email : null;
+  if (linkedinEmail) {
+    const keepsLinkedin = mayKeepLinkedin(linkedinEmail);
+    await switchAdmin(linkedinEmail, userInfo.email, { keepsLinkedin });
+    if (!keepsLinkedin) await endSessionsOf(linkedinEmail, userInfo.email);
+  } else {
+    await retireLinkedin([userInfo.email], userInfo.email);
+    await recordAdminAction({ actorEmail: userInfo.email, action: "login", detail: { provider: "google" } });
+  }
+  // A LinkedIn account reporting this Workspace address is closed too, so its sessions end.
+  if (!mayKeepLinkedin(userInfo.email)) await endLinkedinSessionsOf(userInfo.email, userInfo.email);
   // This browser's earlier session is replaced, so it ends rather than lingering as live.
   if (previous) await endAdminSession();
 
-  await startAdminSession({ email: userInfo.email, name: userInfo.name });
+  await startAdminSession({ email: userInfo.email, name: userInfo.name, provider: "google" });
   // Kept so the task tracker can offer people by name; see adminPeople.
   await rememberPerson(userInfo.email, userInfo.name);
-  await recordAdminAction({
-    actorEmail: userInfo.email,
-    action: "login",
-    detail: linkedinEmail ? { provider: "google", linkedinClosedFor: linkedinEmail } : { provider: "google" },
-  });
 
   return seeOther("/admin");
 }

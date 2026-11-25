@@ -62,7 +62,8 @@ export function buildAuthorizeUrl(
     redirectUri,
     state,
     hostedDomain,
-  }: { redirectUri: string; state: string; hostedDomain?: string },
+    selectAccount,
+  }: { redirectUri: string; state: string; hostedDomain?: string; selectAccount?: boolean },
 ): string {
   const config = PROVIDERS[provider];
   const url = new URL(config.authorizeUrl);
@@ -74,6 +75,9 @@ export function buildAuthorizeUrl(
   // Google's account chooser then offers only accounts on that Workspace domain. A hint
   // for the person signing in, not a check: the callback still has to read `hd`.
   if (hostedDomain) url.searchParams.set("hd", hostedDomain);
+  // Shows the account chooser even when the browser is signed in to one account, so the
+  // person picks an account rather than being signed in as whoever last used the browser.
+  if (selectAccount) url.searchParams.set("prompt", "select_account");
   return url.toString();
 }
 

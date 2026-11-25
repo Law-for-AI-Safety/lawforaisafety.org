@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     return text(`${account.email} is not in ADMIN_EMAILS. Run npm run dev:accounts, then restart the dev server.`, 409);
   }
 
-  await startAdminSession({ email: account.email, name: account.name });
+  await startAdminSession({ email: account.email, name: account.name, provider: "dev" });
   await rememberPerson(account.email, account.name);
   return seeOther(params.get("next") ?? "/admin");
 }

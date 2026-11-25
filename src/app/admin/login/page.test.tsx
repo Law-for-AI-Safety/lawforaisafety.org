@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import AdminLoginPage from "./page";
 
@@ -6,7 +6,21 @@ async function renderWith(error?: string) {
   return render(await AdminLoginPage({ searchParams: Promise.resolve(error === undefined ? {} : { error }) }));
 }
 
+beforeEach(() => {
+  vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "lais.example");
+});
+
 describe("the admin login page", () => {
+  it("offers only LinkedIn while Google login isn't set up", async () => {
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
+    await renderWith("unavailable");
+    expect(screen.queryByRole("link", { name: "Log in with Google" })).toBeNull();
+    expect(screen.queryByText(/Google account\.$/)).toBeNull();
+    expect(screen.queryByText(/Still using LinkedIn/)).toBeNull();
+    expect(screen.getByRole("link", { name: "Log in with LinkedIn" })).toHaveAttribute("href", "/api/admin/auth/linkedin");
+    expect(screen.getByRole("alert")).toHaveTextContent("Google login isn't set up yet. Log in with LinkedIn for now.");
+  });
+
   it("signs in with the organisation's Google accounts", async () => {
     await renderWith();
     expect(screen.getByText("Sign in with your Law for AI Safety Google account.")).toBeVisible();

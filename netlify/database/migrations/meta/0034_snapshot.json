@@ -1,5 +1,5 @@
 {
-  "id": "3a155538-c9cc-4efe-ac40-f24ef20d0387",
+  "id": "13a3fa21-3ba0-4f59-9da2-1f12262c612e",
   "prevId": "ebcdcf20-5b94-46af-ad20-2f8d0aa284e1",
   "version": "7",
   "dialect": "postgresql",
@@ -193,6 +193,12 @@
         },
         "ended_by": {
           "name": "ended_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider": {
+          "name": "provider",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -31,10 +31,12 @@ reach them. Each admin moves once:
 1. Their Workspace address is added to `ADMIN_EMAILS` (and whichever lists
    below their old address is on), next to their old LinkedIn address.
 2. They log in with LinkedIn as usual. The admin area shows a **Switch to
-   Google** banner; they click it and sign in with their Workspace account.
+   Google** banner; they click it, and choose their Workspace account in
+   Google's account chooser.
 3. From then on LinkedIn login is refused for both their addresses, and their
-   LinkedIn sessions end. `/admin/settings` → LinkedIn logins shows who has
-   moved.
+   LinkedIn sessions end. Their CMS role, the tasks assigned to them and the
+   projects they own move to their Workspace address. `/admin/settings` →
+   LinkedIn logins shows who has moved.
 
 Only the banner links the two addresses: it is clicked by whoever holds the
 LinkedIn session, so another admin signing in with Google on a shared browser
@@ -47,6 +49,8 @@ start, with a message to use Google: its owner holds that Workspace account.
 
 `ADMIN_LINKEDIN_KEEP_EMAILS` lists the LinkedIn addresses that stay open even
 after their owner has moved (comma-separated, each also in `ADMIN_EMAILS`).
+Their CMS role is copied to the Workspace address rather than moved, and their
+tasks stay where they are.
 Keep it as short as possible: every address on it can reach the admin panel
 without the Workspace's 2-step verification. For anyone on it, also do the
 LinkedIn steps below.

@@ -339,6 +339,9 @@ export const adminSessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     endedBy: text("ended_by"),
+    // How the session was signed in: "google", "linkedin" or "dev" (the local dev login).
+    // Null for sessions from before it was recorded, which all came from LinkedIn.
+    provider: text("provider"),
   },
   (table) => [index("admin_sessions_email_idx").on(table.email)],
 );

@@ -1,8 +1,17 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
-import { adminAuditLog, adminLinkedinRetired, adminPeople, adminSessions } from "@/drizzle/schema";
-import { getAdminSession } from "@/lib/session";
+import {
+  adminAuditLog,
+  adminLinkedinRetired,
+  adminPeople,
+  adminSessions,
+  cmsRoles,
+  taskTrackerProjects,
+  taskTrackerTasks,
+} from "@/drizzle/schema";
+import { retireLinkedin } from "@/lib/admin-workspace";
+import { getAdminSession, startAdminSession } from "@/lib/session";
 import { APP_ORIGIN } from "../../../../../test/app-fetch";
 import { cookieJar } from "../../../../../test/next-headers";
 import { oauthProviders, type ProviderUser } from "../../../../../test/fakes/oauth";
@@ -55,13 +64,20 @@ async function linkedinSignIn(user: ProviderUser, { fresh = true } = {}) {
   return location(await linkedinCallback.GET(new Request(`${APP_ORIGIN}/api/admin/auth/linkedin/callback?${query}`)));
 }
 
-/** The "Switch to Google" banner, clicked in a browser still signed in with LinkedIn. */
+// The site's own address (NEXT_PUBLIC_SITE_URL in test/setup-env.ts), which its pages send as Origin.
+const SITE = "https://lawforaisafety.test";
+
+/** The "Switch to Google" button's POST, as this site's own page sends it. */
+const switchPost = (headers: Record<string, string> = { origin: SITE, "sec-fetch-site": "same-origin" }) =>
+  login.POST(new Request(`${APP_ORIGIN}/api/admin/auth/google`, { method: "POST", headers }));
+
+/** The "Switch to Google" button, clicked in a browser still signed in with LinkedIn. */
 async function switchToGoogle(user: ProviderUser) {
-  const state = new URL(location(await googleLogin("?switch=1"))!).searchParams.get("state")!;
+  const state = new URL(location(await switchPost())!).searchParams.get("state")!;
   return location(await callback({ code: oauthProviders.signIn("google", user), state }));
 }
 
-const googleLogin = (query = "") => login.GET(new Request(`${APP_ORIGIN}/api/admin/auth/google${query}`));
+const googleLogin = () => login.GET();
 
 const liveSessions = async () =>
   (await db.select().from(adminSessions)).filter((row) => row.endedAt === null).map((row) => row.email);
@@ -72,6 +88,9 @@ beforeEach(async () => {
   await db.delete(adminAuditLog);
   await db.delete(adminPeople);
   await db.delete(adminLinkedinRetired);
+  await db.delete(cmsRoles);
+  await db.delete(taskTrackerTasks);
+  await db.delete(taskTrackerProjects);
   vi.stubEnv("LINKEDIN_CLIENT_ID", "test-linkedin-client");
   vi.stubEnv("LINKEDIN_CLIENT_SECRET", "test-linkedin-secret");
   vi.stubEnv("GOOGLE_CLIENT_ID", "test-google-client");
@@ -88,13 +107,18 @@ describe("starting an admin login", () => {
     expect(url.searchParams.get("client_id")).toBe("test-google-client");
     expect(url.searchParams.get("redirect_uri")).toBe(CALLBACK);
     expect(url.searchParams.get("hd")).toBe(DOMAIN);
+    // The plain login lets Google use the account the browser is signed in to.
+    expect(url.searchParams.get("prompt")).toBeNull();
     expect(cookieJar.get("admin_oauth_state")?.value).toBe(url.searchParams.get("state"));
   });
 
-  it("refuses to start without a Workspace domain configured", async () => {
+  it("sends a Google login back to the login page while Google login isn't set up", async () => {
     vi.stubEnv("ADMIN_GOOGLE_DOMAIN", " ");
-    await expect(googleLogin()).rejects.toThrow("Missing required env var: ADMIN_GOOGLE_DOMAIN");
+    expect(location(await googleLogin())).toBe("/admin/login?error=unavailable");
     expect(cookieJar.get("admin_oauth_state")).toBeUndefined();
+    await linkedinSignIn(SAM_LINKEDIN);
+    expect(location(await switchPost())).toBe("/admin/login?error=unavailable");
+    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
   });
 
   it("refuses to start without the site's address", async () => {
@@ -171,13 +195,14 @@ describe("coming back from Google", () => {
     await expect(callback({ code: "made-up", state })).rejects.toThrow("google token exchange failed: 400");
   });
 
-  it("fails loudly without a Workspace domain configured", async () => {
+  it("sends the browser back to the login page if Google login is switched off mid-login", async () => {
     const state = await startLogin();
     vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
-    await expect(callback({ code: oauthProviders.signIn("google", ADMIN), state })).rejects.toThrow(
-      "Missing required env var: ADMIN_GOOGLE_DOMAIN",
+    expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state }))).toBe(
+      "/admin/login?error=unavailable",
     );
     expect(oauthProviders.exchanges).toEqual([]);
+    expect(await liveSessions()).toEqual([]);
   });
 
   it("fails loudly without the site's address", async () => {
@@ -287,28 +312,48 @@ describe("switching from LinkedIn to Google", () => {
     expect(await linkedinSignIn(kim)).toBe("/admin");
   });
 
-  it("links nothing when the switch was asked for by a different session than the one returning", async () => {
+  it("links nothing when the session returning isn't the one that asked to switch, even with the same address", async () => {
     await linkedinSignIn(SAM_LINKEDIN);
-    await googleLogin("?switch=1");
-    cookieJar.set("admin_switch_from", "someone@personal.example");
-    const state = new URL(location(await googleLogin())!).searchParams.get("state")!;
-    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
-    cookieJar.set("admin_switch_from", "someone@personal.example");
+    const otherSession = cookieJar.get("admin_session")!.value;
+    await linkedinSignIn(SAM_LINKEDIN);
+    const state = new URL(location(await switchPost())!).searchParams.get("state")!;
+    // The browser comes back holding a different session of the same address.
+    cookieJar.set("admin_session", otherSession);
     expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state }))).toBe("/admin");
     expect(cookieJar.get("admin_switch_from")).toBeUndefined();
+    expect((await db.select().from(adminLinkedinRetired)).map((row) => row.email)).toEqual([`sam@${DOMAIN}`]);
     expect(await linkedinSignIn(SAM_LINKEDIN)).toBe("/admin");
   });
 
-  it("asks nobody to switch when the banner's link is opened signed out", async () => {
-    cookieJar.reset();
-    await googleLogin("?switch=1");
+  it("asks the admin to pick their Google account when switching", async () => {
+    await linkedinSignIn(SAM_LINKEDIN);
+    const url = new URL(location(await switchPost())!);
+    expect(url.searchParams.get("prompt")).toBe("select_account");
+    expect(url.searchParams.get("hd")).toBe(DOMAIN);
+  });
+
+  it.each([
+    ["another site's page", { origin: "https://evil.example" }],
+    ["a cross-site request without an Origin header", { "sec-fetch-site": "cross-site" }],
+    ["a same-site but cross-origin request", { origin: SITE, "sec-fetch-site": "same-site" }],
+  ])("refuses a switch started from %s", async (_, headers) => {
+    await linkedinSignIn(SAM_LINKEDIN);
+    const response = await switchPost(headers);
+    expect(response.status).toBe(403);
     expect(cookieJar.get("admin_switch_from")).toBeUndefined();
+  });
+
+  it("sends a signed-out switch to the login page", async () => {
+    cookieJar.reset();
+    expect(location(await switchPost())).toBe("/admin/login");
+    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
+    expect(cookieJar.get("admin_oauth_state")).toBeUndefined();
   });
 
   it("forgets a switch request when Google login comes back with a bad state", async () => {
     await linkedinSignIn(SAM_LINKEDIN);
-    await googleLogin("?switch=1");
-    expect(cookieJar.get("admin_switch_from")?.value).toBe("sam@personal.example");
+    await switchPost();
+    expect(cookieJar.get("admin_switch_from")?.value).toMatch(/^[0-9a-f]{64}$/);
     expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state: "forged" }))).toBe(
       "/admin/login?error=invalid",
     );
@@ -351,5 +396,134 @@ describe("switching from LinkedIn to Google", () => {
     await switchToGoogle({ ...ADMIN, sub: "google-sub-3", email: `sam2@${DOMAIN}` });
     const [row] = await db.select().from(adminLinkedinRetired).where(eq(adminLinkedinRetired.email, "sam@personal.example"));
     expect(row.googleEmail).toBe(`sam@${DOMAIN}`);
+  });
+});
+
+describe("what moves to the Workspace address on a switch", () => {
+  async function seedWork(email: string) {
+    const [project] = await db.insert(taskTrackerProjects).values({ name: "Launch", ownerEmail: email, createdBy: "tech@example.com" }).returning();
+    await db.insert(taskTrackerTasks).values([
+      { projectId: project.id, name: "Draft", assigneeEmail: email, createdBy: "tech@example.com" },
+      { projectId: project.id, name: "Review", assigneeEmail: "kim@personal.example", createdBy: email },
+    ]);
+  }
+  const tasksOf = async () =>
+    Object.fromEntries((await db.select().from(taskTrackerTasks)).map((task) => [task.name, task.assigneeEmail]));
+
+  it("moves the admin's CMS role, assigned tasks and owned projects, and audits it", async () => {
+    await db.insert(cmsRoles).values({ email: "sam@personal.example", permission: "publish", grantedBy: "tech@example.com" });
+    await seedWork("Sam@Personal.example");
+    await linkedinSignIn(SAM_LINKEDIN);
+    expect(await switchToGoogle(ADMIN)).toBe("/admin");
+
+    expect(await db.select({ email: cmsRoles.email, permission: cmsRoles.permission }).from(cmsRoles)).toEqual([
+      { email: `sam@${DOMAIN}`, permission: "publish" },
+    ]);
+    // Only Sam's assignment moves; who created a task is a record, and stays.
+    expect(await tasksOf()).toEqual({ Draft: `sam@${DOMAIN}`, Review: "kim@personal.example" });
+    const [project] = await db.select().from(taskTrackerProjects);
+    expect(project.ownerEmail).toBe(`sam@${DOMAIN}`);
+    const [created] = await db.select().from(taskTrackerTasks).where(eq(taskTrackerTasks.name, "Review"));
+    expect(created.createdBy).toBe("Sam@Personal.example");
+
+    const entries = await db.select().from(adminAuditLog).where(eq(adminAuditLog.actorEmail, `sam@${DOMAIN}`));
+    expect(entries).toEqual([
+      expect.objectContaining({
+        action: "login",
+        detail: {
+          provider: "google",
+          linkedinClosedFor: "sam@personal.example",
+          moved: { cmsRole: "publish", tasks: 1, projects: 1 },
+        },
+      }),
+    ]);
+  });
+
+  it("keeps the stronger role when the Workspace address already has one", async () => {
+    await db.insert(cmsRoles).values([
+      { email: "sam@personal.example", permission: "draft", grantedBy: "tech@example.com" },
+      { email: `sam@${DOMAIN}`, permission: "publish", grantedBy: "tech@example.com" },
+    ]);
+    await linkedinSignIn(SAM_LINKEDIN);
+    await switchToGoogle(ADMIN);
+    expect(await db.select({ email: cmsRoles.email, permission: cmsRoles.permission }).from(cmsRoles)).toEqual([
+      { email: `sam@${DOMAIN}`, permission: "publish" },
+    ]);
+  });
+
+  it("copies the role and leaves the work in place for an admin who keeps LinkedIn", async () => {
+    vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", "sam@personal.example");
+    await db.insert(cmsRoles).values({ email: "sam@personal.example", permission: "draft", grantedBy: "tech@example.com" });
+    await seedWork("sam@personal.example");
+    await linkedinSignIn(SAM_LINKEDIN);
+    await switchToGoogle(ADMIN);
+    expect(
+      (await db.select({ email: cmsRoles.email, permission: cmsRoles.permission }).from(cmsRoles)).sort((a, b) =>
+        a.email.localeCompare(b.email),
+      ),
+    ).toEqual([
+      { email: `sam@${DOMAIN}`, permission: "draft" },
+      { email: "sam@personal.example", permission: "draft" },
+    ]);
+    expect(await tasksOf()).toEqual({ Draft: "sam@personal.example", Review: "kim@personal.example" });
+  });
+
+  it("moves nothing on a Google login that isn't a switch", async () => {
+    await db.insert(cmsRoles).values({ email: "sam@personal.example", permission: "publish", grantedBy: "tech@example.com" });
+    await seedWork("sam@personal.example");
+    await linkedinSignIn(SAM_LINKEDIN);
+    const state = new URL(location(await googleLogin())!).searchParams.get("state")!;
+    await callback({ code: oauthProviders.signIn("google", ADMIN), state });
+    expect((await db.select().from(cmsRoles)).map((role) => role.email)).toEqual(["sam@personal.example"]);
+    expect((await tasksOf()).Draft).toBe("sam@personal.example");
+  });
+});
+
+describe("LinkedIn sessions once LinkedIn is closed for their address", () => {
+  it("end when the owner of a Workspace address signs in with Google, leaving their Google sessions", async () => {
+    vi.stubEnv("ADMIN_EMAILS", `sam@${DOMAIN}`);
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
+    await linkedinSignIn({ ...SAM_LINKEDIN, email: `sam@${DOMAIN}` });
+    const linkedinSession = cookieJar.get("admin_session")!.value;
+
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", DOMAIN);
+    await signInAs(ADMIN);
+    const phone = cookieJar.get("admin_session")!.value;
+    await signInAs(ADMIN);
+
+    cookieJar.set("admin_session", linkedinSession);
+    expect(await getAdminSession()).toBeNull();
+    cookieJar.set("admin_session", phone);
+    expect(await getAdminSession()).toEqual({ email: `sam@${DOMAIN}`, name: "Sam Admin" });
+    const [ended] = (await db.select().from(adminSessions)).filter((row) => row.provider === "linkedin");
+    expect(ended).toMatchObject({ endedBy: `sam@${DOMAIN}` });
+  });
+
+  it("stop working on their next request, unless the address keeps LinkedIn", async () => {
+    await startAdminSession({ email: "sam@personal.example", name: "Sam", provider: "linkedin" });
+    const linkedinSession = cookieJar.get("admin_session")!.value;
+    cookieJar.reset();
+    // A session from before the provider was recorded counts as LinkedIn.
+    await startAdminSession({ email: "sam@personal.example", name: "Sam" });
+    const legacySession = cookieJar.get("admin_session")!.value;
+    await retireLinkedin(["sam@personal.example"], `sam@${DOMAIN}`);
+
+    for (const token of [linkedinSession, legacySession]) {
+      cookieJar.set("admin_session", token);
+      expect(await getAdminSession()).toBeNull();
+    }
+    vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", "sam@personal.example");
+    cookieJar.set("admin_session", linkedinSession);
+    expect(await getAdminSession()).toMatchObject({ email: "sam@personal.example" });
+  });
+
+  it("leave Google and dev sessions of the same address alone", async () => {
+    vi.stubEnv("ADMIN_EMAILS", `sam@${DOMAIN}`);
+    await retireLinkedin([`sam@${DOMAIN}`], `sam@${DOMAIN}`);
+    for (const provider of ["google", "dev"] as const) {
+      cookieJar.reset();
+      await startAdminSession({ email: `sam@${DOMAIN}`, name: "Sam", provider });
+      expect(await getAdminSession()).toMatchObject({ email: `sam@${DOMAIN}` });
+    }
   });
 });
