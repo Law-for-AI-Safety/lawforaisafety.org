@@ -45,12 +45,16 @@ Requires Docker Desktop (or another Docker Compose–compatible runtime) running
 
 ### Schema changes
 
-Migrations live in `netlify/database/migrations/` — Netlify Database's directory, which Drizzle Kit is pointed at (`drizzle.config.ts`). Netlify applies any new files there, in filename order, just before a production deploy or deploy preview is published; a failing migration blocks the deploy. Deploy previews run against their own database branch, copied from production.
+Migrations live in `netlify/database/migrations/` — Netlify Database's directory, which Drizzle Kit is pointed at (`drizzle.config.ts`). Netlify applies any new files there, in order of the number each name starts with, just before a production deploy or deploy preview is published; a failing migration blocks the deploy. Deploy previews run against their own database branch, copied from production.
 
 1. Edit `src/drizzle/schema.ts`.
-2. `npm run db:generate` — writes the next numbered SQL file (and Drizzle's `meta/` snapshot).
+2. `npm run db:generate` — writes the SQL file, named by its UTC creation time (`20261125143000_<name>.sql`), with Drizzle's `meta/` snapshot and journal entry. A name given with `-- --name` must be lowercase letters, digits, `_` or `-`, or Netlify won't apply it.
 3. `npm run dev` — applies it to the local Docker database.
 4. Commit the SQL and `meta/` files with the code that needs them, and deploy.
+
+Netlify orders migrations by the number before the first `_`, and blocks a deploy if an applied migration has gone or been changed, or if a new one's number is at or below the highest applied. The early migrations were numbered in sequence (`0000`, `0001`, ...) and keep those names, since production has them applied; every later one is a timestamp, which is always higher. `test/migrations.test.ts` checks that Netlify's order and Drizzle's journal agree.
+
+If `main` gains a migration while your branch has one, rebase, then delete your SQL file, its snapshot and its journal entry and run `npm run db:generate` again, so yours comes after everything on `main` (Drizzle also refuses two snapshots that follow the same parent). Your local database has the old one applied too, and Drizzle skips anything older than the newest it applied, so run `npm run db:reset` and then `npm run dev`. The deploy preview's database still has your old migration applied, so that preview's deploys are refused until its database is reset; production is unaffected.
 
 Never run `drizzle-kit migrate` or `push` against the Netlify database, and never edit a migration that has already been deployed — add a new one. Keep migrations backwards-compatible (new tables, nullable columns): they are applied moments before the new code goes live, so the old code briefly runs against the new schema.
 
