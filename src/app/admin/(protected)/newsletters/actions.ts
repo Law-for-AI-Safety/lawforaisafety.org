@@ -352,7 +352,14 @@ export async function scheduleNewsletter(
   await recordAdminAction({
     actorEmail: actor.email,
     action: scheduleAt ? "newsletter_schedule" : "newsletter_send_now",
-    detail: { newsletter: newsletterId, campaign: campaignId, subject: fields.subject.trim(), at: sendAt.toISOString(), subscribers: count },
+    detail: {
+      newsletter: newsletterId,
+      campaign: campaignId,
+      subject: fields.subject.trim(),
+      at: sendAt.toISOString(),
+      subscribers: count,
+      website: row.webPublished,
+    },
   });
   await handedOver(newsletterId);
   return { ok: true };
@@ -539,7 +546,9 @@ async function handedOver(id: string): Promise<void> {
     console.error(`[newsletter] Could not give newsletter ${id} its website address`, err);
     return;
   }
-  if (row?.webPublished) await confirmSent(row);
+  // A scheduled issue can't have been sent yet, so Brevo is only asked about one due now.
+  const due = !row?.scheduledAt || row.scheduledAt.getTime() <= Date.now();
+  if (row?.webPublished && due) await confirmSent(row);
 }
 
 /** After an issue becomes a draft again: a ticked one comes off the website, if it was up. */

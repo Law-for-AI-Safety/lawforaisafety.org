@@ -48,8 +48,8 @@ export default function WebsiteOption({ id, initial }: { id: string; initial: We
       <p role="status" className="text-sm text-brand-black/70">
         {!standing.on ? (
           <>
-            Only subscribers get it. Leave this off for an issue about events or deadlines that won&apos;t stay true; it can be
-            ticked later.
+            Only subscribers get it. Leave this unticked for an issue about events or deadlines that won&apos;t stay true; it
+            can be ticked at any time.
           </>
         ) : standing.live && standing.path ? (
           <>

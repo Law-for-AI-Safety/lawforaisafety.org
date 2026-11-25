@@ -14,6 +14,7 @@ export default function ConfirmSend({
   subject,
   at,
   action,
+  onWebsite,
   onConfirm,
   onClose,
 }: {
@@ -22,6 +23,8 @@ export default function ConfirmSend({
   at: Date | null;
   /** What the button does, e.g. "Schedule" or "Reschedule". */
   action: string;
+  /** Whether the issue also goes on the website once sent; left out where that isn't being decided. */
+  onWebsite?: boolean;
   onConfirm: (typedCount: number) => Promise<{ ok: true } | Refusal>;
   onClose: () => void;
 }) {
@@ -79,6 +82,14 @@ export default function ConfirmSend({
             <dd className="text-brand-black">{list.subscribers}</dd>
             <dt className="text-brand-black/70">Goes out</dt>
             <dd className="text-brand-black">{when ?? "Straight away"}</dd>
+            {onWebsite !== undefined && (
+              <>
+                <dt className="text-brand-black/70">Website</dt>
+                <dd className="text-brand-black">
+                  {onWebsite ? "Also goes on the website, under /newsletter, once sent" : "Not on the website"}
+                </dd>
+              </>
+            )}
           </dl>
           <p className="text-brand-black">
             Once it has gone out it can&apos;t be recalled.{" "}

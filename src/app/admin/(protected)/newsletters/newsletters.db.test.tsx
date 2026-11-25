@@ -277,9 +277,11 @@ describe("scheduling and sending", () => {
       {
         action: "newsletter_schedule",
         actor: EMAIL.publish,
-        detail: { newsletter: id, campaign: campaign.id, subject: "November update", at: IN_A_WEEK, subscribers: 120 },
+        detail: { newsletter: id, campaign: campaign.id, subject: "November update", at: IN_A_WEEK, subscribers: 120, website: true },
       },
     ]);
+    // It can't have been sent yet, so Brevo isn't asked whether it was.
+    expect(brevo.calls.filter((call) => call.startsWith("GET /v3/emailCampaigns"))).toEqual([]);
   });
 
   it("sends now when no time is given", async () => {
@@ -678,6 +680,8 @@ describe("the pages", () => {
     vi.stubEnv("DEPLOY_CONTEXT", "production");
     const { id: scheduled } = await seedScheduled();
     const { id: sent, version } = await seed({ fields: { ...FIELDS, subject: "October update" } });
+    // Kept off the website: a ticked issue's send is recorded at once, so the list never asks Brevo for its count.
+    await db.update(newsletters).set({ webPublished: false }).where(eq(newsletters.id, sent));
     await scheduleNewsletter(sent, version, null, 120);
     await seed({ tested: false, fields: { ...FIELDS, subject: "December update" } });
     await signInAs("draft");
@@ -756,6 +760,7 @@ describe("the pages", () => {
     const dialog = within(await screen.findByRole("dialog"));
     expect(await dialog.findByText("Newsletter")).toBeInTheDocument();
     expect(dialog.getByText("Straight away")).toBeInTheDocument();
+    expect(dialog.getByText("Also goes on the website, under /newsletter, once sent")).toBeInTheDocument();
     const send = dialog.getByRole("button", { name: "Send now: 120 subscribers" });
     expect(send).toBeDisabled();
     await user.type(dialog.getByLabelText(/type the number of subscribers/), "12");

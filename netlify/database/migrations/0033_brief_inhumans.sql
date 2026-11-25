@@ -1,0 +1,1 @@
+ALTER TABLE "newsletters" ALTER COLUMN "web_published" SET DEFAULT true;
