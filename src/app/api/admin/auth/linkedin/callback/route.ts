@@ -10,12 +10,7 @@ import {
   isAdminSubAllowed,
   isAdminSubPinningConfigured,
 } from "@/lib/session";
-import {
-  configuredAdminWorkspaceDomain,
-  isLinkedinRetired,
-  isOnWorkspaceDomain,
-  mayKeepLinkedin,
-} from "@/lib/admin-workspace";
+import { isLinkedinClosedFor, isLinkedinRetired } from "@/lib/admin-workspace";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -72,18 +67,16 @@ export async function GET(request: Request) {
     return seeOther("/admin/login?error=forbidden");
   }
 
-  // Closed once its owner has signed in with their Workspace Google account, so the
-  // Workspace's 2-step verification and suspension can't be sidestepped through LinkedIn.
-  // A LinkedIn account reporting a Workspace address is closed from the start: its owner
-  // holds that Workspace account, so can sign in with it.
-  if (!mayKeepLinkedin(userInfo.email)) {
-    const domain = configuredAdminWorkspaceDomain();
-    if (domain && isOnWorkspaceDomain(userInfo.email, domain)) {
-      return seeOther("/admin/login?error=use_google");
-    }
-    if (await isLinkedinRetired(userInfo.email)) {
-      return seeOther("/admin/login?error=moved");
-    }
+  // Closed for a Workspace address, whose owner can sign in with that account, and once its
+  // owner has switched to Google, so the Workspace's 2-step verification and suspension can't
+  // be sidestepped through LinkedIn. Only while Google login is configured; see
+  // isLinkedinClosedFor.
+  if (isLinkedinClosedFor(userInfo.email, false)) {
+    return seeOther("/admin/login?error=use_google");
+  }
+  // `true` asks whether it would be closed if retired, so the database is read only then.
+  if (isLinkedinClosedFor(userInfo.email, true) && (await isLinkedinRetired(userInfo.email))) {
+    return seeOther("/admin/login?error=moved");
   }
 
   if (!isAdminSubPinningConfigured()) {

@@ -9,6 +9,7 @@ import {
 } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import { timingSafeEqualStrings } from "@/lib/timing-safe-equal";
+import { isOpportunitiesTeamEmail, isTaskTrackerTeamEmail, isTechAdminEmail } from "@/lib/session";
 
 /**
  * Moving an admin from LinkedIn to their Workspace Google account ("Switch to Google").
@@ -65,9 +66,10 @@ export type SwitchResult = {
  * audit entry saying what moved. Records of what they did (audit logs, authorship) stay as they
  * are. A role the Workspace address already holds is kept if it is the stronger of the two.
  *
- * An admin who keeps LinkedIn (`keepsLinkedin`, see mayKeepLinkedin) goes on using both
- * addresses, so their CMS role is copied rather than moved, and their tasks and projects stay
- * where they are.
+ * An admin who keeps LinkedIn (`keepsLinkedin`, see mayKeepLinkedin) may still sign in at the
+ * LinkedIn address, so their CMS role is copied rather than moved. Their tasks and projects
+ * move all the same: their Workspace address is their main one from now on, and work left at
+ * the LinkedIn address would be stranded once it leaves ADMIN_LINKEDIN_KEEP_EMAILS.
  */
 export async function switchAdmin(
   linkedinEmail: string,
@@ -97,16 +99,12 @@ export async function switchAdmin(
           },
         });
     }
-    const tasks = keepsLinkedin
-      ? []
-      : await tx
+    const tasks = await tx
       .update(taskTrackerTasks)
       .set({ assigneeEmail: to })
       .where(sql`lower(${taskTrackerTasks.assigneeEmail}) = ${from}`)
       .returning({ id: taskTrackerTasks.id });
-    const projects = keepsLinkedin
-      ? []
-      : await tx
+    const projects = await tx
       .update(taskTrackerProjects)
       .set({ ownerEmail: to })
       .where(sql`lower(${taskTrackerProjects.ownerEmail}) = ${from}`)
@@ -120,4 +118,27 @@ export async function switchAdmin(
     });
     return result;
   });
+}
+
+/** The areas switching would lose, in the words the "Switch to Google" message uses. */
+export const SWITCH_AREAS = {
+  technical: "the technical admin pages",
+  projects: "Projects",
+  opportunities: "Opportunities",
+} as const;
+export type SwitchArea = keyof typeof SWITCH_AREAS;
+
+/**
+ * The areas `from` can reach that `to` couldn't, because the env-var lists (TECH_ADMIN_EMAILS
+ * and the team lists) name only the LinkedIn address. A switch is refused while there are any,
+ * so moving to Google never quietly costs an admin access. CMS roles move with the switch, so
+ * they aren't counted.
+ */
+export function areasLostBySwitch(from: string, to: string): SwitchArea[] {
+  const checks: [SwitchArea, (email: string) => boolean][] = [
+    ["technical", isTechAdminEmail],
+    ["projects", isTaskTrackerTeamEmail],
+    ["opportunities", isOpportunitiesTeamEmail],
+  ];
+  return checks.filter(([, can]) => can(from) && !can(to)).map(([area]) => area);
 }

@@ -5,9 +5,10 @@ import {
   oauthStateCookieMatches,
 } from "@/lib/oauth-state-cookie";
 import {
+  configuredAdminHostedDomain,
   configuredAdminWorkspaceDomain,
   isAdminWorkspaceAccount,
-  isOnWorkspaceDomain,
+  isLinkedinSession,
   mayKeepLinkedin,
   retireLinkedin,
 } from "@/lib/admin-workspace";
@@ -16,11 +17,11 @@ import {
   endAdminSession,
   endLinkedinSessionsOf,
   endSessionsOf,
-  getAdminSession,
+  getAdminSessionDetails,
   isAdminEmailAllowed,
   startAdminSession,
 } from "@/lib/session";
-import { switchAdmin, takeSwitchFor } from "@/lib/admin-switch";
+import { areasLostBySwitch, switchAdmin, takeSwitchFor } from "@/lib/admin-switch";
 import { recordAdminAction } from "@/lib/audit-log";
 import { rememberPerson } from "@/lib/admin-people";
 import { seeOther } from "@/lib/redirect";
@@ -52,7 +53,18 @@ export async function GET(request: Request) {
     throw new Error("Missing required env var: NEXT_PUBLIC_SITE_URL");
   }
   const domain = configuredAdminWorkspaceDomain();
-  if (!domain) return seeOther("/admin/login?error=unavailable");
+  const hostedDomain = configuredAdminHostedDomain();
+  if (!domain || !hostedDomain) return seeOther("/admin/login?error=unavailable");
+
+  // A login started from "Switch to Google" by the LinkedIn session this browser still holds
+  // is how this Workspace account is matched to the admin's LinkedIn address; see
+  // admin-switch.ts. Any other Google login closes LinkedIn for the Workspace address only.
+  const previous = await getAdminSessionDetails();
+  const switchingFrom = switching && previous && isLinkedinSession(previous.provider) ? previous.email : null;
+  // A switch that can't go ahead returns to the admin area, still signed in with LinkedIn,
+  // saying why; see SwitchProblem.
+  const refuse = (loginError: string, switchProblem: string) =>
+    seeOther(switchingFrom ? `/admin?switch=${switchProblem}` : `/admin/login?error=${loginError}`);
 
   let userInfo;
   try {
@@ -62,32 +74,27 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     if (err instanceof UnverifiedEmailError) {
-      return seeOther("/admin/login?error=forbidden");
+      return refuse("forbidden", "workspace");
     }
     throw err;
   }
 
   // Checked before the lists: an address on ADMIN_EMAILS proves nothing about who holds
   // the account unless the Workspace, with its 2-step verification and suspension, does.
-  if (!isAdminWorkspaceAccount(userInfo, domain)) {
-    return seeOther("/admin/login?error=workspace");
+  if (!isAdminWorkspaceAccount(userInfo, { domain, hostedDomain })) {
+    return refuse("workspace", "workspace");
   }
 
   if (!isAdminEmailAllowed(userInfo.email)) {
-    return seeOther("/admin/login?error=forbidden");
+    return refuse("forbidden", "not_listed");
   }
 
-  // A login started from "Switch to Google" by the LinkedIn session this browser still holds
-  // (an address off the Workspace domain) is how this Workspace account is matched to the
-  // admin's LinkedIn address; see admin-switch.ts. Any other Google login closes LinkedIn for
-  // the Workspace address only.
-  const previous = await getAdminSession();
-  const linkedinEmail =
-    switching && previous && !isOnWorkspaceDomain(previous.email, domain) ? previous.email : null;
-  if (linkedinEmail) {
-    const keepsLinkedin = mayKeepLinkedin(linkedinEmail);
-    await switchAdmin(linkedinEmail, userInfo.email, { keepsLinkedin });
-    if (!keepsLinkedin) await endSessionsOf(linkedinEmail, userInfo.email);
+  if (switchingFrom) {
+    const lost = areasLostBySwitch(switchingFrom, userInfo.email);
+    if (lost.length > 0) return seeOther(`/admin?switch=less_access&lost=${lost.join(",")}`);
+    const keepsLinkedin = mayKeepLinkedin(switchingFrom);
+    await switchAdmin(switchingFrom, userInfo.email, { keepsLinkedin });
+    if (!keepsLinkedin) await endSessionsOf(switchingFrom, userInfo.email);
   } else {
     await retireLinkedin([userInfo.email], userInfo.email);
     await recordAdminAction({ actorEmail: userInfo.email, action: "login", detail: { provider: "google" } });

@@ -4,7 +4,7 @@ import { and, count, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { adminLinkedinRetired, adminSessions } from "@/drizzle/schema";
 import { db } from "@/lib/db";
-import { mayKeepLinkedin } from "@/lib/admin-workspace";
+import { isLinkedinClosedFor, isLinkedinSession } from "@/lib/admin-workspace";
 import { hashSessionToken } from "@/lib/session-token";
 
 const SESSION_COOKIE_NAME = "admin_session";
@@ -67,11 +67,15 @@ export async function currentSessionTokenHash(): Promise<string | null> {
   return token ? hashSessionToken(token) : null;
 }
 
+/** The signed-in admin, with how their session was signed in (null: from before that was recorded). */
+export type AdminSessionDetails = AdminSessionPayload & { provider: SessionProvider | null };
+
 /**
- * The signed-in admin, or null. Read from the database on each request (once per request
- * when rendering), so a session that is ended stops working on its next request.
+ * The signed-in admin and how they signed in, or null. Read from the database on each request
+ * (once per request when rendering), so a session that is ended stops working on its next
+ * request.
  */
-export const getAdminSession = cache(async (): Promise<AdminSessionPayload | null> => {
+export const getAdminSessionDetails = cache(async (): Promise<AdminSessionDetails | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
@@ -83,17 +87,23 @@ export const getAdminSession = cache(async (): Promise<AdminSessionPayload | nul
     .where(and(eq(adminSessions.tokenHash, hashSessionToken(token)), live()));
   if (!row) return null;
   const { session } = row;
+  const provider = session.provider as SessionProvider | null;
   // Checked on every request, not just at login — removing someone from
   // ADMIN_EMAILS ends their session on their next request.
   if (!isAdminEmailAllowed(session.email)) return null;
-  // Likewise a LinkedIn session stops working once LinkedIn is closed for its address
-  // (admin-workspace.ts), wherever it was signed in.
-  const viaLinkedin = session.provider === null || session.provider === "linkedin";
-  if (viaLinkedin && row.linkedinClosed !== null && !mayKeepLinkedin(session.email)) return null;
+  // Likewise a LinkedIn session stops working once LinkedIn login is closed for its address,
+  // wherever it was signed in (admin-workspace.ts).
+  if (isLinkedinSession(provider) && isLinkedinClosedFor(session.email, row.linkedinClosed !== null)) return null;
   if (Date.now() - session.lastSeenAt.getTime() > SEEN_INTERVAL_MS) {
     await db.update(adminSessions).set({ lastSeenAt: new Date() }).where(eq(adminSessions.id, session.id));
   }
-  return { email: session.email, name: session.name };
+  return { email: session.email, name: session.name, provider };
+});
+
+/** The signed-in admin, or null; see getAdminSessionDetails. */
+export const getAdminSession = cache(async (): Promise<AdminSessionPayload | null> => {
+  const details = await getAdminSessionDetails();
+  return details && { email: details.email, name: details.name };
 });
 
 /** Logs this browser out: its session ends, so a copy of the cookie stops working too. */

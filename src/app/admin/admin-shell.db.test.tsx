@@ -197,6 +197,20 @@ describe("moving admins from LinkedIn to Google", () => {
     expect(button.closest("form")).toHaveAttribute("action", "/api/admin/auth/google");
   });
 
+  it("decides from how the session signed in, not its address: never a dev-login session", async () => {
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "lais.example");
+    cookieJar.reset();
+    await startAdminSession({ email: email("reviewer"), name: "Reviewer", provider: "dev" });
+    render(await ProtectedAdminLayout({ children: null }));
+    expect(banner()).toBeNull();
+  });
+
+  it("explains on the dashboard why a switch didn't go ahead", async () => {
+    await signInAs("reviewer");
+    render(await AdminDashboardPage({ searchParams: Promise.resolve({ switch: "not_listed" }) }));
+    expect(screen.getByRole("alert")).toHaveTextContent("isn't on the admin list yet");
+  });
+
   it("doesn't ask a Workspace account, an admin who keeps LinkedIn, or anyone before Google login is set up", async () => {
     vi.stubEnv("ADMIN_EMAILS", "tech@example.com,reviewer@example.com,sam@lais.example");
     for (const [domain, keep, who] of [
@@ -207,7 +221,7 @@ describe("moving admins from LinkedIn to Google", () => {
       vi.stubEnv("ADMIN_GOOGLE_DOMAIN", domain);
       vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", keep);
       cookieJar.reset();
-      await startAdminSession({ email: who, name: "Someone" });
+      await startAdminSession({ email: who, name: "Someone", provider: who.endsWith("@lais.example") ? "google" : "linkedin" });
       const { unmount } = render(await ProtectedAdminLayout({ children: null }));
       expect(banner()).toBeNull();
       unmount();
@@ -256,7 +270,7 @@ describe("the dashboard", () => {
     ["reviewer", ["Collaboration", "Red Lines"]],
   ])("has a card for each area %s can use", async (who, titles) => {
     await signInAs(who);
-    render(await AdminDashboardPage());
+    render(await AdminDashboardPage({ searchParams: Promise.resolve({}) }));
     expect(cardTitles()).toEqual(titles);
   });
 
@@ -277,7 +291,7 @@ describe("the dashboard", () => {
       createdBy: "seed",
     });
     await signInAs("tech");
-    render(await AdminDashboardPage());
+    render(await AdminDashboardPage({ searchParams: Promise.resolve({}) }));
 
     const card = (title: string) => screen.getByRole("heading", { name: title }).closest("section")!;
     expect(within(card("Red Lines")).getByText(/Oldest has been waiting 5 days\./)).toBeInTheDocument();
@@ -293,7 +307,7 @@ describe("the dashboard", () => {
     await signInAs("tech");
     await db.execute(sql`ALTER TABLE opportunity_submissions RENAME TO opportunity_submissions_unavailable`);
     try {
-      render(await AdminDashboardPage());
+      render(await AdminDashboardPage({ searchParams: Promise.resolve({}) }));
     } finally {
       await db.execute(sql`ALTER TABLE opportunity_submissions_unavailable RENAME TO opportunity_submissions`);
     }
@@ -313,7 +327,7 @@ describe("the dashboard", () => {
     await signInAs("tech");
     await db.execute(sql.raw(`ALTER TABLE ${table} RENAME TO ${renamed}`));
     try {
-      render(await AdminDashboardPage());
+      render(await AdminDashboardPage({ searchParams: Promise.resolve({}) }));
     } finally {
       await db.execute(sql.raw(`ALTER TABLE ${renamed} RENAME TO ${table}`));
     }
@@ -323,7 +337,7 @@ describe("the dashboard", () => {
 
   it("says when nothing is waiting", async () => {
     await signInAs("publish");
-    render(await AdminDashboardPage());
+    render(await AdminDashboardPage({ searchParams: Promise.resolve({}) }));
     const card = (title: string) => screen.getByRole("heading", { name: title }).closest("section")!;
     expect(within(card("Red Lines")).getByText(/Nothing waiting for review\./)).toBeInTheDocument();
     expect(within(card("Opportunities")).getByText(/No submissions waiting\./)).toBeInTheDocument();

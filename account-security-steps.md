@@ -28,8 +28,10 @@ Admin login used to be "Log in with LinkedIn", and still offers it while
 admins move. LinkedIn accounts are personal, so none of the controls above
 reach them. Each admin moves once:
 
-1. Their Workspace address is added to `ADMIN_EMAILS` (and whichever lists
-   below their old address is on), next to their old LinkedIn address.
+1. Their Workspace address is added to `ADMIN_EMAILS` and to every list below
+   that their old address is on, next to their old LinkedIn address. Until it
+   is, the switch is refused with a message saying what's missing, and they
+   stay signed in with LinkedIn.
 2. They log in with LinkedIn as usual. The admin area shows a **Switch to
    Google** banner; they click it, and choose their Workspace account in
    Google's account chooser.
@@ -38,9 +40,10 @@ reach them. Each admin moves once:
    projects they own move to their Workspace address. `/admin/settings` →
    LinkedIn logins shows who has moved.
 
-Only the banner links the two addresses: it is clicked by whoever holds the
-LinkedIn session, so another admin signing in with Google on a shared browser
-can't close their LinkedIn login. A Google sign-in started anywhere else
+Only the banner links the two addresses. It is clicked by whoever holds the
+LinkedIn session, and the switch completes only if Google returns to that same
+session, so another admin signing in with Google on a shared browser can't
+close their LinkedIn login. A Google sign-in started anywhere else
 closes LinkedIn only for the Workspace address, so ask admins to switch from
 the banner.
 
@@ -49,8 +52,9 @@ start, with a message to use Google: its owner holds that Workspace account.
 
 `ADMIN_LINKEDIN_KEEP_EMAILS` lists the LinkedIn addresses that stay open even
 after their owner has moved (comma-separated, each also in `ADMIN_EMAILS`).
-Their CMS role is copied to the Workspace address rather than moved, and their
-tasks stay where they are.
+Their CMS role is copied to the Workspace address rather than moved, so it
+works from both. Their tasks and projects move to the Workspace address like
+everyone else's.
 Keep it as short as possible: every address on it can reach the admin panel
 without the Workspace's 2-step verification. For anyone on it, also do the
 LinkedIn steps below.
@@ -58,15 +62,23 @@ LinkedIn steps below.
 Once everyone not on that list has moved, remove their old addresses from
 `ADMIN_EMAILS` and the other lists.
 
+Unsetting `ADMIN_GOOGLE_DOMAIN` switches Google login off again: the login
+page offers only LinkedIn, and LinkedIn login works again for everyone who had
+switched. Use it if Google login has to be undone in a hurry.
+
 ### Admins still on LinkedIn
 
 For each admin who still logs in with LinkedIn:
 
 1. LinkedIn → Me → Settings & Privacy → Sign in & security → **Two-step
    verification** → turn on → choose **Authenticator app**, not SMS.
-2. Same page → **Email addresses** → remove old addresses you no longer
+2. Save the recovery codes in a password manager.
+3. Same page → **Where you're signed in** → end any session you don't
+   recognise.
+4. Same page → **Email addresses** → remove old addresses you no longer
    control. Any confirmed address can be used to reset the password.
-3. **Pin their LinkedIn account id**: once they have logged in, a technical
+5. Use a password that is unique to LinkedIn.
+6. **Pin their LinkedIn account id**: once they have logged in, a technical
    admin copies the id shown at `/admin/settings` → LinkedIn logins into the
    `ADMIN_LINKEDIN_SUBS` environment variable in Netlify (comma-separated,
    one per admin) and redeploys. From then on LinkedIn login needs an

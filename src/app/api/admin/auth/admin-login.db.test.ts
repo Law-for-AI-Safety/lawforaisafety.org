@@ -12,6 +12,7 @@ import {
 } from "@/drizzle/schema";
 import { retireLinkedin } from "@/lib/admin-workspace";
 import { getAdminSession, startAdminSession } from "@/lib/session";
+import { hashSessionToken } from "@/lib/session-token";
 import { APP_ORIGIN } from "../../../../../test/app-fetch";
 import { cookieJar } from "../../../../../test/next-headers";
 import { oauthProviders, type ProviderUser } from "../../../../../test/fakes/oauth";
@@ -368,7 +369,10 @@ describe("switching from LinkedIn to Google", () => {
   it("doesn't close another admin's Workspace address when that is the browser's session", async () => {
     vi.stubEnv("ADMIN_EMAILS", `sam@${DOMAIN},kim@${DOMAIN}`);
     await signInAs({ ...ADMIN, sub: "google-sub-2", email: `kim@${DOMAIN}` });
-    expect(await switchToGoogle(ADMIN)).toBe("/admin");
+    // A Google session has nothing to switch, so the button just goes back to the admin area.
+    expect(location(await switchPost())).toBe("/admin");
+    const state = new URL(location(await googleLogin())!).searchParams.get("state")!;
+    expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state }))).toBe("/admin");
     const rows = await db.select().from(adminLinkedinRetired);
     expect(rows.map(({ email, googleEmail }) => [email, googleEmail]).sort()).toEqual([
       [`kim@${DOMAIN}`, `kim@${DOMAIN}`],
@@ -451,7 +455,7 @@ describe("what moves to the Workspace address on a switch", () => {
     ]);
   });
 
-  it("copies the role and leaves the work in place for an admin who keeps LinkedIn", async () => {
+  it("copies the role but moves the work for an admin who keeps LinkedIn", async () => {
     vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", "sam@personal.example");
     await db.insert(cmsRoles).values({ email: "sam@personal.example", permission: "draft", grantedBy: "tech@example.com" });
     await seedWork("sam@personal.example");
@@ -465,7 +469,10 @@ describe("what moves to the Workspace address on a switch", () => {
       { email: `sam@${DOMAIN}`, permission: "draft" },
       { email: "sam@personal.example", permission: "draft" },
     ]);
-    expect(await tasksOf()).toEqual({ Draft: "sam@personal.example", Review: "kim@personal.example" });
+    // The work follows their Workspace address, so it isn't stranded when the keep list changes.
+    expect(await tasksOf()).toEqual({ Draft: `sam@${DOMAIN}`, Review: "kim@personal.example" });
+    const [project] = await db.select().from(taskTrackerProjects);
+    expect(project.ownerEmail).toBe(`sam@${DOMAIN}`);
   });
 
   it("moves nothing on a Google login that isn't a switch", async () => {
@@ -525,5 +532,115 @@ describe("LinkedIn sessions once LinkedIn is closed for their address", () => {
       await startAdminSession({ email: `sam@${DOMAIN}`, name: "Sam", provider });
       expect(await getAdminSession()).toMatchObject({ email: `sam@${DOMAIN}` });
     }
+  });
+});
+
+describe("a switch that can't go ahead", () => {
+  const stillOnLinkedin = async () => {
+    expect(await getAdminSession()).toMatchObject({ email: "sam@personal.example" });
+    expect(await db.select().from(adminLinkedinRetired)).toEqual([]);
+  };
+
+  it("goes back to the admin area when the Workspace address isn't on ADMIN_EMAILS yet", async () => {
+    vi.stubEnv("ADMIN_EMAILS", "sam@personal.example");
+    await linkedinSignIn(SAM_LINKEDIN);
+    expect(await switchToGoogle(ADMIN)).toBe("/admin?switch=not_listed");
+    await stillOnLinkedin();
+  });
+
+  it("goes back to the admin area when a personal Google account is chosen", async () => {
+    await linkedinSignIn(SAM_LINKEDIN);
+    expect(await switchToGoogle({ ...ADMIN, hostedDomain: undefined })).toBe("/admin?switch=workspace");
+    await stillOnLinkedin();
+  });
+
+  it.each([
+    ["TECH_ADMIN_EMAILS", "technical"],
+    ["TASK_TRACKER_TEAM_EMAILS", "projects"],
+    ["OPPORTUNITIES_TEAM_EMAILS", "opportunities"],
+  ])("is refused while only the LinkedIn address is on %s", async (list, area) => {
+    vi.stubEnv(list, "sam@personal.example");
+    await linkedinSignIn(SAM_LINKEDIN);
+    expect(await switchToGoogle(ADMIN)).toBe(`/admin?switch=less_access&lost=${area}`);
+    await stillOnLinkedin();
+
+    vi.stubEnv(list, `sam@personal.example,sam@${DOMAIN}`);
+    expect(await switchToGoogle(ADMIN)).toBe("/admin");
+  });
+
+  it("names every area that would be lost", async () => {
+    vi.stubEnv("TECH_ADMIN_EMAILS", "sam@personal.example");
+    vi.stubEnv("OPPORTUNITIES_TEAM_EMAILS", "sam@personal.example");
+    await linkedinSignIn(SAM_LINKEDIN);
+    expect(await switchToGoogle(ADMIN)).toBe("/admin?switch=less_access&lost=technical,opportunities");
+  });
+
+  it("is never offered to a dev-login session, even one off the Workspace domain", async () => {
+    await startAdminSession({ email: "sam@personal.example", name: "Sam", provider: "dev" });
+    expect(location(await switchPost())).toBe("/admin");
+    expect(cookieJar.get("admin_switch_from")).toBeUndefined();
+    // Nor linked by a callback that finds a switch cookie naming its session.
+    const token = cookieJar.get("admin_session")!.value;
+    const state = new URL(location(await googleLogin())!).searchParams.get("state")!;
+    cookieJar.set("admin_switch_from", hashSessionToken(token));
+    expect(location(await callback({ code: oauthProviders.signIn("google", ADMIN), state }))).toBe("/admin");
+    expect((await db.select().from(adminLinkedinRetired)).map((row) => row.email)).toEqual([`sam@${DOMAIN}`]);
+  });
+});
+
+describe("switching Google login off again (the rollback)", () => {
+  it("lets switched admins back in through LinkedIn, and their LinkedIn sessions work again", async () => {
+    await linkedinSignIn(SAM_LINKEDIN);
+    await switchToGoogle(ADMIN);
+    expect(await linkedinSignIn(SAM_LINKEDIN)).toBe("/admin/login?error=moved");
+
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
+    expect(await linkedinSignIn(SAM_LINKEDIN)).toBe("/admin");
+    expect(await getAdminSession()).toMatchObject({ email: "sam@personal.example" });
+    // Google login is off, rather than answering errors.
+    expect(location(await googleLogin())).toBe("/admin/login?error=unavailable");
+  });
+
+  it("keeps a closed address's LinkedIn sessions working while Google login is off", async () => {
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
+    await startAdminSession({ email: "sam@personal.example", name: "Sam", provider: "linkedin" });
+    await retireLinkedin(["sam@personal.example"], `sam@${DOMAIN}`);
+    expect(await getAdminSession()).toMatchObject({ email: "sam@personal.example" });
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", DOMAIN);
+    expect(await getAdminSession()).toBeNull();
+  });
+});
+
+describe("LinkedIn sessions on a Workspace address", () => {
+  it("stop working once Google login is set up, unless the address keeps LinkedIn", async () => {
+    vi.stubEnv("ADMIN_EMAILS", `sam@${DOMAIN}`);
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
+    await startAdminSession({ email: `sam@${DOMAIN}`, name: "Sam", provider: "linkedin" });
+    expect(await getAdminSession()).toMatchObject({ email: `sam@${DOMAIN}` });
+
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", DOMAIN);
+    expect(await getAdminSession()).toBeNull();
+    vi.stubEnv("ADMIN_LINKEDIN_KEEP_EMAILS", `sam@${DOMAIN}`);
+    expect(await getAdminSession()).toMatchObject({ email: `sam@${DOMAIN}` });
+  });
+});
+
+describe("a Workspace whose primary domain isn't the admins' address domain", () => {
+  const PRIMARY = "primary.example";
+
+  it("checks hd against ADMIN_GOOGLE_HOSTED_DOMAIN and the address against ADMIN_GOOGLE_DOMAIN", async () => {
+    vi.stubEnv("ADMIN_GOOGLE_HOSTED_DOMAIN", ` @${PRIMARY.toUpperCase()} `);
+    const url = new URL(location(await googleLogin())!);
+    expect(url.searchParams.get("hd")).toBe(PRIMARY);
+
+    expect(await signInAs({ ...ADMIN, hostedDomain: PRIMARY })).toBe("/admin");
+    expect(await signInAs(ADMIN)).toBe("/admin/login?error=workspace");
+    expect(await signInAs({ ...ADMIN, email: `sam@${PRIMARY}`, hostedDomain: PRIMARY })).toBe("/admin/login?error=workspace");
+  });
+
+  it("is off, like the rest of Google login, without ADMIN_GOOGLE_DOMAIN", async () => {
+    vi.stubEnv("ADMIN_GOOGLE_DOMAIN", "");
+    vi.stubEnv("ADMIN_GOOGLE_HOSTED_DOMAIN", PRIMARY);
+    expect(location(await googleLogin())).toBe("/admin/login?error=unavailable");
   });
 });

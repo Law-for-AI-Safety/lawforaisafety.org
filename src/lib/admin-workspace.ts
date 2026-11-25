@@ -3,13 +3,9 @@ import { adminLinkedinRetired } from "@/drizzle/schema";
 import { db } from "@/lib/db";
 import type { OAuthUserInfo } from "@/lib/oauth";
 
-/**
- * The organisation's Google Workspace domain, or null while ADMIN_GOOGLE_DOMAIN is unset.
- * Kept in an env var rather than in code because the repository is public. A leading `@` or
- * a trailing dot is dropped, so a value copied from an address or a DNS record still matches.
- */
-export function configuredAdminWorkspaceDomain(): string | null {
-  const domain = (process.env.ADMIN_GOOGLE_DOMAIN ?? "")
+/** A domain as written in a setting: trimmed, lower-cased, without a leading `@` or a trailing dot. */
+function domainSetting(name: string): string | null {
+  const domain = (process.env[name] ?? "")
     .trim()
     .toLowerCase()
     .replace(/^@/, "")
@@ -18,17 +14,21 @@ export function configuredAdminWorkspaceDomain(): string | null {
 }
 
 /**
- * The Workspace domain, the only one Google admin login accepts. Unset is a configuration
- * error, not "any domain": without it any Google account whose email is on the lists could
- * sign in, and the Workspace's 2-step verification, suspension and sign-in audit would
- * protect nothing.
+ * The domain admins' Workspace addresses are on, or null while ADMIN_GOOGLE_DOMAIN is unset,
+ * which switches Google admin login off. Kept in an env var rather than in code because the
+ * repository is public. A value copied from an address or a DNS record still matches.
  */
-export function adminWorkspaceDomain(): string {
-  const domain = configuredAdminWorkspaceDomain();
-  if (!domain) {
-    throw new Error("Missing required env var: ADMIN_GOOGLE_DOMAIN");
-  }
-  return domain;
+export function configuredAdminWorkspaceDomain(): string | null {
+  return domainSetting("ADMIN_GOOGLE_DOMAIN");
+}
+
+/**
+ * The Workspace's primary domain, which Google sends as `hd` for every account the Workspace
+ * manages, whichever of its domains the address is on. ADMIN_GOOGLE_HOSTED_DOMAIN when the
+ * addresses are on a secondary domain; otherwise the same as ADMIN_GOOGLE_DOMAIN.
+ */
+export function configuredAdminHostedDomain(): string | null {
+  return domainSetting("ADMIN_GOOGLE_HOSTED_DOMAIN") ?? configuredAdminWorkspaceDomain();
 }
 
 export function isOnWorkspaceDomain(email: string, domain: string): boolean {
@@ -37,13 +37,34 @@ export function isOnWorkspaceDomain(email: string, domain: string): boolean {
 
 /**
  * Whether a Google sign-in is an account of the organisation's own Workspace. Both must
- * hold: `hd` is set by Google only for accounts the Workspace manages, and the address
- * must be on that domain, so a Workspace account with an outside address can't stand in
- * for an admin. The email is already verified by the time this runs (see
- * exchangeCodeForUserInfo).
+ * hold: `hd` is set by Google only for accounts the Workspace manages (`hostedDomain`), and
+ * the address must be on the admins' domain (`domain`), so a Workspace account with an outside
+ * address can't stand in for an admin. The email is already verified by the time this runs
+ * (see exchangeCodeForUserInfo).
  */
-export function isAdminWorkspaceAccount(user: OAuthUserInfo, domain: string): boolean {
-  return user.hostedDomain?.toLowerCase() === domain && isOnWorkspaceDomain(user.email, domain);
+export function isAdminWorkspaceAccount(
+  user: OAuthUserInfo,
+  { domain, hostedDomain }: { domain: string; hostedDomain: string },
+): boolean {
+  return user.hostedDomain?.toLowerCase() === hostedDomain && isOnWorkspaceDomain(user.email, domain);
+}
+
+/** A session that came from LinkedIn: so recorded, or from before the provider was recorded. */
+export function isLinkedinSession(provider: string | null): boolean {
+  return provider === null || provider === "linkedin";
+}
+
+/**
+ * Whether LinkedIn admin login, and every LinkedIn session, is closed for `email`: it has
+ * moved to Google (`retired`, see retireLinkedin), or it is itself a Workspace address, whose
+ * owner can sign in with that account. Enforced only while Google login is configured, so
+ * switching Google login off (unsetting ADMIN_GOOGLE_DOMAIN) lets everyone back in through
+ * LinkedIn, and never for an address on ADMIN_LINKEDIN_KEEP_EMAILS.
+ */
+export function isLinkedinClosedFor(email: string, retired: boolean): boolean {
+  const domain = configuredAdminWorkspaceDomain();
+  if (!domain || mayKeepLinkedin(email)) return false;
+  return retired || isOnWorkspaceDomain(email, domain);
 }
 
 /**
@@ -91,11 +112,11 @@ export async function linkedinRetirements(emails: string[]): Promise<Map<string,
 }
 
 /**
- * Whether a signed-in admin should be asked to move to Google: their session is not on the
- * Workspace domain (so it came from LinkedIn), Google login is configured, and they aren't
- * one of the admins who keep LinkedIn.
+ * Whether a signed-in admin should be asked to move to Google: their session came from
+ * LinkedIn, Google login is configured, and they aren't one of the admins who keep LinkedIn.
  */
-export function shouldOfferGoogle(sessionEmail: string): boolean {
-  const domain = configuredAdminWorkspaceDomain();
-  return domain !== null && !isOnWorkspaceDomain(sessionEmail, domain) && !mayKeepLinkedin(sessionEmail);
+export function shouldOfferGoogle(session: { email: string; provider: string | null }): boolean {
+  return (
+    configuredAdminWorkspaceDomain() !== null && isLinkedinSession(session.provider) && !mayKeepLinkedin(session.email)
+  );
 }

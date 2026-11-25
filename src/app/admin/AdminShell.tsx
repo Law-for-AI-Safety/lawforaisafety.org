@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { countCollaborationQueue, countMyOverdueTasks, getRedLinesSummary } from "@/lib/admin-summary";
 import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
-import { getAdminSession } from "@/lib/session";
+import { getAdminSessionDetails } from "@/lib/session";
 import { shouldOfferGoogle } from "@/lib/admin-workspace";
 import { getAdminAccess } from "./access";
 import AdminSidebar from "./AdminSidebar";
@@ -29,7 +29,7 @@ function navCount(key: NavCountKey, email: string): Promise<number | null> {
  * await rather than an async component, so a test can render a layout's result directly.
  */
 export async function withAdminShell(children: React.ReactNode): Promise<React.ReactElement> {
-  const session = await getAdminSession();
+  const session = await getAdminSessionDetails();
   if (!session) redirect("/admin/login");
 
   const access = await getAdminAccess(session.email);
@@ -59,7 +59,7 @@ export async function withAdminShell(children: React.ReactNode): Promise<React.R
       {/* Scrolls for ordinary pages; the applications workspace and the page editor opt out
           and scroll their panes independently instead. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        {shouldOfferGoogle(session.email) && (
+        {shouldOfferGoogle(session) && (
           <div
             role="status"
             className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-black/15 bg-brand-navy/5 px-4 py-3 text-sm text-brand-black"
