@@ -46,6 +46,7 @@ export const openAlex: SourceAdapter = {
         results.push(...(await searchTopic(search, from, to, signal)));
       } catch (err) {
         if (signal.aborted) throw err;
+        console.error(`[news-radar] OpenAlex search for "${topic.name}" failed`, err);
         errors.push(err);
       }
     }

@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsRadarItems, newsRadarRuns, newsRadarSettings } from "@/drizzle/schema";
-import { saveNewsRadarSettings, setItemState } from "@/lib/news-radar-store";
+import { EMAIL_SENT, saveNewsRadarSettings, setItemState } from "@/lib/news-radar-store";
 import { emails } from "../../test/fakes/email";
 import { newsSources, type FakeArticle } from "../../test/fakes/news-sources";
 import { POST } from "../app/api/cron/news-radar/route";
 import { DEFAULT_SETTINGS } from "./defaults";
 import { runNewsRadar } from "./run";
 import { USER_AGENT } from "./sources/http";
+import { SOURCES } from "./sources";
 
 /**
  * The weekly run end to end, against a real database, with every source faked at fetch: what is
@@ -142,7 +143,7 @@ describe("seen before", () => {
     newsSources.googleNews(FINE, "AI Act");
     await run();
     const [first] = await items();
-    await setItemState([first.id], "useful", "admin@example.com");
+    await setItemState(first.id, "useful", "admin@example.com");
 
     // Next week Google News links the same story with different tracking parameters.
     newsSources.reset();
@@ -189,6 +190,20 @@ describe("seen before", () => {
     expect(email.html).not.toContain("seen before");
   });
 
+  it("lists what a failed weekly run stored in the next weekly email", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    await withRecipient();
+    newsSources.googleNews(FINE, "AI Act");
+    emails.failNext();
+    expect((await run()).email).toBe("Not sent: Brevo refused it. See the function log.");
+    newsSources.reset();
+    newsSources.googleNews(LAWSUIT, "lawsuit");
+    await run(NEXT_MONDAY);
+    const [email] = emails.to(GROUP);
+    expect(email.subject).toBe("News radar: 2 new for the week of 7 Dec 2026");
+    expect(email.html).toContain(FINE.title);
+  });
+
   it("keeps a dismissed item dismissed and out of the email", async () => {
     vi.stubEnv("DEPLOY_CONTEXT", "production");
     await withRecipient();
@@ -196,7 +211,7 @@ describe("seen before", () => {
     newsSources.googleNews(LAWSUIT, "lawsuit");
     await run();
     const fine = (await items()).find((i) => i.title === FINE.title)!;
-    await setItemState([fine.id], "dismissed", "admin@example.com");
+    await setItemState(fine.id, "dismissed", "admin@example.com");
     emails.reset();
 
     await run(NEXT_MONDAY);
@@ -271,9 +286,26 @@ describe("a source failing", () => {
 
   it("stores a result whose text holds control characters, without them", async () => {
     // Postgres refuses a NUL character in text, so one such result would otherwise sink the run.
-    newsSources.googleNews({ ...FINE, title: "AI Act fine\u0000 for market\u200b surveillance" }, "AI Act");
+    newsSources.googleNews({ ...FINE, title: "AI Act fine\u0000for market sur\u00adveil\u200blance", url: "https://exa\u0000mple.com/a" }, "AI Act");
     await run();
-    expect((await items()).map((i) => i.title)).toEqual(["AI Act fine for market surveillance"]);
+    expect((await items()).map((i) => [i.title, i.url, i.urlKey])).toEqual([["AI Act fine for market surveillance", "https://example.com/a", "https://example.com/a"]]);
+  });
+
+  it("never stores one article twice when two runs overlap", async () => {
+    // Opaque Google News links differ between the runs, so only the title can match them.
+    let n = 0;
+    newsSources.googleNews({ ...FINE, url: "https://news.google.com/rss/articles/CBMiAU_yqLOpaque" }, "AI Act");
+    const opaque = (s: (typeof SOURCES)[number]) => ({
+      ...s,
+      fetch: async (context: Parameters<typeof s.fetch>[0]) =>
+        (await s.fetch(context)).map((c) => ({ ...c, url: `${c.url}${++n}` })),
+    });
+    const sources = SOURCES.map(opaque);
+    await Promise.all([
+      runNewsRadar({ trigger: "schedule", now: MONDAY, sleep: noWait, sources }),
+      runNewsRadar({ trigger: "manual", now: MONDAY, sleep: noWait, sources }),
+    ]);
+    expect(await items()).toHaveLength(1);
   });
 
   it("records a run that fails after the sources answered, rather than leaving it running", async () => {
@@ -303,7 +335,7 @@ describe("the weekly email", () => {
     newsSources.down("gdelt");
     const result = await run();
 
-    expect(result.email).toBe("Sent to the recipient in the News radar settings.");
+    expect(result.email).toBe(EMAIL_SENT);
     const [email] = emails.to(GROUP);
     expect(email.subject).toBe("News radar: 2 new for the week of 30 Nov 2026");
     expect(email.html).toContain("AI Act enforcement, fines and market surveillance");
@@ -356,5 +388,6 @@ describe("the cron route", () => {
     expect(await response.json()).toMatchObject({ newCount: 1 });
     const [row] = await db.select().from(newsRadarRuns).where(eq(newsRadarRuns.trigger, "schedule"));
     expect(row).toBeDefined();
-  });
+    // The route waits its real GOOGLE_NEWS_GAP_MS between Google News searches.
+  }, 20_000);
 });

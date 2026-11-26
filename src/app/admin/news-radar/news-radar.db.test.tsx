@@ -77,7 +77,7 @@ describe("who may do what", () => {
     await seedRun(MONDAY, [found(1)]);
     const { id } = await itemRow("Item 1");
     await signInAs("signed out");
-    for (const result of [await triageItem([id], "useful"), await addToNewsletter(id, null), await runNow(), await saveSettings(DEFAULT_SETTINGS)]) {
+    for (const result of [await triageItem(id, "useful"), await addToNewsletter(id, null), await runNow(), await saveSettings(DEFAULT_SETTINGS)]) {
       expect(result).toMatchObject({ ok: false, message: expect.stringContaining("signed out") });
     }
     await expect(page()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
@@ -89,7 +89,7 @@ describe("who may do what", () => {
     await seedRun(MONDAY, [found(1)]);
     const { id } = await itemRow("Item 1");
     await signInAs("admin");
-    expect(await triageItem([id], "useful")).toEqual({ ok: true });
+    expect(await triageItem(id, "useful")).toEqual({ ok: true });
     expect(await itemRow("Item 1")).toMatchObject({ state: "useful", triagedBy: EMAIL.admin });
     expect(await runNow()).toEqual({ ok: false, message: "Only technical admins can do this." });
     expect(newsSources.requests).toEqual([]);
@@ -114,10 +114,10 @@ describe("who may do what", () => {
 
   it("refuses arguments that are not what the page sends", async () => {
     await signInAs("admin");
-    expect(await triageItem(["nope"], "useful")).toEqual({ ok: false, message: "The request was not understood." });
-    expect(await triageItem([], "useful")).toEqual({ ok: false, message: "The request was not understood." });
-    expect(await triageItem(["00000000-0000-4000-8000-000000000000"], "archived")).toEqual({ ok: false, message: "The request was not understood." });
-    expect(await triageItem(["00000000-0000-4000-8000-000000000000"], "useful")).toEqual({ ok: false, message: "That item no longer exists." });
+    expect(await triageItem("nope", "useful")).toEqual({ ok: false, message: "The request was not understood." });
+    expect(await triageItem("00000000-0000-4000-8000-000000000000", "useful", ["nope"])).toEqual({ ok: false, message: "The request was not understood." });
+    expect(await triageItem("00000000-0000-4000-8000-000000000000", "archived")).toEqual({ ok: false, message: "The request was not understood." });
+    expect(await triageItem("00000000-0000-4000-8000-000000000000", "useful")).toEqual({ ok: false, message: "That item no longer exists." });
     expect(await addToNewsletter("00000000-0000-4000-8000-000000000000", "x")).toEqual({ ok: false, message: "The request was not understood." });
     expect(await addToNewsletter("00000000-0000-4000-8000-000000000000", null)).toEqual({ ok: false, message: "That item no longer exists." });
   });
@@ -153,14 +153,18 @@ describe("the items page", () => {
     expect(lastWeek.getByText(/Also reported by/)).toHaveTextContent("Also reported by News");
   });
 
-  it("triages one story's copies from other outlets along with it", async () => {
-    await seedRun(MONDAY, [found(1), found(2, { storyKey: "item 1", urlKey: "https://other.test/1", titleKey: "item 1|other", outlet: "Other" })]);
+  it("triages one story's copies from other outlets along with it, unless triaged on their own", async () => {
+    const copy = (n: number) => found(n, { storyKey: "item 1", urlKey: `https://other.test/${n}`, titleKey: `item 1|other ${n}`, outlet: `Other ${n}`, score: 0 });
+    // A wire story: more copies than any one page of buttons would ever send at once before.
+    await seedRun(MONDAY, [found(1, { score: 100 }), ...Array.from({ length: 60 }, (_, i) => copy(i + 2))]);
     await signInAs("admin");
+    await triageItem((await itemRow("Item 3")).id, "useful");
     render(await page());
     expect(screen.getAllByRole("button", { name: "Dismiss" })).toHaveLength(1);
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    await waitFor(async () => expect((await itemRow("Item 2")).state).toBe("dismissed"));
+    await waitFor(async () => expect((await itemRow("Item 61")).state).toBe("dismissed"));
     expect((await itemRow("Item 1")).state).toBe("dismissed");
+    expect((await itemRow("Item 3")).state).toBe("useful");
   });
 
   it("says when a run failed", async () => {
@@ -174,7 +178,7 @@ describe("the items page", () => {
   it("filters by topic, source and state", async () => {
     await seedRun(MONDAY, [found(1), found(2, { topics: ["gdpr-ai"], sources: ["gdelt"] })]);
     await signInAs("admin");
-    await triageItem([(await itemRow("Item 1")).id], "dismissed");
+    await triageItem((await itemRow("Item 1")).id, "dismissed");
 
     render(await page({ topic: "gdpr-ai" }));
     expect(screen.queryByRole("link", { name: "Item 1" })).not.toBeInTheDocument();

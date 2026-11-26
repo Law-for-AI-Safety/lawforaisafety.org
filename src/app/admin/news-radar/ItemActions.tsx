@@ -28,13 +28,16 @@ export default function ItemActions({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [chosen, setChosen] = useState<string | null>(null);
-  const target = chosen !== null && (chosen === NEW_DRAFT || drafts.some((d) => d.id === chosen)) ? chosen : (drafts[0]?.id ?? NEW_DRAFT);
+  // A draft this item just made stays its target while the refresh that lists it is on its way.
+  const [made, setMade] = useState<{ id: string; subject: string } | null>(null);
+  const options = made && !drafts.some((d) => d.id === made.id) ? [made, ...drafts] : drafts;
+  const target = chosen !== null && (chosen === NEW_DRAFT || options.some((d) => d.id === chosen)) ? chosen : (options[0]?.id ?? NEW_DRAFT);
   const setTarget = setChosen;
   const [message, setMessage] = useState<{ text: string; error: boolean; href?: string } | null>(null);
 
   const triage = (next: ItemState) =>
     startTransition(async () => {
-      const result = await triageItem([itemId, ...copyIds], next);
+      const result = await triageItem(itemId, next, copyIds);
       if (result.ok) {
         setMessage(null);
         router.refresh();
@@ -46,7 +49,8 @@ export default function ItemActions({
       const result = await addToNewsletter(itemId, target === NEW_DRAFT ? null : target);
       if (result.ok) {
         setMessage({ text: `Added to “${result.subject}”.`, error: false, href: `/admin/newsletters/${result.newsletterId}` });
-        setTarget(null);
+        setMade({ id: result.newsletterId, subject: result.subject });
+        setTarget(result.newsletterId);
         router.refresh();
       } else setMessage({ text: result.message, error: true });
     });
@@ -81,7 +85,7 @@ export default function ItemActions({
             disabled={pending}
             className="max-w-48 rounded-sm border border-brand-black/30 bg-brand-white px-2 py-1 text-sm"
           >
-            {drafts.map((d) => (
+            {options.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.subject}
               </option>

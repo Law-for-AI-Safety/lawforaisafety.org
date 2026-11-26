@@ -47,6 +47,7 @@ export const googleNews: SourceAdapter = {
         }
       } catch (err) {
         if (signal.aborted) throw err;
+        console.error(`[news-radar] Google News search for "${topic.name}" failed`, err);
         errors.push(err as Error);
       }
     }

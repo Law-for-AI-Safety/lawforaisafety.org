@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, gte, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsRadarItems, newsRadarRuns, newsRadarSettings } from "@/drizzle/schema";
 import { DEFAULT_SETTINGS } from "@/news-radar/defaults";
@@ -10,6 +10,9 @@ import type { NewsRadarSettings, SourceId, SourceOutcome } from "@/news-radar/ty
  */
 
 export type NewsRadarItem = typeof newsRadarItems.$inferSelect;
+
+/** A run's `email` once its summary went out. No address: the line also reaches the function logs. */
+export const EMAIL_SENT = "Sent to the recipient in the News radar settings.";
 export type NewsRadarRun = typeof newsRadarRuns.$inferSelect;
 export type ItemState = NewsRadarItem["state"];
 
@@ -72,15 +75,27 @@ export const TITLE_MATCH_DAYS = 21;
 /**
  * Stores what a run found. An item already known, by address, or by title and outlet within
  * TITLE_MATCH_DAYS, keeps its row, first_seen and triage state, and only gains this run's
- * sightings; anything else is a new row. Two runs at once cannot make two rows for one address:
- * url_key is unique, and the loser of a race leaves the winner's row.
+ * sightings; anything else is a new row. Runs store their results one at a time (a transaction
+ * lock), so two at once cannot both add the same article.
  */
 export async function recordFound(runId: string, now: Date, found: FoundItem[]): Promise<{ added: number; seenBefore: number }> {
   if (found.length === 0) return { added: 0, seenBefore: 0 };
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${RECORD_LOCK})`);
+    return recordIn(tx, runId, now, found);
+  });
+}
+
+/** Any fixed number, unique to this lock within the database. */
+const RECORD_LOCK = 4_172_026_001;
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function recordIn(tx: Tx, runId: string, now: Date, found: FoundItem[]): Promise<{ added: number; seenBefore: number }> {
   const urlKeys = found.map((f) => f.urlKey);
   const titleKeys = found.map((f) => f.titleKey);
   const recent = new Date(now.getTime() - TITLE_MATCH_DAYS * 24 * 60 * 60 * 1000);
-  const existing = await db
+  const existing = await tx
     .select()
     .from(newsRadarItems)
     .where(
@@ -101,7 +116,7 @@ export async function recordFound(runId: string, now: Date, found: FoundItem[]):
     if (known) {
       if (seen.has(known.id)) continue;
       seen.add(known.id);
-      await db
+      await tx
         .update(newsRadarItems)
         .set({
           lastSeenAt: now,
@@ -113,7 +128,7 @@ export async function recordFound(runId: string, now: Date, found: FoundItem[]):
         .where(eq(newsRadarItems.id, known.id));
       continue;
     }
-    const inserted = await db
+    const inserted = await tx
       .insert(newsRadarItems)
       .values({ ...item, firstSeenAt: now, lastSeenAt: now, firstRunId: runId, lastRunId: runId })
       .onConflictDoNothing()
@@ -145,22 +160,46 @@ export async function getItem(id: string): Promise<NewsRadarItem | null> {
   return row ?? null;
 }
 
-/** Sets the state of `ids` (one story's copies are triaged together). Returns how many exist. */
-export async function setItemState(ids: string[], state: ItemState, email: string): Promise<number> {
-  const rows = await db
-    .update(newsRadarItems)
-    .set({ state, triagedBy: email, triagedAt: new Date() })
-    .where(inArray(newsRadarItems.id, ids))
-    .returning({ id: newsRadarItems.id });
-  return rows.length;
+/**
+ * Sets the state of item `id`, and of the other outlets' copies of its story (`copyIds`) that were
+ * in the same state as it: a copy someone triaged differently on its own keeps its state.
+ * Returns false when the item no longer exists.
+ */
+export async function setItemState(id: string, state: ItemState, email: string, copyIds: string[] = []): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [lead] = await tx.select({ state: newsRadarItems.state }).from(newsRadarItems).where(eq(newsRadarItems.id, id)).for("update");
+    if (!lead) return false;
+    const change = { state, triagedBy: email, triagedAt: new Date() };
+    await tx.update(newsRadarItems).set(change).where(eq(newsRadarItems.id, id));
+    if (copyIds.length > 0) {
+      await tx
+        .update(newsRadarItems)
+        .set(change)
+        .where(and(inArray(newsRadarItems.id, copyIds), eq(newsRadarItems.state, lead.state)));
+    }
+    return true;
+  });
 }
 
-/** When the weekly run before `runId` started: the summary covers what was first seen since. */
+/**
+ * When the last weekly run that finished and sent its summary started: this summary covers what
+ * was first seen since. A weekly run that failed, or never sent, does not count, so what it found
+ * is in the next summary instead of in none.
+ */
 async function previousScheduledStart(runId: string, startedAt: Date): Promise<Date> {
   const [row] = await db
     .select({ startedAt: newsRadarRuns.startedAt })
     .from(newsRadarRuns)
-    .where(and(eq(newsRadarRuns.trigger, "schedule"), ne(newsRadarRuns.id, runId), lt(newsRadarRuns.startedAt, startedAt)))
+    .where(
+      and(
+        eq(newsRadarRuns.trigger, "schedule"),
+        ne(newsRadarRuns.id, runId),
+        lt(newsRadarRuns.startedAt, startedAt),
+        isNotNull(newsRadarRuns.finishedAt),
+        isNull(newsRadarRuns.error),
+        eq(newsRadarRuns.email, EMAIL_SENT),
+      ),
+    )
     .orderBy(desc(newsRadarRuns.startedAt))
     .limit(1);
   return row?.startedAt ?? new Date(0);

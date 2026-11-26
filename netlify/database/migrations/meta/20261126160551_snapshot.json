@@ -1,5 +1,5 @@
 {
-  "id": "aaa7988c-a7ee-4bcd-97ca-29b13d84208e",
+  "id": "f717e029-1f8d-4bc8-a06f-58fedf3bd520",
   "prevId": "ebcdcf20-5b94-46af-ad20-2f8d0aa284e1",
   "version": "7",
   "dialect": "postgresql",
@@ -818,21 +818,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "news_radar_items_title_key_idx": {
-          "name": "news_radar_items_title_key_idx",
-          "columns": [
-            {
-              "expression": "title_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -870,6 +855,13 @@
           "nullsNotDistinct": false,
           "columns": [
             "url_key"
+          ]
+        },
+        "news_radar_items_title_key_unique": {
+          "name": "news_radar_items_title_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "title_key"
           ]
         }
       },
@@ -937,12 +929,6 @@
         },
         "email": {
           "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "error": {
-          "name": "error",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -26,14 +26,18 @@ const TECH_ONLY: Refusal = { ok: false, message: "Only technical admins can do t
 const id = z.uuid();
 const state = z.enum(["new", "useful", "dismissed"]);
 
-/** Sets the state of an item and of the other outlets' copies of its story, shown with it. */
-export async function triageItem(itemIds: unknown, newState: unknown): Promise<{ ok: true } | Refusal> {
+/** Sets the state of an item, and of the other outlets' copies of its story shown with it (see setItemState). */
+export async function triageItem(itemId: unknown, newState: unknown, copyIds: unknown = []): Promise<{ ok: true } | Refusal> {
   const session = await getAdminSession();
   if (!session) return SIGNED_OUT;
-  const parsedIds = z.array(id).min(1).max(50).safeParse(itemIds);
+  const parsedId = id.safeParse(itemId);
   const parsedState = state.safeParse(newState);
-  if (!parsedIds.success || !parsedState.success) return INVALID;
-  if ((await setItemState(parsedIds.data, parsedState.data, session.email)) === 0) return { ok: false, message: "That item no longer exists." };
+  // As many copies as the page can show (listItems' limit).
+  const parsedCopies = z.array(id).max(500).safeParse(copyIds);
+  if (!parsedId.success || !parsedState.success || !parsedCopies.success) return INVALID;
+  if (!(await setItemState(parsedId.data, parsedState.data, session.email, parsedCopies.data))) {
+    return { ok: false, message: "That item no longer exists." };
+  }
   return { ok: true };
 }
 
