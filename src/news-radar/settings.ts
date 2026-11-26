@@ -9,10 +9,12 @@ import type { NewsRadarSettings, Topic } from "./types";
 export const LIMITS = { topics: 20, terms: 40, termLength: 120, nameLength: 120, outlets: 100 };
 
 const term = z.string().trim().max(LIMITS.termLength, `Keep each entry under ${LIMITS.termLength} characters.`);
-const terms = z
-  .array(term)
-  .transform((list) => [...new Set(list.filter((t) => t !== ""))])
-  .refine((list) => list.length <= LIMITS.terms, `Keep each list to ${LIMITS.terms} entries.`);
+const list = (max: number) =>
+  z
+    .array(term)
+    .transform((entries) => [...new Set(entries.filter((t) => t !== ""))])
+    .refine((entries) => entries.length <= max, `Keep each list to ${max} entries.`);
+const terms = list(LIMITS.terms);
 
 const topic = z.object({
   id: z.string().trim().max(80).regex(/^[a-z0-9-]*$/),
@@ -31,7 +33,7 @@ const recipient = z
 
 const schema = z.object({
   topics: z.array(topic).min(1, "Keep at least one topic.").max(LIMITS.topics, `Keep to ${LIMITS.topics} topics.`),
-  trustedOutlets: terms.refine((list) => list.length <= LIMITS.outlets, `Keep to ${LIMITS.outlets} trusted outlets.`),
+  trustedOutlets: list(LIMITS.outlets),
   recipient,
 });
 

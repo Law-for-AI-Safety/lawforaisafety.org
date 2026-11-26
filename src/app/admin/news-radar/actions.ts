@@ -9,6 +9,7 @@ import { BODY_MAX } from "@/newsletter/template";
 import { appendItem } from "@/news-radar/newsletter";
 import { runNewsRadar } from "@/news-radar/run";
 import { parseSettings } from "@/news-radar/settings";
+import type { Topic } from "@/news-radar/types";
 
 /**
  * The News radar's server actions. Each is a public endpoint, so each reads the caller's session
@@ -25,13 +26,14 @@ const TECH_ONLY: Refusal = { ok: false, message: "Only technical admins can do t
 const id = z.uuid();
 const state = z.enum(["new", "useful", "dismissed"]);
 
-export async function triageItem(itemId: unknown, newState: unknown): Promise<{ ok: true } | Refusal> {
+/** Sets the state of an item and of the other outlets' copies of its story, shown with it. */
+export async function triageItem(itemIds: unknown, newState: unknown): Promise<{ ok: true } | Refusal> {
   const session = await getAdminSession();
   if (!session) return SIGNED_OUT;
-  const parsedId = id.safeParse(itemId);
+  const parsedIds = z.array(id).min(1).max(50).safeParse(itemIds);
   const parsedState = state.safeParse(newState);
-  if (!parsedId.success || !parsedState.success) return INVALID;
-  if (!(await setItemState(parsedId.data, parsedState.data, session.email))) return { ok: false, message: "That item no longer exists." };
+  if (!parsedIds.success || !parsedState.success) return INVALID;
+  if ((await setItemState(parsedIds.data, parsedState.data, session.email)) === 0) return { ok: false, message: "That item no longer exists." };
   return { ok: true };
 }
 
@@ -77,8 +79,11 @@ export async function runNow(): Promise<{ ok: true; newCount: number; seenCount:
   return { ok: true, newCount: result.newCount, seenCount: result.seenCount, failed: result.sources.filter((s) => !s.ok).length };
 }
 
-/** Saves the topics and trusted outlets; the recipient only changes when a technical admin saves. */
-export async function saveSettings(input: unknown): Promise<{ ok: true } | Refusal> {
+/**
+ * Saves the topics and trusted outlets; the recipient only changes when a technical admin saves.
+ * Returns the topics as saved, so the form keeps the ids given to new ones.
+ */
+export async function saveSettings(input: unknown): Promise<{ ok: true; topics: Topic[] } | Refusal> {
   const session = await getAdminSession();
   if (!session) return SIGNED_OUT;
   const parsed = parseSettings(input);
@@ -92,5 +97,5 @@ export async function saveSettings(input: unknown): Promise<{ ok: true } | Refus
     action: "news_radar_settings",
     detail: { topics: settings.topics.map((t) => t.id), recipientChanged: settings.recipient !== current.recipient },
   });
-  return { ok: true };
+  return { ok: true, topics: settings.topics };
 }

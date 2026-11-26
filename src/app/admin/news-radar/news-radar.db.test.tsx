@@ -77,7 +77,7 @@ describe("who may do what", () => {
     await seedRun(MONDAY, [found(1)]);
     const { id } = await itemRow("Item 1");
     await signInAs("signed out");
-    for (const result of [await triageItem(id, "useful"), await addToNewsletter(id, null), await runNow(), await saveSettings(DEFAULT_SETTINGS)]) {
+    for (const result of [await triageItem([id], "useful"), await addToNewsletter(id, null), await runNow(), await saveSettings(DEFAULT_SETTINGS)]) {
       expect(result).toMatchObject({ ok: false, message: expect.stringContaining("signed out") });
     }
     await expect(page()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
@@ -89,7 +89,7 @@ describe("who may do what", () => {
     await seedRun(MONDAY, [found(1)]);
     const { id } = await itemRow("Item 1");
     await signInAs("admin");
-    expect(await triageItem(id, "useful")).toEqual({ ok: true });
+    expect(await triageItem([id], "useful")).toEqual({ ok: true });
     expect(await itemRow("Item 1")).toMatchObject({ state: "useful", triagedBy: EMAIL.admin });
     expect(await runNow()).toEqual({ ok: false, message: "Only technical admins can do this." });
     expect(newsSources.requests).toEqual([]);
@@ -114,9 +114,10 @@ describe("who may do what", () => {
 
   it("refuses arguments that are not what the page sends", async () => {
     await signInAs("admin");
-    expect(await triageItem("nope", "useful")).toEqual({ ok: false, message: "The request was not understood." });
-    expect(await triageItem("00000000-0000-4000-8000-000000000000", "archived")).toEqual({ ok: false, message: "The request was not understood." });
-    expect(await triageItem("00000000-0000-4000-8000-000000000000", "useful")).toEqual({ ok: false, message: "That item no longer exists." });
+    expect(await triageItem(["nope"], "useful")).toEqual({ ok: false, message: "The request was not understood." });
+    expect(await triageItem([], "useful")).toEqual({ ok: false, message: "The request was not understood." });
+    expect(await triageItem(["00000000-0000-4000-8000-000000000000"], "archived")).toEqual({ ok: false, message: "The request was not understood." });
+    expect(await triageItem(["00000000-0000-4000-8000-000000000000"], "useful")).toEqual({ ok: false, message: "That item no longer exists." });
     expect(await addToNewsletter("00000000-0000-4000-8000-000000000000", "x")).toEqual({ ok: false, message: "The request was not understood." });
     expect(await addToNewsletter("00000000-0000-4000-8000-000000000000", null)).toEqual({ ok: false, message: "That item no longer exists." });
   });
@@ -152,10 +153,28 @@ describe("the items page", () => {
     expect(lastWeek.getByText(/Also reported by/)).toHaveTextContent("Also reported by News");
   });
 
+  it("triages one story's copies from other outlets along with it", async () => {
+    await seedRun(MONDAY, [found(1), found(2, { storyKey: "item 1", urlKey: "https://other.test/1", titleKey: "item 1|other", outlet: "Other" })]);
+    await signInAs("admin");
+    render(await page());
+    expect(screen.getAllByRole("button", { name: "Dismiss" })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(async () => expect((await itemRow("Item 2")).state).toBe("dismissed"));
+    expect((await itemRow("Item 1")).state).toBe("dismissed");
+  });
+
+  it("says when a run failed", async () => {
+    const runId = await startRun("schedule", null, MONDAY);
+    await finishRun(runId, { sources: [], newCount: 0, seenCount: 0, email: null, error: "connection reset" });
+    await signInAs("admin");
+    render(await page());
+    expect(screen.getByText("The run failed: connection reset")).toBeInTheDocument();
+  });
+
   it("filters by topic, source and state", async () => {
     await seedRun(MONDAY, [found(1), found(2, { topics: ["gdpr-ai"], sources: ["gdelt"] })]);
     await signInAs("admin");
-    await triageItem((await itemRow("Item 1")).id, "dismissed");
+    await triageItem([(await itemRow("Item 1")).id], "dismissed");
 
     render(await page({ topic: "gdpr-ai" }));
     expect(screen.queryByRole("link", { name: "Item 1" })).not.toBeInTheDocument();
@@ -221,6 +240,23 @@ describe("Add to newsletter", () => {
     expect(row).toMatchObject({ body: "Intro.\n\n- [Court rules on AI](https://news.test/1) (Reuters)", version: 2, updatedBy: EMAIL.admin });
   });
 
+  it("builds one list when adding several items with no draft to start from", async () => {
+    await seedRun(MONDAY, [found(1), found(2)]);
+    await signInAs("admin");
+    render(await page());
+    const [first] = screen.getAllByRole("button", { name: "Add to newsletter" });
+    await userEvent.click(first);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Added to “Untitled newsletter”."));
+    cleanup();
+    // After the refresh, the new draft is every item's target.
+    render(await page());
+    const [draft] = await db.select().from(newsletters);
+    for (const select of screen.getAllByRole("combobox", { name: "Newsletter draft" })) expect(select).toHaveValue(draft.id);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add to newsletter" })[1]);
+    await waitFor(async () => expect((await db.select().from(newsletters))[0].body.split("\n")).toHaveLength(2));
+    expect(await db.select().from(newsletters)).toHaveLength(1);
+  });
+
   it("starts a new draft when asked", async () => {
     await seedRun(MONDAY, [found(1)]);
     await signInAs("admin");
@@ -268,7 +304,7 @@ describe("the settings page", () => {
     expect(saved.topics[0]).toMatchObject({ id: "ai-act-enforcement", name: "AI Act enforcement" });
     expect(saved).toMatchObject({ recipient: "group@example.org", updatedBy: EMAIL.admin });
     // A crafted request cannot change it either.
-    expect(await saveSettings({ ...DEFAULT_SETTINGS, recipient: "someone@else.example" })).toEqual({ ok: true });
+    expect(await saveSettings({ ...DEFAULT_SETTINGS, recipient: "someone@else.example" })).toMatchObject({ ok: true });
     expect((await getNewsRadarSettings()).recipient).toBe("group@example.org");
   });
 
@@ -288,6 +324,11 @@ describe("the settings page", () => {
     await userEvent.type(added.getByLabelText(/^Include keywords/), "deepfake{enter}ruling");
     await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved."));
+    // Renamed and saved again without reloading, the new topic keeps the id it was given.
+    const renamed = within(screen.getByRole("region", { name: "Deepfake rulings" }));
+    await userEvent.type(renamed.getByLabelText("Topic name"), " and synthetic media");
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(async () => expect((await getNewsRadarSettings()).topics.at(-1)?.name).toBe("Deepfake rulings and synthetic media"));
 
     const saved = await getNewsRadarSettings();
     expect(saved.recipient).toBe("group@example.org");

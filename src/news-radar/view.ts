@@ -37,7 +37,14 @@ export function groupByWeek(items: NewsRadarItem[]): Week[] {
 }
 
 /** The run's status line: when, what each source returned, what was stored, the email. */
-export function runSummary(run: NewsRadarRun): { when: string; sources: string[]; failures: string[]; counts: string; email: string | null } {
+export function runSummary(run: NewsRadarRun): {
+  when: string;
+  sources: string[];
+  failures: string[];
+  counts: string;
+  email: string | null;
+  error: string | null;
+} {
   const how = run.trigger === "schedule" ? "weekly run" : `run by hand${run.triggeredBy ? ` by ${run.triggeredBy}` : ""}`;
   return {
     when: run.finishedAt ? `${formatTime(run.startedAt)} (${how})` : `Running since ${formatTime(run.startedAt)} (${how})`,
@@ -45,5 +52,6 @@ export function runSummary(run: NewsRadarRun): { when: string; sources: string[]
     failures: run.sources.flatMap((s) => (s.ok ? [] : [`${SOURCE_LABELS[s.source] ?? s.source} failed this week: ${s.error}`])),
     counts: `${run.newCount} new, ${run.seenCount} seen before`,
     email: run.email,
+    error: run.error,
   };
 }

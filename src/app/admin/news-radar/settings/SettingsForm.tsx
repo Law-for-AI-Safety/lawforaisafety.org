@@ -59,6 +59,7 @@ export default function SettingsForm({
         recipient,
       });
       if (result.ok) {
+        setTopics(result.topics.map(toDraft));
         setMessage({ text: "Saved. The next run uses these settings.", error: false });
         router.refresh();
       } else setMessage({ text: result.message, error: true });

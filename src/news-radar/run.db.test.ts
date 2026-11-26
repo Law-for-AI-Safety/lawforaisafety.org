@@ -142,7 +142,7 @@ describe("seen before", () => {
     newsSources.googleNews(FINE, "AI Act");
     await run();
     const [first] = await items();
-    await setItemState(first.id, "useful", "admin@example.com");
+    await setItemState([first.id], "useful", "admin@example.com");
 
     // Next week Google News links the same story with different tracking parameters.
     newsSources.reset();
@@ -165,6 +165,30 @@ describe("seen before", () => {
     expect(await items()).toHaveLength(1);
   });
 
+  it("treats the same headline from the same outlet as a new article once the old one is weeks old", async () => {
+    newsSources.googleNews(FINE, "AI Act");
+    await run();
+    newsSources.reset();
+    const column = { ...FINE, url: "https://reuters.com/tech/ai-act-fine-again" };
+    newsSources.googleNews(column, "AI Act");
+    expect(await run(new Date("2026-12-28T06:00:00Z"))).toMatchObject({ newCount: 1, seenCount: 0 });
+    expect(await items()).toHaveLength(2);
+  });
+
+  it("lists what a run by hand found in the next weekly email, as new", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    await withRecipient();
+    await run(new Date("2026-11-23T06:00:00Z"));
+    newsSources.googleNews(FINE, "AI Act");
+    await run(new Date("2026-11-27T12:00:00Z"), "manual");
+    emails.reset();
+    await run();
+    const [email] = emails.to(GROUP);
+    expect(email.subject).toBe("News radar: 1 new for the week of 30 Nov 2026");
+    expect(email.html).toContain(FINE.title);
+    expect(email.html).not.toContain("seen before");
+  });
+
   it("keeps a dismissed item dismissed and out of the email", async () => {
     vi.stubEnv("DEPLOY_CONTEXT", "production");
     await withRecipient();
@@ -172,7 +196,7 @@ describe("seen before", () => {
     newsSources.googleNews(LAWSUIT, "lawsuit");
     await run();
     const fine = (await items()).find((i) => i.title === FINE.title)!;
-    await setItemState(fine.id, "dismissed", "admin@example.com");
+    await setItemState([fine.id], "dismissed", "admin@example.com");
     emails.reset();
 
     await run(NEXT_MONDAY);
@@ -232,6 +256,37 @@ describe("a source failing", () => {
     expect((await items()).map((i) => i.title)).toEqual([FINE.title]);
   });
 
+  it("keeps OpenAlex results from the topics whose search worked", async () => {
+    newsSources.openAlex({ title: "AI liability under the Product Liability Directive", url: "https://doi.org/10.1/a", outlet: "J", date: "2026-11-25" }, "Product Liability Directive");
+    newsSources.failSearches("lawsuit", "openalex");
+    const result = await run();
+    expect(result.sources.find((s) => s.source === "openalex")).toMatchObject({ ok: true, relevant: 1 });
+  });
+
+  it("fails OpenAlex when every topic's search fails", async () => {
+    newsSources.failSearches("(", "openalex");
+    const result = await run();
+    expect(result.sources.find((s) => s.source === "openalex")).toMatchObject({ ok: false, error: "OpenAlex answered 503: Service Unavailable" });
+  });
+
+  it("stores a result whose text holds control characters, without them", async () => {
+    // Postgres refuses a NUL character in text, so one such result would otherwise sink the run.
+    newsSources.googleNews({ ...FINE, title: "AI Act fine\u0000 for market\u200b surveillance" }, "AI Act");
+    await run();
+    expect((await items()).map((i) => i.title)).toEqual(["AI Act fine for market surveillance"]);
+  });
+
+  it("records a run that fails after the sources answered, rather than leaving it running", async () => {
+    newsSources.googleNews(FINE, "AI Act");
+    // A score the database cannot store makes saving the results fail.
+    const scorer = () => ({ topics: ["ai-act-enforcement"], score: Number.NaN });
+    await expect(runNewsRadar({ trigger: "schedule", now: MONDAY, sleep: noWait, scorer })).rejects.toThrow();
+    const [row] = await db.select().from(newsRadarRuns);
+    expect(row.finishedAt).not.toBeNull();
+    expect(row.error).toMatch(/^invalid input syntax for type integer/);
+    expect(row.error).not.toContain("insert into");
+  });
+
   it("fails Google News when every topic's search fails", async () => {
     newsSources.failSearches("when:");
     const result = await run();
@@ -248,7 +303,7 @@ describe("the weekly email", () => {
     newsSources.down("gdelt");
     const result = await run();
 
-    expect(result.email).toBe(`Sent to ${GROUP}.`);
+    expect(result.email).toBe("Sent to the recipient in the News radar settings.");
     const [email] = emails.to(GROUP);
     expect(email.subject).toBe("News radar: 2 new for the week of 30 Nov 2026");
     expect(email.html).toContain("AI Act enforcement, fines and market surveillance");

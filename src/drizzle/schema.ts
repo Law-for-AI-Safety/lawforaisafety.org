@@ -691,20 +691,23 @@ export const newsRadarRuns = pgTable("news_radar_runs", {
   newCount: integer("new_count").notNull().default(0),
   seenCount: integer("seen_count").notNull().default(0),
   email: text("email"),
+  // Set when the run itself failed after starting (say, storing the results), so it is not left "running".
+  error: text("error"),
 });
 
 // An article or paper the News radar found relevant. Weekly runs look back further than a week,
 // so most articles come back more than once: a re-found one updates its row (last_seen_at,
 // last_run_id, sources, topics) and never makes a new one, so its triage state survives. It is
 // the same article when it has the same normalised address (`url_key`), or failing that the
-// same normalised title from the same outlet (`title_key`); see src/news-radar/normalise.ts.
+// same normalised title from the same outlet (`title_key`) seen recently, since an outlet may
+// reuse a headline for a regular column; see recordFound in src/lib/news-radar-store.ts.
 // `story_key` is the title alone, which groups one story syndicated across outlets.
 export const newsRadarItems = pgTable(
   "news_radar_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     urlKey: text("url_key").notNull().unique(),
-    titleKey: text("title_key").notNull().unique(),
+    titleKey: text("title_key").notNull(),
     storyKey: text("story_key").notNull(),
     url: text("url").notNull(),
     title: text("title").notNull(),
@@ -726,6 +729,7 @@ export const newsRadarItems = pgTable(
   (table) => [
     index("news_radar_items_first_seen_idx").on(table.firstSeenAt),
     index("news_radar_items_last_run_idx").on(table.lastRunId),
+    index("news_radar_items_title_key_idx").on(table.titleKey),
   ],
 );
 

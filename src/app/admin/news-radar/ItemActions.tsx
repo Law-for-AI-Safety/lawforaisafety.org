@@ -8,24 +8,33 @@ import { addToNewsletter, triageItem } from "./actions";
 
 const NEW_DRAFT = "new";
 
-/** An item's triage buttons and "Add to newsletter", which appends its title and link to a draft. */
+/**
+ * An item's triage buttons, which also triage the other outlets' copies of its story (`copyIds`),
+ * and "Add to newsletter", which appends its title and link to a draft. Until a draft is chosen
+ * here, it targets the most recently changed one, so a draft that adding to another item just
+ * made becomes every item's target once the page refreshes, and the items build one list.
+ */
 export default function ItemActions({
   itemId,
+  copyIds = [],
   state,
   drafts,
 }: {
   itemId: string;
+  copyIds?: string[];
   state: ItemState;
   drafts: { id: string; subject: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [target, setTarget] = useState(drafts[0]?.id ?? NEW_DRAFT);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const target = chosen !== null && (chosen === NEW_DRAFT || drafts.some((d) => d.id === chosen)) ? chosen : (drafts[0]?.id ?? NEW_DRAFT);
+  const setTarget = setChosen;
   const [message, setMessage] = useState<{ text: string; error: boolean; href?: string } | null>(null);
 
   const triage = (next: ItemState) =>
     startTransition(async () => {
-      const result = await triageItem(itemId, next);
+      const result = await triageItem([itemId, ...copyIds], next);
       if (result.ok) {
         setMessage(null);
         router.refresh();
@@ -37,7 +46,7 @@ export default function ItemActions({
       const result = await addToNewsletter(itemId, target === NEW_DRAFT ? null : target);
       if (result.ok) {
         setMessage({ text: `Added to “${result.subject}”.`, error: false, href: `/admin/newsletters/${result.newsletterId}` });
-        setTarget(result.newsletterId);
+        setTarget(null);
         router.refresh();
       } else setMessage({ text: result.message, error: true });
     });

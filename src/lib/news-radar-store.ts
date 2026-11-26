@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newsRadarItems, newsRadarRuns, newsRadarSettings } from "@/drizzle/schema";
 import { DEFAULT_SETTINGS } from "@/news-radar/defaults";
@@ -47,7 +47,7 @@ export async function startRun(trigger: NewsRadarRun["trigger"], triggeredBy: st
 
 export async function finishRun(
   id: string,
-  result: { sources: SourceOutcome[]; newCount: number; seenCount: number; email: string | null },
+  result: { sources: SourceOutcome[]; newCount: number; seenCount: number; email: string | null; error?: string | null },
 ): Promise<void> {
   await db
     .update(newsRadarRuns)
@@ -62,21 +62,37 @@ export async function latestRuns(limit = 5): Promise<NewsRadarRun[]> {
 const merge = <T>(first: T[], second: T[]) => [...new Set([...first, ...second])];
 
 /**
- * Stores what a run found. An item already known, by address or by title and outlet, keeps its
- * row, first_seen and triage state, and only gains this run's sightings; anything else is a new
- * row. Two runs at once cannot make two rows for one article: the keys are unique, and the
- * loser of a race leaves the winner's row.
+ * How recently an item must have been seen for a result with the same title and outlet (but a
+ * different address) to count as the same article. Long enough to cover a story resurfacing
+ * over several weeks; short enough that a column an outlet runs under the same headline every
+ * week or month is not mistaken for last time's.
+ */
+export const TITLE_MATCH_DAYS = 21;
+
+/**
+ * Stores what a run found. An item already known, by address, or by title and outlet within
+ * TITLE_MATCH_DAYS, keeps its row, first_seen and triage state, and only gains this run's
+ * sightings; anything else is a new row. Two runs at once cannot make two rows for one address:
+ * url_key is unique, and the loser of a race leaves the winner's row.
  */
 export async function recordFound(runId: string, now: Date, found: FoundItem[]): Promise<{ added: number; seenBefore: number }> {
   if (found.length === 0) return { added: 0, seenBefore: 0 };
   const urlKeys = found.map((f) => f.urlKey);
   const titleKeys = found.map((f) => f.titleKey);
+  const recent = new Date(now.getTime() - TITLE_MATCH_DAYS * 24 * 60 * 60 * 1000);
   const existing = await db
     .select()
     .from(newsRadarItems)
-    .where(or(inArray(newsRadarItems.urlKey, urlKeys), inArray(newsRadarItems.titleKey, titleKeys)));
+    .where(
+      or(
+        inArray(newsRadarItems.urlKey, urlKeys),
+        and(inArray(newsRadarItems.titleKey, titleKeys), gte(newsRadarItems.lastSeenAt, recent)),
+      ),
+    )
+    .orderBy(desc(newsRadarItems.lastSeenAt));
   const byUrl = new Map(existing.map((row) => [row.urlKey, row]));
-  const byTitle = new Map(existing.map((row) => [row.titleKey, row]));
+  const byTitle = new Map<string, NewsRadarItem>();
+  for (const row of existing) if (row.lastSeenAt >= recent && !byTitle.has(row.titleKey)) byTitle.set(row.titleKey, row);
 
   let added = 0;
   const seen = new Set<string>();
@@ -129,32 +145,43 @@ export async function getItem(id: string): Promise<NewsRadarItem | null> {
   return row ?? null;
 }
 
-export async function setItemState(id: string, state: ItemState, email: string): Promise<boolean> {
+/** Sets the state of `ids` (one story's copies are triaged together). Returns how many exist. */
+export async function setItemState(ids: string[], state: ItemState, email: string): Promise<number> {
   const rows = await db
     .update(newsRadarItems)
     .set({ state, triagedBy: email, triagedAt: new Date() })
-    .where(eq(newsRadarItems.id, id))
+    .where(inArray(newsRadarItems.id, ids))
     .returning({ id: newsRadarItems.id });
-  return rows.length > 0;
+  return rows.length;
 }
 
-/** This run's sightings for the weekly summary: new items best first, and how many known ones came back. */
-export async function runDigest(runId: string): Promise<{ fresh: NewsRadarItem[]; seenBefore: number }> {
+/** When the weekly run before `runId` started: the summary covers what was first seen since. */
+async function previousScheduledStart(runId: string, startedAt: Date): Promise<Date> {
+  const [row] = await db
+    .select({ startedAt: newsRadarRuns.startedAt })
+    .from(newsRadarRuns)
+    .where(and(eq(newsRadarRuns.trigger, "schedule"), ne(newsRadarRuns.id, runId), lt(newsRadarRuns.startedAt, startedAt)))
+    .orderBy(desc(newsRadarRuns.startedAt))
+    .limit(1);
+  return row?.startedAt ?? new Date(0);
+}
+
+/**
+ * The weekly summary's items: everything first seen since the last weekly run, best first
+ * (including what a run by hand found in between, which this week's run then saw again), and how
+ * many older items this run found again. Dismissed items are left out of both.
+ */
+export async function runDigest(runId: string, startedAt: Date): Promise<{ fresh: NewsRadarItem[]; seenBefore: number }> {
+  const since = await previousScheduledStart(runId, startedAt);
   const fresh = await db
     .select()
     .from(newsRadarItems)
-    .where(and(eq(newsRadarItems.firstRunId, runId), ne(newsRadarItems.state, "dismissed")))
+    .where(and(gt(newsRadarItems.firstSeenAt, since), ne(newsRadarItems.state, "dismissed")))
     .orderBy(desc(newsRadarItems.score), desc(newsRadarItems.publishedAt));
   const [again] = await db
     .select({ n: count() })
     .from(newsRadarItems)
-    .where(
-      and(
-        eq(newsRadarItems.lastRunId, runId),
-        ne(newsRadarItems.state, "dismissed"),
-        or(sql`${newsRadarItems.firstRunId} is null`, ne(newsRadarItems.firstRunId, runId)),
-      ),
-    );
+    .where(and(eq(newsRadarItems.lastRunId, runId), ne(newsRadarItems.state, "dismissed"), lte(newsRadarItems.firstSeenAt, since)));
   return { fresh, seenBefore: again.n };
 }
 

@@ -26,7 +26,7 @@ class FakeNewsSources {
   private published: Record<SourceId, { article: FakeArticle; when?: string }[]> = { gdelt: [], google_news: [], openalex: [], eu_digital: [] };
   private failures = new Map<SourceId, Failure>();
   private throttled = 0;
-  private failingSearches: string[] = [];
+  private failingSearches: { source: SourceId; text: string }[] = [];
 
   reset(): void {
     this.requests.length = 0;
@@ -36,9 +36,9 @@ class FakeNewsSources {
     this.failingSearches = [];
   }
 
-  /** Google News answers 503 to searches whose query contains `text`; the others work. */
-  failSearches(text: string): void {
-    this.failingSearches.push(text);
+  /** Google News (or OpenAlex) answers 503 to searches whose query contains `text`; the others work. */
+  failSearches(text: string, source: "google_news" | "openalex" = "google_news"): void {
+    this.failingSearches.push({ source, text });
   }
 
   /** Google News returns `article` for searches whose query contains `when` (any search if left out). */
@@ -88,6 +88,10 @@ class FakeNewsSources {
       );
     }
     if (failure === "http") return new Response("Service Unavailable", { status: 503 });
+    const query = url.searchParams.get(source === "openalex" ? "search" : "q") ?? "";
+    if (this.failingSearches.some((f) => f.source === source && query.includes(f.text))) {
+      return new Response("Service Unavailable", { status: 503 });
+    }
     switch (source) {
       case "gdelt":
         if (this.throttled > 0) {
@@ -103,9 +107,6 @@ class FakeNewsSources {
           })),
         });
       case "google_news":
-        if (this.failingSearches.some((text) => (url.searchParams.get("q") ?? "").includes(text))) {
-          return new Response("Service Unavailable", { status: 503 });
-        }
         return rss(this.matching(source, url.searchParams.get("q") ?? ""), true);
       case "eu_digital":
         return rss(this.published.eu_digital.map((p) => p.article), false);

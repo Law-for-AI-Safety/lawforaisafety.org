@@ -75,6 +75,11 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
               </p>
             ))}
             {run.email && <p className="text-sm text-brand-black/70">Email: {run.email}</p>}
+            {run.error && (
+              <p role="status" className="text-sm text-brand-red">
+                The run failed: {run.error}
+              </p>
+            )}
           </>
         ) : (
           <p className="text-brand-black/70">The radar has not run yet. It runs every Monday at 06:00 UTC.</p>
@@ -175,7 +180,7 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
                         })}
                       </span>
                     )}
-                    <ItemActions itemId={item.id} state={item.state} drafts={drafts} />
+                    <ItemActions itemId={item.id} copyIds={alsoIn.map((other) => other.id)} state={item.state} drafts={drafts} />
                   </li>
                 );
               })}

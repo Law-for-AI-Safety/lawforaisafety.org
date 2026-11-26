@@ -46,6 +46,7 @@ describe("runSummary", () => {
     newCount: 9,
     seenCount: 3,
     email: "Sent to group@example.org.",
+    error: null,
     ...over,
   });
 
@@ -56,6 +57,7 @@ describe("runSummary", () => {
       failures: ["GDELT failed this week: GDELT answered 429"],
       counts: "9 new, 3 seen before",
       email: "Sent to group@example.org.",
+      error: null,
     });
   });
 

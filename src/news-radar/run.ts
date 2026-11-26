@@ -21,7 +21,7 @@ import type { NewsRadarSettings, SourceAdapter, SourceOutcome } from "./types";
 export const LOOKBACK_DAYS = 7;
 
 /** Time each source has before its requests are abandoned. */
-export const SOURCE_BUDGET_MS = 20_000;
+export const SOURCE_BUDGET_MS = 15_000;
 
 export type RunOptions = {
   trigger: "schedule" | "manual";
@@ -65,12 +65,12 @@ async function askSource(
       return [
         {
           urlKey: normaliseUrl(candidate.url),
-          titleKey: titleKey(candidate.title, candidate.outlet),
-          storyKey: storyKey(candidate.title),
-          url: candidate.url,
-          title: candidate.title,
-          outlet: candidate.outlet,
-          snippet: candidate.snippet,
+          titleKey: titleKey(clean(candidate.title), clean(candidate.outlet)),
+          storyKey: storyKey(clean(candidate.title)),
+          url: clean(candidate.url),
+          title: clean(candidate.title),
+          outlet: clean(candidate.outlet),
+          snippet: clean(candidate.snippet),
           kind: candidate.kind,
           publishedAt: candidate.publishedAt,
           sources: [candidate.source],
@@ -87,6 +87,19 @@ async function askSource(
     clearTimeout(timer);
   }
 }
+
+/**
+ * A failure in a line for the admin page. A failed query's message repeats the query and its
+ * values; the database's own reason, its `cause`, says what went wrong without them.
+ */
+export function failureReason(err: unknown): string {
+  const cause = err instanceof Error && err.cause instanceof Error ? err.cause : err;
+  const message = cause instanceof Error ? cause.message : String(cause);
+  return clean(message).slice(0, 300);
+}
+
+/** Text without control characters, which Postgres refuses (NUL) or which only garble a title. */
+const clean = (text: string) => text.replace(/[\p{Cc}\p{Cf}]+/gu, " ").replace(/\s+/g, " ").trim();
 
 /** Folds sightings of one article (same address, or same title and outlet) into one. */
 export function mergeFound(found: FoundItem[]): FoundItem[] {
@@ -113,11 +126,12 @@ export function mergeFound(found: FoundItem[]): FoundItem[] {
 async function sendDigest(runId: string, settings: NewsRadarSettings, sources: SourceOutcome[], now: Date): Promise<string> {
   if (!isProductionDeploy()) return "Not sent: only the production site sends the weekly email.";
   if (!settings.recipient) return "Not sent: no recipient is set in the News radar settings.";
-  const { fresh, seenBefore } = await runDigest(runId);
+  const { fresh, seenBefore } = await runDigest(runId, now);
   const { subject, bodyHtml } = digestEmail({ fresh, seenBefore, topics: settings.topics, failures: sources.filter((s) => !s.ok), now });
   try {
     await sendNewsRadarDigestEmail(settings.recipient, subject, bodyHtml);
-    return `Sent to ${settings.recipient}.`;
+    // No address: this line reaches the function logs, which the erasure tool cannot clean.
+    return "Sent to the recipient in the News radar settings.";
   } catch (err) {
     console.error("[news-radar] Weekly email failed", err);
     return "Not sent: Brevo refused it. See the function log.";
@@ -134,8 +148,16 @@ export async function runNewsRadar(options: RunOptions): Promise<RunResult> {
     ),
   );
   const sources = asked.map((a) => a.outcome);
-  const { added, seenBefore } = await recordFound(runId, now, mergeFound(asked.flatMap((a) => a.found)));
-  const email = options.trigger === "schedule" ? await sendDigest(runId, settings, sources, now) : null;
-  await finishRun(runId, { sources, newCount: added, seenCount: seenBefore, email });
-  return { runId, sources, newCount: added, seenCount: seenBefore, email };
+  try {
+    const { added, seenBefore } = await recordFound(runId, now, mergeFound(asked.flatMap((a) => a.found)));
+    const email = options.trigger === "schedule" ? await sendDigest(runId, settings, sources, now) : null;
+    await finishRun(runId, { sources, newCount: added, seenCount: seenBefore, email });
+    return { runId, sources, newCount: added, seenCount: seenBefore, email };
+  } catch (err) {
+    // Recorded so the admin page says the run failed rather than showing it running for ever.
+    await finishRun(runId, { sources, newCount: 0, seenCount: 0, email: null, error: failureReason(err) }).catch((e) =>
+      console.error("[news-radar] Could not record the failed run", e),
+    );
+    throw err;
+  }
 }

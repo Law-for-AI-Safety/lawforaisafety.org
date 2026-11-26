@@ -38,6 +38,14 @@ describe("parseSettings", () => {
   });
 });
 
+describe("trusted outlets", () => {
+  it("allows up to 100", () => {
+    const outlets = (n: number) => Array.from({ length: n }, (_, i) => `Outlet ${i}`);
+    expect(parseSettings({ ...valid, trustedOutlets: outlets(100) })).toMatchObject({ ok: true });
+    expect(parseSettings({ ...valid, trustedOutlets: outlets(101) })).toEqual({ ok: false, problem: "Keep each list to 100 entries." });
+  });
+});
+
 describe("topicId", () => {
   it("makes a unique id from the name", () => {
     expect(topicId("GDPR & AI!", new Set())).toBe("gdpr-ai");

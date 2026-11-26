@@ -23,8 +23,7 @@ CREATE TABLE "news_radar_items" (
 	"last_run_id" uuid,
 	"triaged_by" text,
 	"triaged_at" timestamp with time zone,
-	CONSTRAINT "news_radar_items_url_key_unique" UNIQUE("url_key"),
-	CONSTRAINT "news_radar_items_title_key_unique" UNIQUE("title_key")
+	CONSTRAINT "news_radar_items_url_key_unique" UNIQUE("url_key")
 );
 --> statement-breakpoint
 CREATE TABLE "news_radar_runs" (
@@ -36,7 +35,8 @@ CREATE TABLE "news_radar_runs" (
 	"sources" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"new_count" integer DEFAULT 0 NOT NULL,
 	"seen_count" integer DEFAULT 0 NOT NULL,
-	"email" text
+	"email" text,
+	"error" text
 );
 --> statement-breakpoint
 CREATE TABLE "news_radar_settings" (
@@ -52,4 +52,5 @@ CREATE TABLE "news_radar_settings" (
 ALTER TABLE "news_radar_items" ADD CONSTRAINT "news_radar_items_first_run_id_news_radar_runs_id_fk" FOREIGN KEY ("first_run_id") REFERENCES "public"."news_radar_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "news_radar_items" ADD CONSTRAINT "news_radar_items_last_run_id_news_radar_runs_id_fk" FOREIGN KEY ("last_run_id") REFERENCES "public"."news_radar_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "news_radar_items_first_seen_idx" ON "news_radar_items" USING btree ("first_seen_at");--> statement-breakpoint
-CREATE INDEX "news_radar_items_last_run_idx" ON "news_radar_items" USING btree ("last_run_id");
+CREATE INDEX "news_radar_items_last_run_idx" ON "news_radar_items" USING btree ("last_run_id");--> statement-breakpoint
+CREATE INDEX "news_radar_items_title_key_idx" ON "news_radar_items" USING btree ("title_key");

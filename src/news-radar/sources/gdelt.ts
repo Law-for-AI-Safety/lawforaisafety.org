@@ -15,15 +15,19 @@ export const GDELT_RETRY_MS = 6_000;
 const MAX_PHRASES = 14;
 
 /**
- * One query covering every topic: their multi-word include keywords as quoted phrases, ORed.
- * Single words are left out, as GDELT refuses short ones and long ones match too much; the
- * scorer decides relevance afterwards, as for every source.
+ * One query covering every topic: their multi-word include keywords as quoted phrases, ORed,
+ * taken in turn from each topic (its first, then each one's second, and so on) so every topic
+ * is searched when they cannot all fit. Single words are left out, as GDELT refuses short ones
+ * and long ones match too much; the scorer decides relevance afterwards, as for every source.
  */
 export function gdeltQuery(topics: Topic[]): string | null {
-  const phrases = [...new Set(topics.flatMap((t) => t.include).filter((k) => k.trim().includes(" ")).map((k) => k.trim().toLowerCase()))];
-  if (phrases.length === 0) return null;
-  const terms = phrases.slice(0, MAX_PHRASES).map((p) => `"${p.replace(/"/g, "")}"`);
-  return `(${terms.join(" OR ")}) sourcelang:english`;
+  const perTopic = topics.map((t) => t.include.map((k) => k.trim().toLowerCase().replace(/"/g, "")).filter((k) => k.includes(" ")));
+  const phrases = new Set<string>();
+  for (let i = 0; phrases.size < MAX_PHRASES && perTopic.some((list) => i < list.length); i++) {
+    for (const list of perTopic) if (i < list.length && phrases.size < MAX_PHRASES) phrases.add(list[i]);
+  }
+  if (phrases.size === 0) return null;
+  return `(${[...phrases].map((p) => `"${p}"`).join(" OR ")}) sourcelang:english`;
 }
 
 type GdeltArticle = { url?: string; title?: string; domain?: string; seendate?: string };
