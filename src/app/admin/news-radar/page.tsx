@@ -49,7 +49,7 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
   const drafts = newsletters.filter((n) => n.state === "draft").map((n) => ({ id: n.id, subject: n.subject.trim() || "Untitled newsletter" }));
   const weeks = groupByWeek(items);
   const run = runs[0] ? runSummary(runs[0]) : null;
-  const selectClass = "rounded-sm border border-brand-black/30 bg-brand-white px-2 py-1";
+  const selectClass = "w-full max-w-full rounded-sm border border-brand-black/30 bg-brand-white px-2 py-1";
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
@@ -88,7 +88,7 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
       </section>
 
       <form method="get" className="flex flex-wrap items-end gap-3" aria-label="Filter items">
-        <label className="flex flex-col gap-1 text-sm text-brand-black/70">
+        <label className="flex min-w-0 max-w-full flex-col gap-1 text-sm text-brand-black/70">
           Topic
           <select name="topic" defaultValue={filter.topic ?? ""} className={selectClass}>
             <option value="">All topics</option>
