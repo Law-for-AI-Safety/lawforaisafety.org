@@ -16,6 +16,7 @@ const links: NavLink[] = [
       { href: "#our-story", label: "Our Story" },
       { href: "#team", label: "Team" },
       { href: "#advisors", label: "Advisors" },
+      { href: "#supporting-volunteers", label: "Supporting Volunteers" },
     ],
   },
   {

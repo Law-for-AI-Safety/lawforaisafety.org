@@ -13,6 +13,11 @@ describe("adding blocks", () => {
     expect(addableBlockTypes("new-page", [b("hero")])).toEqual(["quoteBand", "textSection", "cardList", "teamGrid", "timeline", "milestones"]);
   });
 
+  it("offers the homepage a third team grid, for the supporting volunteers, but not a fourth", () => {
+    expect(addableBlockTypes("home", [b("hero"), b("teamGrid"), b("teamGrid")])).toContain("teamGrid");
+    expect(addableBlockTypes("home", [b("hero"), b("teamGrid"), b("teamGrid"), b("teamGrid")])).not.toContain("teamGrid");
+  });
+
   it("offers a hero only to a page without one", () => {
     expect(addableBlockTypes("new-page", [])).not.toContain("hero");
   });

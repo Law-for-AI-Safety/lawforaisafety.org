@@ -57,11 +57,11 @@ export const PAGE_RULES: Record<string, PageRules> = {
     forms: ["redLines"],
   },
   home: {
-    // Two team grids: the core team, then the advisors.
-    blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 2, timeline: 1, milestones: 1, applicationSection: 1 },
+    // Three team grids: the core team, the advisors, then the supporting volunteers.
+    blocks: { hero: 1, quoteBand: 3, textSection: 8, cardList: 4, teamGrid: 3, timeline: 1, milestones: 1, applicationSection: 1 },
     forms: ["apply"],
-    // The nav's section links (src/app/Nav.tsx), and the advisors' own.
-    anchors: { quoteBand: ["mission"], cardList: ["work"], milestones: ["our-story"], teamGrid: ["team", "advisors"] },
+    // The nav's section links (src/app/Nav.tsx).
+    anchors: { quoteBand: ["mission"], cardList: ["work"], milestones: ["our-story"], teamGrid: ["team", "advisors", "supporting-volunteers"] },
   },
   "field-building": {
     blocks: { hero: 1, quoteBand: 2, textSection: 4, cardList: 4, timeline: 1, applicationSection: 1 },

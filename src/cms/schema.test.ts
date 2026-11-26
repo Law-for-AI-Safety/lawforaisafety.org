@@ -180,11 +180,11 @@ describe("pages", () => {
     expect(problems(pageSchema("field-building").safeParse(value)).join("\n")).toContain(message);
   });
 
-  it("lets the homepage hold two team grids, but not three", () => {
+  it("lets the homepage hold three team grids, but not four", () => {
     const team = { type: "teamGrid", heading: "T", members: [{ name: "A", role: "R", bio: "B" }] };
-    expect(problems(pageSchema("home").safeParse(page([hero, team, team])))).toEqual([]);
-    expect(problems(pageSchema("home").safeParse(page([hero, team, team, team]))).join()).toContain(
-      "blocks.3: This page can have at most 2 teamGrid block(s)",
+    expect(problems(pageSchema("home").safeParse(page([hero, team, team, team])))).toEqual([]);
+    expect(problems(pageSchema("home").safeParse(page([hero, team, team, team, team]))).join()).toContain(
+      "blocks.4: This page can have at most 3 teamGrid block(s)",
     );
   });
 
@@ -304,7 +304,7 @@ describe("the homepage rules", () => {
       quoteBand: ["mission"],
       cardList: ["work"],
       milestones: ["our-story"],
-      teamGrid: ["team", "advisors"],
+      teamGrid: ["team", "advisors", "supporting-volunteers"],
     });
   });
 });
