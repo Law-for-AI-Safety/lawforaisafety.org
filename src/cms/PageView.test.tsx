@@ -125,6 +125,14 @@ describe("the homepage", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Bringing together legal professionals/);
   });
 
+  it("has a section for every homepage link in the nav", () => {
+    const { container } = render(<PageView slug="home" page={home} />);
+    const targets = [...container.querySelectorAll("nav a[href^='#']")].map((a) => a.getAttribute("href")!.slice(1));
+    expect(targets).toContain("supporting-volunteers");
+    const ids = [...container.querySelectorAll("main [id]")].map((el) => el.id);
+    expect(targets.filter((id) => !ids.includes(id))).toEqual([]);
+  });
+
   it("gives each block of a type the next anchor listed for it, while there is one", () => {
     const twice = { ...home, blocks: [home.blocks[0], home.blocks[1], home.blocks[1]] };
     expect(blockAnchors("home", twice)).toEqual([undefined, "mission", undefined]);
