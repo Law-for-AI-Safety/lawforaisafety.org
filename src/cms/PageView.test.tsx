@@ -119,9 +119,18 @@ describe("the homepage", () => {
       ["bg-brand-white", "our-story"],
       ["bg-brand-navy", "team"],
       ["bg-brand-black", "advisors"],
+      ["bg-brand-navy", "supporting-volunteers"],
       ["bg-brand-white", "contact"],
     ]);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Bringing together legal professionals/);
+  });
+
+  it("has a section for every homepage link in the nav", () => {
+    const { container } = render(<PageView slug="home" page={home} />);
+    const targets = [...container.querySelectorAll("nav a[href^='#']")].map((a) => a.getAttribute("href")!.slice(1));
+    expect(targets).toContain("supporting-volunteers");
+    const ids = [...container.querySelectorAll("main [id]")].map((el) => el.id);
+    expect(targets.filter((id) => !ids.includes(id))).toEqual([]);
   });
 
   it("gives each block of a type the next anchor listed for it, while there is one", () => {
@@ -130,11 +139,11 @@ describe("the homepage", () => {
     expect(blockAnchors("field-building", twice)).toEqual([undefined, undefined, undefined]);
   });
 
-  it("anchors the team grids as #team and #advisors, and any page's first team grid as #team", () => {
+  it("anchors the team grids as #team, #advisors and #supporting-volunteers, and any page's first team grid as #team", () => {
     const team = home.blocks.find((b) => b.type === "teamGrid")!;
-    const grids = { blocks: [home.blocks[0], team, team, team] };
-    expect(blockAnchors("home", grids)).toEqual([undefined, "team", "advisors", undefined]);
-    expect(blockAnchors("a-new-page", grids)).toEqual([undefined, "team", undefined, undefined]);
+    const grids = { blocks: [home.blocks[0], team, team, team, team] };
+    expect(blockAnchors("home", grids)).toEqual([undefined, "team", "advisors", "supporting-volunteers", undefined]);
+    expect(blockAnchors("a-new-page", grids)).toEqual([undefined, "team", undefined, undefined, undefined]);
   });
 });
 

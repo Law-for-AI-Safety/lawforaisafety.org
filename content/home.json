@@ -235,6 +235,18 @@
       ]
     },
     {
+      "type": "teamGrid",
+      "heading": "Supporting Volunteers",
+      "members": [
+        {
+          "name": "Ludovica Lot",
+          "role": "EU Law Specialist",
+          "bio": "Italian legal professional specialising in EU law. Master's from Utrecht University.",
+          "linkedin": "https://www.linkedin.com/in/ludovica-lot-b12a0a3ab/"
+        }
+      ]
+    },
+    {
       "type": "applicationSection",
       "form": "apply",
       "heading": "Join us in shaping the legal future of AI",
