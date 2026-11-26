@@ -3,6 +3,8 @@ import { isProductionDeploy } from "./deploy-context";
 // the applicant types both the name and the recipient address, so an unescaped name is
 // attacker-chosen HTML sent from our domain to a third party.
 import { escapeHtml } from "./escape-html";
+import { digestEmail } from "../news-radar/digest";
+import { DEFAULT_SETTINGS } from "../news-radar/defaults";
 
 const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 
@@ -259,6 +261,11 @@ export async function sendNewsletterTestEmail(to: string, subject: string, html:
   await send(to, `[Test] ${subject}`, html, { wrapped: true });
 }
 
+/** The News radar's weekly summary (src/news-radar/digest.ts) to the team group in its settings. */
+export async function sendNewsRadarDigestEmail(to: string, subject: string, bodyHtml: string): Promise<void> {
+  await send(to, subject, bodyHtml);
+}
+
 export async function sendApplicationApprovedEmail(
   to: string,
   name: string | null,
@@ -448,6 +455,22 @@ function adminNewOpportunitySubmissionEmail({
   };
 }
 
+/** A made-up week for the email preview page. */
+function newsRadarPreview() {
+  const now = new Date("2026-11-30T06:00:00Z");
+  return digestEmail({
+    fresh: [
+      { title: "Regulator opens first AI Act market surveillance case", url: "https://example.com/ai-act-case", outlet: "Example News", publishedAt: new Date("2026-11-27T00:00:00Z"), topics: ["ai-act-enforcement"], score: 7 },
+      { title: "Families sue chatbot maker over harms to teenagers", url: "https://example.com/chatbot-lawsuit", outlet: "Example Wire", publishedAt: new Date("2026-11-26T00:00:00Z"), topics: ["ai-litigation"], score: 5 },
+      { title: "Liability for AI systems under the revised Product Liability Directive", url: "https://doi.org/10.0000/example", outlet: "Example Law Review", publishedAt: new Date("2026-11-25T00:00:00Z"), topics: ["ai-liability"], score: 4 },
+    ],
+    seenBefore: 4,
+    topics: DEFAULT_SETTINGS.topics,
+    failures: [{ source: "gdelt", ok: false, error: "GDELT answered 429" }],
+    now,
+  });
+}
+
 /**
  * Rendered HTML for every transactional email template, for the admin
  * preview page — not sent anywhere. Uses a placeholder confirm link since
@@ -530,6 +553,7 @@ export function getEmailPreviews(): { label: string; subject: string; html: stri
         submissionId: "preview-id",
       }),
     },
+    { label: "News radar - weekly summary (team group)", ...newsRadarPreview() },
   ];
   return templates.map(({ label, subject, bodyHtml }) => ({
     label,
