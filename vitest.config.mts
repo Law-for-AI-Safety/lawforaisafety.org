@@ -77,6 +77,9 @@ export default defineConfig({
   resolve: { alias },
   test: {
     maxWorkers,
+    // The database projects' teardown drops every database the run made (`dropRun`); each drop
+    // waits for a Postgres checkpoint, which a busy machine makes slow.
+    teardownTimeout: 120_000,
     reporters: [
       quiet ? "minimal" : "default",
       ["json", { outputFile: RESULTS_FILE }],
