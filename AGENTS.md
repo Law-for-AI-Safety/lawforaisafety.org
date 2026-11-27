@@ -25,6 +25,10 @@ For example `http://publish.localhost:3001/api/admin/dev-login` (add `?next=/adm
 
 To see or change the live board's listings, drafts included, use `npm run opportunities -- <command>` (`list --status draft`, `get <slug>`, `create <file>`, `update <slug> <file>`, `publish <slug>`). It signs requests with `OPPORTUNITIES_API_KEY` from `.env.local` without printing it, so never read the key yourself. `update` changes only the fields in its file. Publishing is public: confirm with the user first. The API itself is documented in `opportunities-ingestion-api.md`.
 
+## Tuning the News radar
+
+To judge how relevant the News radar's items are and tune its topics and keywords, follow `news-radar-tuning.md`. It uses `npm run -s news-radar -- <command>` (`export`, `settings get`, `settings put <file>`, `rescore <file>`), signed with `NEWS_RADAR_API_KEY` from `.env.local`, which, as with opportunities, you never read yourself. `rescore` is a dry run; `settings put` changes what the live radar watches, so send Harry the before/after summary the guide describes and wait for his approval first.
+
 ## Testing
 
 `npm run check-all` runs typecheck, lint and every test with coverage; run it before raising a PR. CI runs the same on every PR and push to `main`, against a Postgres service container.

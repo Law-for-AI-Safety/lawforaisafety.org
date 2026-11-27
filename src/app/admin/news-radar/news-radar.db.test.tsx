@@ -151,6 +151,19 @@ describe("the items page", () => {
     expect(lastWeek.getByText(/Also reported by/)).toHaveTextContent("Also reported by News");
   });
 
+  it("says which include keywords each item matches under the current settings", async () => {
+    await seedRun(MONDAY, [
+      found(1, { title: "Chatbot class action filed", snippet: "A lawsuit over an AI chatbot." }),
+      found(2, { title: "Unrelated" }),
+    ]);
+    await signInAs("admin");
+    render(await page());
+    const matched = within(screen.getByRole("link", { name: "Chatbot class action filed" }).closest("li")!);
+    expect(matched.getByText("Matched: lawsuit, class action")).toBeInTheDocument();
+    const unmatched = within(screen.getByRole("link", { name: "Unrelated" }).closest("li")!);
+    expect(unmatched.getByText("Matches no topic under the current settings")).toBeInTheDocument();
+  });
+
   it("triages one story's copies from other outlets along with it, unless triaged on their own", async () => {
     const copy = (n: number) => found(n, { storyKey: "item 1", urlKey: `https://other.test/${n}`, titleKey: `item 1|other ${n}`, outlet: `Other ${n}`, score: 0 });
     // A wire story: more copies than any one page of buttons would ever send at once before.
