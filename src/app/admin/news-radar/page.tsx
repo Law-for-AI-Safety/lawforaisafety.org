@@ -5,6 +5,7 @@ import { getNewsRadarSettings, latestRuns, listItems, type ItemState } from "@/l
 import { listNewsletters } from "@/lib/newsletter-store";
 import { safeHref } from "@/news-radar/digest";
 import { SOURCES, SOURCE_LABELS } from "@/news-radar/sources";
+import { matchedKeywords } from "@/news-radar/tuning";
 import type { SourceId } from "@/news-radar/types";
 import { formatDay, groupByWeek, isSeenBefore, runSummary } from "@/news-radar/view";
 import ItemActions from "./ItemActions";
@@ -135,6 +136,7 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
             <ul className="flex flex-col">
               {week.stories.map(({ item, alsoIn }) => {
                 const href = safeHref(item.url);
+                const keywords = [...new Set(matchedKeywords(item, settings).flatMap((m) => m.keywords))];
                 return (
                   <li key={item.id} className="flex flex-col gap-1 border-t border-brand-black/10 py-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -156,6 +158,9 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
                     </span>
                     <span className="text-sm text-brand-black/60">
                       {item.topics.map((t) => topicNames.get(t) ?? t).join(", ")} · via {item.sources.map((s) => SOURCE_LABELS[s as SourceId] ?? s).join(", ")}
+                    </span>
+                    <span className="text-sm text-brand-black/60">
+                      {keywords.length > 0 ? `Matched: ${keywords.join(", ")}` : "Matches no topic under the current settings"}
                     </span>
                     {isSeenBefore(item) && (
                       <span className="text-sm text-brand-black/60">Seen before (first seen {formatDay(item.firstSeenAt)})</span>

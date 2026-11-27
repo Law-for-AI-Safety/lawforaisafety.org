@@ -103,3 +103,17 @@ export async function requireOpportunitiesOrApiKey(
   if (hasBearerSecret(request, process.env.OPPORTUNITIES_API_KEY)) return OPPORTUNITIES_API_ACTOR;
   return requireOpportunities(request);
 }
+
+const NEWS_RADAR_API_ACTOR: AdminSessionPayload = { email: "news-radar@api", name: "News radar agent" };
+
+/**
+ * As requireAdmin (any admin may triage and tune the News radar), but also accepts a bearer
+ * NEWS_RADAR_API_KEY, so an agent run by an admin can read items and tune the topics. A key of its
+ * own, not OPPORTUNITIES_API_KEY, so each can be given out and revoked without the other.
+ */
+export async function requireAdminOrNewsRadarKey(
+  request: Request,
+): Promise<AdminSessionPayload | NextResponse> {
+  if (hasBearerSecret(request, process.env.NEWS_RADAR_API_KEY)) return NEWS_RADAR_API_ACTOR;
+  return requireAdmin(request);
+}

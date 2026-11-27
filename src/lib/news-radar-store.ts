@@ -155,6 +155,16 @@ export async function listItems(filter: ItemFilter = {}, limit = 500): Promise<N
     .limit(limit);
 }
 
+/** Items first seen on or after `since`, newest first, for the News radar API. */
+export async function itemsSince(since: Date, limit: number): Promise<NewsRadarItem[]> {
+  return db
+    .select()
+    .from(newsRadarItems)
+    .where(gte(newsRadarItems.firstSeenAt, since))
+    .orderBy(desc(newsRadarItems.firstSeenAt), desc(newsRadarItems.score))
+    .limit(limit);
+}
+
 export async function getItem(id: string): Promise<NewsRadarItem | null> {
   const [row] = await db.select().from(newsRadarItems).where(eq(newsRadarItems.id, id));
   return row ?? null;
