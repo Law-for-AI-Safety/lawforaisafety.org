@@ -1,4 +1,3 @@
-import { RUN_FUNCTION_PATH } from "@/news-radar/start";
 import { route } from "./network";
 
 /**
@@ -11,6 +10,13 @@ import { route } from "./network";
  */
 
 export const DEPLOY_ORIGIN = "https://deploy.lawforaisafety.test";
+
+/**
+ * RUN_FUNCTION_PATH in src/news-radar/start.ts, written out: this file loads before every test,
+ * and importing start.ts here would open the app's database pool before the test's database is
+ * set. A call to any other path finds no fake and fails the test.
+ */
+const RUN_FUNCTION_PATH = "/.netlify/functions/news-radar-run";
 
 class FakeNetlifyFunctions {
   /** What each call to the function answered, in order. */
