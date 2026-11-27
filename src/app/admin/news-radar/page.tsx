@@ -47,13 +47,15 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
     state: STATES.some((s) => s.value === search.state) ? (search.state as ItemState) : undefined,
   };
   const [items, runs, newsletters] = await Promise.all([listItems(filter), latestRuns(1), listNewsletters()]);
-  // Which items the subscriber newsletter already links to, sent issues first.
+  // Which items the subscriber newsletter already links to: issues Brevo has (sent or scheduled)
+  // first, then drafts. One partway through its hand-over to Brevo counts as neither yet.
   const inNewsletter = new Map<string, string>();
-  for (const draft of [false, true]) {
-    for (const n of newsletters.filter((n) => (n.state === "draft") === draft)) {
-      for (const href of linkedHrefs(n.body)) {
-        if (!inNewsletter.has(href)) inNewsletter.set(href, draft ? "In a subscriber newsletter draft" : "In a subscriber newsletter");
-      }
+  for (const [state, label] of [
+    ["submitted", "In a sent or scheduled subscriber newsletter"],
+    ["draft", "In a subscriber newsletter draft"],
+  ] as const) {
+    for (const n of newsletters.filter((n) => n.state === state)) {
+      for (const href of linkedHrefs(n.body)) if (!inNewsletter.has(href)) inNewsletter.set(href, label);
     }
   }
   const weeks = groupByWeek(items);

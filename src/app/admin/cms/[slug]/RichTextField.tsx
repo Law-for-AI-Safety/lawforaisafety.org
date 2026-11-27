@@ -199,6 +199,7 @@ export default function RichTextField({
 
   useEffect(() => {
     onEditor?.(editor);
+    return () => onEditor?.(null);
   }, [editor, onEditor]);
 
   useEffect(() => {

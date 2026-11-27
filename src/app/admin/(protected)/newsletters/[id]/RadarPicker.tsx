@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { Editor } from "@tiptap/core";
 import { richTextToEditorDoc, type PMNode } from "@/cms/editor-doc";
-import { parseRichText, type Run } from "@/cms/rich-text";
+import { parseRichTextLoose, type Run } from "@/cms/rich-text";
 import { appendItem, entryDate, entryHref, entryRuns, linkedHrefs } from "@/news-radar/newsletter";
 
 /** A News radar item as the composer offers it. */
@@ -22,8 +22,9 @@ const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([di
 
 /**
  * Puts the items' bullets where the editor's cursor is: after the bullet it is in, or as a list
- * after the paragraph it is in (in place of that paragraph when it is empty). A list right after
- * that paragraph takes them at its start instead, so they join it.
+ * after the paragraph it is in. An empty paragraph is replaced. A list next to where they land
+ * takes them instead (the one before an empty paragraph first, else the one after it), so they
+ * join it rather than start a second list.
  */
 export function insertAtCursor(editor: Editor, entries: Run[][]) {
   const list = richTextToEditorDoc([{ type: "bulletList", items: entries }]).content![0];
@@ -40,10 +41,18 @@ export function insertAtCursor(editor: Editor, entries: Run[][]) {
     return;
   }
   const block = $from.node(1);
+  const before = $from.before(1);
   const after = $from.after(1);
   const next = editor.state.doc.nodeAt(after);
-  if (block.content.size === 0) editor.chain().focus().insertContentAt({ from: $from.before(1), to: after }, list).run();
-  else if (next?.type.name === "bulletList") editor.chain().focus().insertContentAt(after + 1, bullets).run();
+  const isList = (node: { type: { name: string } } | null | undefined) => node?.type.name === "bulletList";
+  if (block.content.size === 0) {
+    const previous = editor.state.doc.resolve(before).nodeBefore;
+    const chain = editor.chain().focus().deleteRange({ from: before, to: after });
+    // With the empty paragraph gone, the list before it ends at `before - 1` and the one after starts at `before`.
+    if (isList(previous)) chain.insertContentAt(before - 1, bullets).run();
+    else if (isList(next)) chain.insertContentAt(before + 1, bullets).run();
+    else editor.chain().focus().insertContentAt({ from: before, to: after }, list).run();
+  } else if (isList(next)) editor.chain().focus().insertContentAt(after + 1, bullets).run();
   else editor.chain().focus().insertContentAt(after, list).run();
 }
 
@@ -79,6 +88,7 @@ export default function RadarPicker({
 
   // The cursor counts once the editor has been clicked or tabbed into.
   useEffect(() => {
+    setPlaced(false);
     if (!editor) return;
     const mark = () => setPlaced(true);
     editor.on("focus", mark);
@@ -92,6 +102,22 @@ export default function RadarPicker({
   }, [open]);
 
   const present = useMemo(() => linkedHrefs(body), [body]);
+  // Whether the editor shows the body (as RichTextField decides), so items can go in through it.
+  const readable = useMemo(() => {
+    try {
+      parseRichTextLoose(body);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [body]);
+  const atCursor = editor !== null && placed && readable;
+  // The links ticked so far: two radar items with the same link go in once.
+  const ticked = useMemo(() => new Map(items.filter((i) => chosen.has(i.id)).map((i) => [entryHref(i.url), i.id])), [items, chosen]);
+  const blocked = (item: PickerItem) => {
+    const href = entryHref(item.url);
+    return present.has(href) || (ticked.has(href) && ticked.get(href) !== item.id);
+  };
   const topics = useMemo(() => [...new Set(items.flatMap((i) => i.topics))].sort(), [items]);
   const shown = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -117,7 +143,7 @@ export default function RadarPicker({
     });
 
   const insert = () => {
-    const picked = items.filter((i) => chosen.has(i.id) && !present.has(entryHref(i.url)));
+    const picked = items.filter((i) => chosen.has(i.id) && !blocked(i));
     const entries = picked.map((i) => ({ ...i, publishedAt: i.publishedAt ? new Date(i.publishedAt) : null }));
     const bullets: Run[][] = [];
     for (const entry of entries) {
@@ -125,13 +151,6 @@ export default function RadarPicker({
       if (!runs.ok) return setProblem(`“${entry.title}”: ${runs.problem}`);
       bullets.push(runs.runs);
     }
-    let readable = true;
-    try {
-      if (body.trim() !== "") parseRichText(body);
-    } catch {
-      readable = false;
-    }
-    const atCursor = editor !== null && placed && readable;
     if (atCursor) insertAtCursor(editor, bullets);
     else {
       let next = body;
@@ -169,7 +188,7 @@ export default function RadarPicker({
     }
   };
 
-  const count = [...chosen].filter((c) => items.some((i) => i.id === c && !present.has(entryHref(i.url)))).length;
+  const count = items.filter((i) => chosen.has(i.id) && !blocked(i)).length;
 
   return (
     <div className="flex flex-col gap-1">
@@ -208,7 +227,7 @@ export default function RadarPicker({
             </h2>
             <p id={`${id}-about`} className="text-sm text-brand-black/70">
               Useful and new items from the last 60 days, Useful first. Each goes into the subscriber newsletter as a bullet with
-              its linked title, outlet and date, {placed ? "at the cursor" : "at the end"}.
+              its linked title, outlet and date, {atCursor ? "at the cursor" : "at the end"}.
             </p>
             <div className="flex flex-wrap gap-3">
               <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-brand-black/80">
@@ -239,17 +258,18 @@ export default function RadarPicker({
               <ul aria-label="News radar items" className="flex min-h-0 flex-col overflow-y-auto">
                 {shown.map((item) => {
                   const already = present.has(entryHref(item.url));
+                  const twin = !already && blocked(item);
                   const details = [item.outlet, item.publishedAt ? entryDate(new Date(item.publishedAt)) : null, item.topics.join(", ")]
                     .filter(Boolean)
                     .join(" · ");
                   return (
                     <li key={item.id} className="border-t border-brand-black/10 py-2">
-                      <label className={`flex items-start gap-2 ${already ? "text-brand-black/60" : "text-brand-black"}`}>
+                      <label className={`flex items-start gap-2 ${already || twin ? "text-brand-black/60" : "text-brand-black"}`}>
                         <input
                           type="checkbox"
                           className="mt-1"
                           checked={already || chosen.has(item.id)}
-                          disabled={already}
+                          disabled={already || twin}
                           onChange={() => toggle(item.id)}
                           aria-labelledby={`${id}-${item.id}-title`}
                           aria-describedby={`${id}-${item.id}`}
@@ -260,6 +280,7 @@ export default function RadarPicker({
                             {details}
                             {item.state === "useful" && " · Useful"}
                             {already && " · Already in this newsletter"}
+                            {twin && " · Same link as a ticked item"}
                           </span>
                         </span>
                       </label>

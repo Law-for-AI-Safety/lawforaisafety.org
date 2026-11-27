@@ -2,7 +2,6 @@ import {
   cleanHref,
   hrefProblem,
   normalizeRuns,
-  parseRichText,
   parseRichTextLoose,
   serializeRichText,
   stripForbiddenText,
@@ -38,14 +37,15 @@ export function entryRuns(item: RadarEntry): { ok: true; runs: Run[] } | { ok: f
 
 /**
  * Adds the item's bullet to the end of a body: to the list the body ends with, if it does, so
- * several items build one list. Written back in the canonical form.
+ * several items build one list. Any body the editor can show is accepted (not only the
+ * canonical form), and written back in the canonical form.
  */
 export function appendItem(body: string, item: RadarEntry): { ok: true; body: string } | { ok: false; problem: string } {
   const entry = entryRuns(item);
   if (!entry.ok) return entry;
   let doc;
   try {
-    doc = body.trim() === "" ? [] : parseRichText(body);
+    doc = parseRichTextLoose(body.trim());
   } catch {
     return { ok: false, problem: "The newsletter has a formatting problem. Fix it in the editor first." };
   }

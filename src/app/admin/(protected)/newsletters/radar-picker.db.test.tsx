@@ -205,7 +205,7 @@ describe("Insert from News radar", () => {
     expect(editorOf().getHTML()).toMatch(/<p>Omega\.<\/p><ul><li><p><a href="https:\/\/news.test\/2">Two<\/a> \(News\)<\/p><\/li><\/ul>$/);
   });
 
-  it("refuses an item whose link cannot go in, and a newsletter that does not read", async () => {
+  it("refuses an item whose link cannot go in", async () => {
     await seedRadar(new Date(NOW.getTime() - DAY), [found(1, { title: "Bad link", url: "ftp://files.test/1" }), found(2, { title: "Fine" })]);
     await openDraft();
     const user = userEvent.setup();
@@ -213,8 +213,65 @@ describe("Insert from News radar", () => {
     await user.click(within(screen.getByRole("dialog")).getByRole("checkbox", { name: "Bad link" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Insert 1 item" }));
     expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent("“Bad link”: This item's link cannot go in the subscriber newsletter");
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+  });
 
+  it("puts in once two items whose links are the same once cleaned", async () => {
+    await seedRadar(new Date(NOW.getTime() - DAY), [
+      found(1, { title: "Secure copy", url: "https://x.test/a", score: 10 }),
+      found(2, { title: "Plain copy", url: "http://x.test/a" }),
+    ]);
+    await openDraft();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Insert from News radar" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("checkbox", { name: "Secure copy" }));
+    const twin = within(dialog).getByRole("checkbox", { name: "Plain copy" });
+    expect(twin).toBeDisabled();
+    expect(twin).toHaveAccessibleDescription(/Same link as a ticked item$/);
+    await user.click(within(dialog).getByRole("button", { name: "Insert 1 item" }));
+    expect(editorOf().getHTML()).toBe('<ul><li><p><a href="https://x.test/a">Secure copy</a> (News, 20 Nov 2026)</p></li></ul>');
+  });
+
+  it("joins the list next to an empty paragraph the cursor is in, rather than start another", async () => {
+    await seedRadar(new Date(NOW.getTime() - DAY), [found(1, { title: "One", publishedAt: null }), found(2, { title: "Two", publishedAt: null })]);
+    await openDraft("- [Old](https://old.test)\n\nEnd.");
+    const user = userEvent.setup();
+    const pick = async (title: string) => {
+      await user.click(screen.getByRole("button", { name: "Insert from News radar" }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("checkbox", { name: title }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Insert 1 item" }));
+    };
+    // An empty paragraph right after the list, as Enter twice at the end of a list leaves.
+    act(() => {
+      const editor = editorOf();
+      const end = editor.state.doc.child(0).nodeSize;
+      editor.chain().focus().insertContentAt(end, { type: "paragraph" }).setTextSelection(end + 1).run();
+    });
+    await pick("One");
+    expect(editorOf().getHTML()).toBe(
+      '<ul><li><p><a href="https://old.test">Old</a></p></li><li><p><a href="https://news.test/1">One</a> (News)</p></li></ul><p>End.</p>',
+    );
+    // An empty paragraph at the start, right before the list.
+    act(() => {
+      editorOf().chain().focus().insertContentAt(0, { type: "paragraph" }).setTextSelection(1).run();
+    });
+    await pick("Two");
+    expect(editorOf().getHTML()).toMatch(/^<ul><li><p><a href="https:\/\/news.test\/2">Two<\/a> \(News\)<\/p><\/li><li><p><a href="https:\/\/old.test">Old/);
+  });
+
+  it("inserts at the cursor into a body the editor shows though it is not in canonical form", async () => {
+    await seedRadar(new Date(NOW.getTime() - DAY), [found(1, { title: "One", publishedAt: null })]);
+    await openDraft("Intro\\.", { raw: true });
+    await screen.findByRole("toolbar");
+    const user = userEvent.setup();
+    act(() => {
+      editorOf().chain().focus().setTextSelection(2).run();
+    });
+    await user.click(screen.getByRole("button", { name: "Insert from News radar" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("at the cursor");
+    await user.click(within(screen.getByRole("dialog")).getByRole("checkbox", { name: "One" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Insert 1 item" }));
+    expect(editorOf().getHTML()).toBe('<p>Intro.</p><ul><li><p><a href="https://news.test/1">One</a> (News)</p></li></ul>');
   });
 
   it("refuses to add to a stored body the editor cannot read", async () => {

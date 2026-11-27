@@ -45,6 +45,10 @@ describe("appendItem", () => {
     expect(second.ok && second.body).toBe("Intro.\n\n- [One](https://example.com/a%20%28b%29) (Reuters)\n- [Two](https://example.org/two)");
   });
 
+  it("takes a body the editor can show though it is not in canonical form, and writes it back canonical", () => {
+    expect(appendItem("Intro\\.", { ...ITEM, title: "One", outlet: "", publishedAt: null })).toEqual({ ok: true, body: "Intro.\n\n- [One](https://example.com/a%20%28b%29)" });
+  });
+
   it("refuses a link that cannot go in, and a body that does not parse", () => {
     expect(appendItem("", { ...ITEM, url: "javascript:alert(1)" })).toEqual({ ok: false, problem: expect.stringContaining("only https links") });
     expect(appendItem("**unclosed", ITEM)).toEqual({ ok: false, problem: expect.stringContaining("formatting problem") });

@@ -236,19 +236,21 @@ describe("the subscriber newsletter", () => {
     expect(screen.queryByRole("combobox", { name: /newsletter/i })).not.toBeInTheDocument();
   });
 
-  it("marks items a sent issue or a draft links to, a sent issue first", async () => {
+  it("marks items a sent or scheduled issue or a draft links to, a sent one first, and not one partway to Brevo", async () => {
     await seedRun(MONDAY, [found(1), found(2), found(3), found(4, { url: "http://news.test/4" })]);
     const draft = await insertNewsletter(EMAIL.admin);
     await db.update(newsletters).set({ body: "- [One](https://news.test/1)\n- [Two](https://news.test/2)\n- [Four](https://news.test/4)" }).where(eq(newsletters.id, draft));
     const sent = await insertNewsletter(EMAIL.admin);
     await db.update(newsletters).set({ state: "submitted", body: "See [two](https://news.test/2)." }).where(eq(newsletters.id, sent));
+    const handing = await insertNewsletter(EMAIL.admin);
+    await db.update(newsletters).set({ state: "submitting", body: "See [three](https://news.test/3)." }).where(eq(newsletters.id, handing));
     const broken = await insertNewsletter(EMAIL.admin);
     await db.update(newsletters).set({ body: "**unclosed [three](https://news.test/3)" }).where(eq(newsletters.id, broken));
     await signInAs("admin");
     render(await page());
     const entry = (title: string) => screen.getByRole("link", { name: title }).closest("li")!;
     expect(within(entry("Item 1")).getByText("In a subscriber newsletter draft")).toBeInTheDocument();
-    expect(within(entry("Item 2")).getByText("In a subscriber newsletter")).toBeInTheDocument();
+    expect(within(entry("Item 2")).getByText("In a sent or scheduled subscriber newsletter")).toBeInTheDocument();
     expect(within(entry("Item 2")).queryByText("In a subscriber newsletter draft")).not.toBeInTheDocument();
     expect(within(entry("Item 3")).queryByText(/In a subscriber newsletter/)).not.toBeInTheDocument();
     // Its stored http: link went in upgraded to https:.
