@@ -41,11 +41,13 @@ export type GitHubFailure<Step extends string> = {
   reason: "github";
   step: Step;
   message: string;
+  /** The failure is in the App's settings, so trying again cannot help (see `GitHubError`). */
+  setup: boolean;
   leftBranch: string | null;
 };
 
 /** Turns a caught error into a `GitHubFailure`; rethrows anything that isn't a `GitHubError`. */
 export function githubFailure<Step extends string>(step: Step, e: unknown, leftBranch: string | null = null): GitHubFailure<Step> {
   if (!(e instanceof GitHubError)) throw e;
-  return { ok: false, reason: "github", step, message: e.message, leftBranch };
+  return { ok: false, reason: "github", step, message: e.message, setup: e.setup, leftBranch };
 }

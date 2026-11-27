@@ -104,16 +104,31 @@ async function stampCreated(client: Client, database: string): Promise<void> {
   await client.query(`COMMENT ON DATABASE "${database}" IS 'vitest ${Date.now()}'`);
 }
 
-async function dropDatabases(client: Client, names: string[]): Promise<void> {
-  // FORCE disconnects a query a test file left in flight, which would otherwise block the drop.
-  for (const name of names) await client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+/** How many databases are dropped at once, each over its own connection. */
+const DROP_CONCURRENCY = 8;
+
+/**
+ * Drops databases several at a time. Postgres makes each DROP DATABASE request a checkpoint
+ * and wait for it; requests made while one is pending share it, so drops sent together wait
+ * for a few checkpoints rather than one each.
+ */
+async function dropDatabases(names: string[]): Promise<void> {
+  const queue = [...names];
+  const worker = () =>
+    withClient(async (client) => {
+      // FORCE disconnects a query a test file left in flight, which would otherwise block the drop.
+      for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
+        await client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+      }
+    });
+  await Promise.all(Array.from({ length: Math.min(DROP_CONCURRENCY, queue.length) }, worker));
 }
 
 /**
- * Drops test databases whose creation stamp is older than any run lasts: what a run that
+ * Test databases whose creation stamp is older than any run lasts: what a run that
  * crashed before its teardown left behind. A live run's databases are always newer.
  */
-async function dropAbandoned(client: Client): Promise<void> {
+async function findAbandoned(client: Client): Promise<string[]> {
   const { rows } = await client.query<{ datname: string; note: string | null }>(
     `SELECT datname, shobj_description(oid, 'pg_database') AS note
        FROM pg_database WHERE datname LIKE $1`,
@@ -126,7 +141,7 @@ async function dropAbandoned(client: Client): Promise<void> {
       return Number.isFinite(created) && created > 0 && created < cutoff;
     })
     .map(({ datname }) => datname);
-  await dropDatabases(client, abandoned);
+  return abandoned;
 }
 
 /**
@@ -135,8 +150,8 @@ async function dropAbandoned(client: Client): Promise<void> {
  */
 export async function prepareTestDb(runId: string): Promise<void> {
   const template = templateName(runId);
+  await dropDatabases(await withClient(findAbandoned));
   await withClient(async (client) => {
-    await dropAbandoned(client);
     await client.query(`CREATE DATABASE "${template}"`);
     await stampCreated(client, template);
   });
@@ -148,18 +163,12 @@ export async function prepareTestDb(runId: string): Promise<void> {
   }
 }
 
-/** Drops run `runId`'s template and any clone of it a test file failed to drop. */
+/** Drops run `runId`'s template and every clone of it the run's test files made. */
 export async function dropRun(runId: string): Promise<void> {
-  await withClient(async (client) => {
-    const { rows } = await client.query<{ datname: string }>(
-      "SELECT datname FROM pg_database WHERE starts_with(datname, $1)",
-      [runPrefix(runId)],
-    );
-    await dropDatabases(
-      client,
-      rows.map((row) => row.datname),
-    );
-  });
+  const { rows } = await withClient((client) =>
+    client.query<{ datname: string }>("SELECT datname FROM pg_database WHERE starts_with(datname, $1)", [runPrefix(runId)]),
+  );
+  await dropDatabases(rows.map((row) => row.datname));
 }
 
 export async function createTestDb(runId: string, name: string): Promise<void> {
@@ -177,8 +186,4 @@ export async function createTestDb(runId: string, name: string): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
     }
   }
-}
-
-export async function dropTestDb(name: string): Promise<void> {
-  await withClient((client) => dropDatabases(client, [name]));
 }

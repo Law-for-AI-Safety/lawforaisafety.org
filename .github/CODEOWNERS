@@ -1,5 +1,7 @@
 # Changes here need a code owner's review once "Require review from Code Owners" is on for
-# main (see github-app-setup.md): the workflows, including the CMS guard, and the guard's script.
+# main (see github-app-setup.md): the workflows, including the CMS guard and auto-merge, and their scripts.
 /.github/ @hturnbull93
 /scripts/cms-guard.mjs @hturnbull93
 /scripts/cms-guard.test.ts @hturnbull93
+/scripts/cms-auto-merge.mjs @hturnbull93
+/scripts/cms-auto-merge.test.ts @hturnbull93

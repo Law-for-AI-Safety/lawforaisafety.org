@@ -24,6 +24,49 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
 });
 
+describe("telling setup problems from passing ones", () => {
+  it.each([
+    [401, "Bad credentials", true],
+    [403, "Resource not accessible by integration", true],
+    [404, "Not Found", true],
+    [403, "API rate limit exceeded for installation", false],
+    [403, "You have triggered an abuse detection mechanism", false],
+    [422, "Reference already exists", false],
+    [500, "Server Error", false],
+    [0, "Could not reach GitHub", false],
+  ])("counts %i %s as setup: %s", (status, message, setup) => {
+    expect(new GitHubError(status, message).setup).toBe(setup);
+  });
+
+  it("marks a refused installation token as a setup problem", async () => {
+    github.failNext("POST /app/installations/777/access_tokens", { status: 404 });
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 404, setup: true });
+  });
+
+  it("marks an installation token refused for the repo or its permissions as a setup problem", async () => {
+    github.failNext("POST /app/installations/777/access_tokens", { status: 422 });
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 422, setup: true });
+  });
+
+  it.each([
+    ["Retry-After", { "retry-after": "60" }],
+    ["no requests left", { "x-ratelimit-remaining": "0" }],
+  ])("does not mark a 403 with %s as one", async (_what, headers) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ message: "Forbidden" }, { status: 403, headers }));
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 403, setup: false });
+  });
+
+  it("does not mark a throttled installation token as one", async () => {
+    github.failNext("POST /app/installations/777/access_tokens", { status: 429 });
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 429, setup: false });
+  });
+
+  it("does not mark a timeout as one", async () => {
+    github.failNext("GET /git/ref/heads/main", { kind: "network" });
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 0, setup: false });
+  });
+});
+
 describe("signing in as the app", () => {
   it("asks for an installation token with a short-lived RS256 JWT, narrowed to this repo", async () => {
     const seen: string[] = [];
@@ -87,11 +130,19 @@ describe("signing in as the app", () => {
     await expect(c.branchHead("main")).rejects.toThrow("GitHub refused POST /app/installations/777/access_tokens: A JSON web token could not be decoded");
   });
 
-  it("says the key is not a key without quoting it", async () => {
+  it("says what is wrong with a key it cannot read, without quoting it, as a setup problem", async () => {
     const c = new GitHubAppClient({ ...config(), privateKey: "-----BEGIN RSA PRIVATE KEY-----\nsecret-material\n-----END RSA PRIVATE KEY-----" });
     const error = await c.branchHead("main").catch((e: Error) => e);
     expect(error).toBeInstanceOf(GitHubError);
-    expect((error as Error).message).toBe("GITHUB_APP_PRIVATE_KEY is not a valid PEM private key");
+    expect(error).toMatchObject({ status: 0, setup: true });
+    expect((error as Error).message).toMatch(/^GITHUB_APP_PRIVATE_KEY has characters between its BEGIN and END lines that are not base64/);
+    expect((error as Error).message).not.toContain("secret");
+    expect(github.requests).toEqual([]);
+  });
+
+  it("signs in with a key whose line breaks a host turned into spaces", async () => {
+    const c = new GitHubAppClient({ ...config(), privateKey: config().privateKey.trim().split("\n").join(" ") });
+    expect(await c.branchHead("main")).toMatchObject({ commit: expect.any(String) });
   });
 
   it("refuses a token response it does not understand", async () => {

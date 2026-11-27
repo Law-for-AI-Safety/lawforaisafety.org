@@ -5,8 +5,8 @@ import type { GitHubConfig } from "./github";
  * Where publishing sends pages, read from the environment. Without the GitHub App's settings,
  * publishing is "not set up" and the editor says so; nothing else changes.
  *
- * - `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` (PEM; `\n` escapes
- *   are accepted for hosts that keep a value on one line)
+ * - `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` (PEM, read by
+ *   `readPrivateKey` in whatever form a host kept it: `\n` escapes, lost line breaks, quotes)
  * - `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`
  * - `GITHUB_API_URL` (optional): only `https://api.github.com`. The end-to-end tests point it
  *   at a fake on this machine (http://localhost or 127.0.0.1), which is accepted only with
@@ -60,7 +60,7 @@ export function gitHubSetup(env: Env = process.env): GitHubSetup {
     config: {
       appId: value("GITHUB_APP_ID"),
       installationId: value("GITHUB_APP_INSTALLATION_ID"),
-      privateKey: value("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n"),
+      privateKey: value("GITHUB_APP_PRIVATE_KEY"),
       owner: value("GITHUB_REPO_OWNER"),
       repo: value("GITHUB_REPO_NAME"),
       apiUrl: url,

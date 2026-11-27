@@ -118,7 +118,7 @@ export function pullRequestBody({ slug, editorName, changes, number }: PullReque
   lines.push(
     "---",
     "",
-    "Merging this makes the change live. To decline it, close this pull request with a comment: the editor sees the last comment. You may push your own commits to this branch first; the website editor never pushes to it again.",
+    "Merging this makes the change live. While every commit here is the website editor's and only this one file changes, it is approved and merged automatically once the required checks pass (`.github/workflows/cms-auto-merge.yml`). To decline it, close this pull request with a comment: the editor sees the last comment. Pushing a commit of your own turns the automatic merge off and leaves it for you to merge; the website editor never pushes to it again.",
   );
   return `${lines.join("\n")}\n`;
 }
@@ -158,7 +158,7 @@ export type PublishResult =
   | { ok: false; reason: "missing" }
   | { ok: false; reason: "checks"; problems: string[] }
   | { ok: false; reason: "nothing" }
-  | { ok: false; reason: "github"; step: PublishStep; message: string; leftBranch: string | null }
+  | { ok: false; reason: "github"; step: PublishStep; message: string; setup: boolean; leftBranch: string | null }
   | { ok: false; reason: "record"; error: unknown; leftBranch: string | null };
 
 function parseJson(text: string): unknown {
@@ -254,7 +254,7 @@ export async function publishToGitHub(github: GitHubClient, input: PublishInput)
 export type WithdrawResult =
   | { ok: true; leftBranch: string | null }
   | { ok: false; reason: "merged" }
-  | { ok: false; reason: "github"; message: string };
+  | { ok: false; reason: "github"; message: string; setup: boolean };
 
 /**
  * Withdraws a page sent for publishing: closes its pull request, then deletes its branch. A
@@ -268,7 +268,7 @@ export async function withdrawFromGitHub(github: GitHubClient, number: number, b
     if (pr.state === "open") await github.closePullRequest(number);
   } catch (e) {
     if (!(e instanceof GitHubError)) throw e;
-    return { ok: false, reason: "github", message: e.message };
+    return { ok: false, reason: "github", message: e.message, setup: e.setup };
   }
   try {
     await github.deleteBranch(branch);

@@ -236,6 +236,17 @@ describe("checks and publishing", () => {
     expect(title()).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("shows a setup problem as an error, keeping the draft editable", async () => {
+    const server = fakeServer();
+    const message = "Publishing isn't working because of a setup problem, so nothing was sent. Your draft is saved.";
+    server.publish.mockResolvedValue({ ok: false, reason: "setup", message });
+    renderEditor(server, { canPublish: true, initialState: "draft", initialVersion: 0 });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(title()).not.toBeDisabled();
+  });
+
   it("does nothing when publishing is not confirmed, and cannot publish a live page", () => {
     const server = renderEditor(fakeServer(), { canPublish: true, initialState: "draft" });
     vi.spyOn(window, "confirm").mockReturnValue(false);
@@ -536,15 +547,15 @@ describe("publishing states", () => {
     expect(document.body.textContent).not.toMatch(/github|pull request/i);
   });
 
-  it("says when it was approved and is going live, without Withdraw", () => {
+  it("says when it was published and is going live, without Withdraw", () => {
     renderEditor(fakeServer(), { initialState: "publishing", canPublish: true, publishing: { sent, approved: true, note: null } });
-    expect(screen.getByText(/^Approved\. The website is being updated/)).toBeInTheDocument();
+    expect(screen.getByText(/^Published\. The website is being updated/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Withdraw from publishing" })).toBeNull();
   });
 
   it("offers no Withdraw to someone who may only edit", () => {
     renderEditor(fakeServer(), { initialState: "publishing", publishing: { sent: null, approved: false, note: null } });
-    expect(screen.getByText(/^Sent for publishing\. It goes live once it is approved\./)).toBeInTheDocument();
+    expect(screen.getByText(/^Sent for publishing\. It usually goes live within a few minutes, once the automatic checks pass; otherwise once someone reviews it\./)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Withdraw from publishing" })).toBeNull();
   });
 
@@ -581,7 +592,7 @@ describe("publishing states", () => {
     renderEditor(fakeServer(), { canPublish: true, initialState: "draft", publishSetUp: false, statusChecked: false });
     expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
     expect(screen.getByText("Publishing is not set up on this site yet. Drafts are saved as usual.")).toBeInTheDocument();
-    expect(screen.getByText("Could not check whether this page has been approved yet. Reload the page to try again.")).toBeInTheDocument();
+    expect(screen.getByText("Could not check whether this page has been published yet. Reload the page to try again.")).toBeInTheDocument();
   });
 });
 

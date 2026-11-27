@@ -1,6 +1,6 @@
 # GitHub App for the website editor
 
-The website editor in `/admin/cms` publishes a page by opening a pull request that changes that page's file in `content/`. It does this as a GitHub App, so editors never need a GitHub account. A maintainer reviews and merges the pull request, and the normal Netlify production deploy makes it live.
+The website editor in `/admin/cms` publishes a page by opening a pull request that changes that page's file in `content/`. It does this as a GitHub App, so editors never need a GitHub account. When the pull request is nothing but that page's content, a workflow approves it and GitHub merges it once the required checks pass (step 4); anything else waits for a maintainer. The normal Netlify production deploy makes it live.
 
 Until the settings below are in Netlify, the editor works as before (drafts, preview) and the Publish button says "Publishing is not set up on this site yet".
 
@@ -15,8 +15,11 @@ Until the settings below are in Netlify, the editor works as before (drafts, pre
 | [Netlify environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env) | Step 2: add the variables |
 | [Netlify deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys) | Step 2: sensitive variable policy; deploy previews for pull requests into any branch |
 | [Repository variables](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/variables/actions) | Step 3: `CMS_BOT_LOGIN` (already set) |
-| [Branch protection](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches) | Step 4: required checks, code owners |
-| [Netlify deploys](https://app.netlify.com/projects/law-for-ai-safety-org/deploys) | Step 5: find a deploy preview |
+| [Actions settings](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/actions) | Step 4: let Actions approve pull requests |
+| [General settings](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings) | Step 4: allow auto-merge |
+| [CMS auto-merge workflow](https://github.com/Law-for-AI-Safety/lawforaisafety.org/actions/workflows/cms-auto-merge.yml) | Step 4: turn automatic merging off (**…** → **Disable workflow**) |
+| [Branch protection](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches) | Step 5: required checks, code owners |
+| [Netlify deploys](https://app.netlify.com/projects/law-for-ai-safety-org/deploys) | Step 6: find a deploy preview |
 
 ## What the App does
 
@@ -26,7 +29,7 @@ Until the settings below are in Netlify, the editor works as before (drafts, pre
 | Status | When an editor opens a page that is waiting, reads that pull request (and, once it is closed, its last comment from the repo's owner, a member or collaborator, or whoever closed it: the repo is public, so nobody else's comment is shown). No polling. |
 | Withdraw | Closes the pull request and deletes its branch. |
 
-It never merges, never approves, and never pushes to a branch after opening its pull request. Every request to GitHub has a time limit. Before it touches GitHub, a publish writes a record of itself, and the branch goes into that record before the pull request is opened, so there is never a pull request the site has no record of. Code: `src/cms/github.ts` (client), `src/cms/publish.ts` (the steps), `src/app/admin/cms/actions.ts` (permission checks and locking).
+The App never merges, never approves, and never pushes to a branch after opening its pull request; the approving and merging in step 4 is done by a workflow with its own token. Every request to GitHub has a time limit. Before it touches GitHub, a publish writes a record of itself, and the branch goes into that record before the pull request is opened, so there is never a pull request the site has no record of. Code: `src/cms/github.ts` (client), `src/cms/publish.ts` (the steps), `src/app/admin/cms/actions.ts` (permission checks and locking).
 
 ## 1. Create the App
 
@@ -43,7 +46,7 @@ On the organisation: [create the App](https://github.com/organizations/Law-for-A
 - **Organization and account permissions:** none.
 - **Where can this GitHub App be installed?** Only on this account.
 
-GitHub has no "contents write but no merge" permission: the merge API also counts as contents write. What stops the App from merging is the branch protection on `main` (below), not its permissions.
+GitHub has no "contents write but no merge" permission: the merge API also counts as contents write. What stops the App from merging is the branch protection on `main` (step 5), not its permissions.
 
 Then:
 
@@ -55,17 +58,42 @@ Then:
 
 [Site configuration → Environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env). Mark only the private key as a **secret** value (the others are identifiers, not credentials). Set them for the **production** and **deploy preview** contexts, with at least the **Functions** scope: only the server code reads them, never the build. Use **the same value in both contexts** (Netlify's "Same value for all deploy contexts" is fine if only those two are ticked): there is one App, and previews publish to the same repo. Leave them unset for branch deploys and local development (`.env.local`); there the editor just says publishing is not set up.
 
-Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 5), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. **Revisit this as soon as anyone else gets write access**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy ([deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys)) keeps the key out of builds of pull requests from forks; keep that setting on.
+Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 6), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. Since CMS pull requests merge themselves (step 4), whoever reads the key can put a change to one content file live without a maintainer seeing it first, so the key is worth more than when every pull request waited for review. **Revisit this as soon as anyone else gets write access, or a preview build runs code you do not trust**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy ([deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys)) keeps the key out of builds of pull requests from forks; keep that setting on.
 
 | Variable | Value | Secret? |
 | --- | --- | --- |
 | `GITHUB_APP_ID` | The App ID. | No |
 | `GITHUB_APP_INSTALLATION_ID` | The installation ID. | No |
-| `GITHUB_APP_PRIVATE_KEY` | The whole `.pem` file, including the `BEGIN` and `END` lines. Line breaks may be kept or written as `\n`. | **Yes**: tick "Contains secret values". |
+| `GITHUB_APP_PRIVATE_KEY` | The whole `.pem` file, including the `BEGIN` and `END` lines. See [the key's format](#the-keys-format) for the forms accepted. | **Yes**: tick "Contains secret values". |
 | `GITHUB_REPO_OWNER` | `Law-for-AI-Safety` | No |
 | `GITHUB_REPO_NAME` | `lawforaisafety.org` | No |
 | `GITHUB_API_URL` | Leave unset. Only `https://api.github.com` is accepted. The end-to-end tests point it at a fake on their own machine, which needs the test-only `CMS_TEST_LOCAL_GITHUB=1`; that flag is ignored on any Netlify deploy, so never set it there. | Do not set. |
 | `CMS_PREVIEW_SITE_NAME` | Optional. The Netlify site name used in the deploy preview link, `https://deploy-preview-<N>--<site>.netlify.app/<page>`. Defaults to `law-for-ai-safety-org`. | No |
+
+### The key's format
+
+Paste the `.pem` file as it is. Hosts often change a value on the way in, so the site also accepts the key:
+
+- with real line breaks, Windows line breaks, or `\n` (or `\r\n`) escapes on one line;
+- with its line breaks turned into spaces, or lost altogether;
+- with whitespace or quotes (`"`, `'` or `` ` ``) around it;
+- base64-encoded as a whole (`base64 -w0 key.pem`), for a host that cannot keep the PEM.
+
+It rebuilds a proper PEM from the `BEGIN` line's type and the base64 between the `BEGIN` and `END` lines. Both `BEGIN RSA PRIVATE KEY` (PKCS#1, as GitHub issues it) and `BEGIN PRIVATE KEY` (PKCS#8, e.g. after `openssl pkcs8 -topk8 -nocrypt`) work. It must be an RSA key of at least 2048 bits, without a passphrase.
+
+When the key cannot be read, the site says why without quoting any of it: it has no `BEGIN` line; it is too short and looks like a client secret (a common mix-up: the key is under **Key pairs**, not Client secrets); it is another kind of PEM (a public key, a certificate, an OpenSSH or encrypted key); it has no matching `END` line; the text between the lines is not base64; or it could not be parsed (usually cut short).
+
+### Checking it works
+
+**Settings → Publishing** (technical admins) shows:
+
+- whether the settings are all present and how the key reads (for example "PKCS#1 RSA key, 2048 bits"), or which settings are missing and what is wrong with the key;
+- the last publish or withdrawal that failed: when, which page, the step, and the error, marked as a setup problem or one that may pass on a retry;
+- **Check connection**: signs in as the App afresh and reads the head of `main`, changing nothing. It answers "Connected to … main is at <commit>" or the error.
+
+Use **Check connection** after changing any of these settings and redeploying.
+
+When a publish fails because of the setup (a key that cannot be read, settings missing, GitHub refusing the App a token for the repo, or answering 401, 403 or 404 to the App or the repo), the editor is told it is a setup problem that trying again will not fix, and that a technical admin can see the details in Settings. Their draft is kept. Timeouts, GitHub's server errors and rate limits (including a 403 that says to wait) keep the "try again in a few minutes" message. Each failure is also in the audit log (`/admin/audit`, action `cms_publish`).
 
 Env var changes apply from the next deploy. The server never logs the key or the tokens it gets with it. Each installation token it requests is limited to this repo and to contents and pull requests, and is reused until shortly before it expires (one hour).
 
@@ -81,21 +109,53 @@ Normally the guard runs the copy of `scripts/cms-guard.mjs` on `main`, with plai
 
 If repository variables turn out not to be passed to pull requests from forks, the guard fails on those too. Say so and it can skip pull requests whose head is in another repository, since the App is installed only on this one.
 
-## 4. Protection on `main`
+## 4. Automatic merging
+
+`.github/workflows/cms-auto-merge.yml` runs when a pull request is opened or changes. For a pull request the bot opened, it reads the pull request through the GitHub API (it never checks out or runs anything from it) and, when all of these hold, approves it and turns on GitHub auto-merge with a merge commit:
+
+- opened by `CMS_BOT_LOGIN`, open and not a draft, from a branch in this repository (not a fork) into `main`;
+- the branch is `cms/<page>-<YYYY-MM-DD>`, optionally with `-2`, `-3`, …;
+- every commit is authored and committed by the bot, signed by GitHub, and none is a merge;
+- exactly one file changes, `content/<page>.json` for the page in the branch name, and it is modified, not added, removed or renamed;
+- no maintainer has stepped in: it was never closed, and nobody but the workflow has turned its auto-merge on or off, dismissed a review on it, made it a draft or changed its base.
+
+GitHub then merges it once `main`'s required checks pass (step 5), so nothing polls. The approval is for the head commit that was checked, and auto-merge is turned on only if that is still the head. Auto-merge itself stays on after a later push by anyone with write access: what stops such a push from merging on the old approval is **Dismiss stale pull request approvals** (step 5), until the workflow's next run turns the auto-merge off.
+
+If any condition stops holding (a maintainer pushes a commit, turns auto-merge off, the pull request is retargeted or made a draft), the next run dismisses the workflow's approvals and turns off the auto-merge it turned on, and the pull request waits for a maintainer from then on. A declined pull request that is reopened is never merged by the workflow. It never touches an approval or an auto-merge a maintainer made. Each run's log lists why a pull request was left. If a run fails (GitHub still down after three tries of a read; writes are not tried again; **Allow auto-merge** off), it takes back the same way, to be safe; the pull request's next event (an edit, say) decides again, or a maintainer merges it. If the required checks have already passed when it approves, it merges at once, but only when every other check is green too; with one pending or failing it leaves the pull request for a maintainer. The rules are in `scripts/cms-auto-merge.mjs` (main's copy always runs) and tested in `scripts/cms-auto-merge.test.ts`; `test/ci-workflow.test.ts` checks the workflow only ever checks out `main`.
+
+**Two settings to switch on**, or the workflow fails and nothing merges itself:
+
+1. [Settings → Actions → General](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/actions) → Workflow permissions → tick **Allow GitHub Actions to create and approve pull requests**. Without it the approval is refused.
+2. [Settings → General](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings) → Pull Requests → tick **Allow auto-merge**. Without it turning on auto-merge is refused.
+
+**How you hear about it.** When it turns on auto-merge it comments on the pull request, mentioning `@hturnbull93` (the `NOTIFY` setting in the workflow), so GitHub notifies you then and again when it merges. A failing check notifies you as on any pull request.
+
+**What a merge by the workflow does not do.** GitHub starts no workflow for an event caused by a workflow's own token (only manual dispatches), and the merge, with the pull request closing, is caused by it. So the merge commit on `main` gets no runs of its own:
+
+- **No IndexNow submission.** Search engines are not told the page changed; they find it when they next crawl. IndexNow still runs for every other push to `main`, but it submits only that push's changes, so an auto-merged page is never submitted. This is a known gap to be fixed separately.
+- **No CI run on `main`.** The pull request's CI already tested it merged into `main` (GitHub tests `refs/pull/<n>/merge`), so the merged tree was tested unless `main` moved between that run and the merge, a window of minutes for a change to one content file. **Require branches to be up to date** would close it, but would leave every CMS pull request stuck, since the App never updates its branch: leave it off.
+
+Netlify is not affected: it deploys from its own GitHub App.
+
+**To stop one pull request**: press **Disable auto-merge** on it, make it a draft, or push a commit to it. Each leaves it for you for good.
+
+**To turn it off**: open the [workflow](https://github.com/Law-for-AI-Safety/lawforaisafety.org/actions/workflows/cms-auto-merge.yml), **…** → **Disable workflow**. New CMS pull requests then wait for a maintainer. A pull request already set to merge itself still will, unless you stop it as above. Switching off **Allow auto-merge** in the settings turns off every pending auto-merge at once.
+
+## 5. Protection on `main`
 
 Already applied ([branch settings](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches); see `local-docs/cms-decisions.md`): 1 approving review with stale approvals dismissed, approval of the most recent reviewable push, the `check-all` and `zizmor` checks required, no force pushes, no deletions, `enforce_admins` off. There is no ruleset.
 
 Why the App cannot get round it:
 
 - The App is not a repo admin, and is not in any bypass list, so the rules apply to it in full. `enforce_admins` off only exempts admins.
-- It cannot approve its own pull request, and a pull request needs one approval before it can merge.
+- It cannot approve its own pull request, and a pull request needs one approval before it can merge. The auto-merge workflow's approval (step 4) is given only to a pull request that is the App's own change to one content file.
 - With **Dismiss stale approvals** on, a commit pushed after an approval needs a new approval.
 - **Approval of the most recent reviewable push:** the App has pull requests write, so it can review someone else's pull request, but if it pushed last its approval does not count.
 - It has no Workflows permission, so it cannot edit the CI that checks it.
 
 Contents write lets the App push to any unprotected branch; the CMS guard fails any pull request with its commits outside `content/`. Without a ruleset nothing stops the push itself; that was accepted.
 
-**Required checks to add once this is merged.** In the [`main` branch rule](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches), add **CMS guard / cms-guard** and **CI / e2e** to the required checks on `main`. Not before: a required check that does not exist on `main` yet would block every pull request.
+**Required checks.** Auto-merge waits only for the checks `main` requires, so every check a CMS pull request must pass has to be required: **CI / check-all**, **CI / zizmor**, **CMS guard / cms-guard** and **CI / e2e**. Add any of those not yet in the [`main` branch rule](https://github.com/Law-for-AI-Safety/lawforaisafety.org/settings/branches) before switching on the settings in step 4 (a required check must already exist on `main`, or it blocks every pull request). Keep **Dismiss stale pull request approvals when new commits are pushed** on: it is what stops a commit pushed after the workflow's approval from merging on it, before the workflow's next run takes it back. Do not add the workflow's own jobs (**CMS auto-merge / …**) as required checks: they are skipped on everyone else's pull requests.
 
 **Code owners.** `.github/CODEOWNERS` assigns `.github/` (the workflows, including the guard) and the guard's script to `@hturnbull93`. Turning on **Require review from Code Owners** for `main` would make any change to them need that review, even when someone else approves the rest.
 
@@ -105,7 +165,7 @@ Content validation already runs in `check-all` (its first step is `npm run conte
 
 If the page's file on `main` changed after a draft was started (a developer edited it, or another publish was merged), publishing that draft is refused and the editor is shown which fields changed. The editor redoes their changes by hand: copy them, discard the draft, and make them again on the current page. There is no automatic merge.
 
-## 5. Verify end to end, once, on a deploy preview
+## 6. Verify end to end, once, on a deploy preview
 
 Deploy previews are free; this uses no credits beyond the production build the final merge triggers.
 
@@ -114,10 +174,10 @@ Deploy previews are free; this uses no credits beyond the production build the f
 3. On GitHub: a pull request from `cms/field-building-<date>` changes only `content/field-building.json`. Its description lists the change before and after, says who sent it, and links to its own deploy preview. **CMS guard** and **CI** pass.
 4. Open the pull request's deploy preview link and check the page.
 5. Close the pull request with a comment. Reload the editor: the page shows *Not published* with your comment. Publish again, then press **Withdraw**: the pull request closes and its branch is deleted.
-6. Merging changes the live site and costs one production build, so try it with the first real edit rather than a test: approve and merge, and after the production deploy the page shows *Live* in the production editor. (In a deploy preview's editor a merged page stays *Publishing*, because the preview's own content file never becomes the merged one.)
+6. Merging changes the live site and costs one production build, so try it with the first real edit rather than a test: publish it, and check that **CMS auto-merge** approves the pull request, comments, and that it merges itself once the checks pass. If the run's log says it was left for a maintainer, the log says why. After the production deploy the page shows *Live* in the production editor. (In a deploy preview's editor a merged page stays *Publishing*, because the preview's own content file never becomes the merged one.)
 
 Also check, the first time, that `/admin/cms` lists the pages on Netlify: the admin functions read `content/`, `src/app` page files and `public/` at run time (`outputFileTracingIncludes` in `next.config.ts`).
 
 ## Rotating the key
 
-Generate a new private key in the App settings, replace `GITHUB_APP_PRIVATE_KEY` in Netlify, redeploy, then delete the old key in the App settings.
+Generate a new private key in the App settings, replace `GITHUB_APP_PRIVATE_KEY` in Netlify, redeploy, press **Check connection** in Settings → Publishing, then delete the old key in the App settings.

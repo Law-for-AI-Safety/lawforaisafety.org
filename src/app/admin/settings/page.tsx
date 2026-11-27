@@ -23,6 +23,9 @@ import { endSessions } from "./session-actions";
 import { setCmsRole } from "./cms-actions";
 import { listPeople } from "@/lib/admin-people";
 import { listCmsRoles } from "@/lib/cms-store";
+import { publishingHealth } from "@/lib/cms-publishing";
+import CheckConnectionButton from "./CheckConnectionButton";
+import { checkPublishingConnection } from "./publishing-actions";
 
 export const metadata: Metadata = {
   title: "LAIS - Settings",
@@ -84,6 +87,7 @@ export default async function AdminSettingsPage({
   const pinned = pinnedAdminSubs();
   const cmsRoles = new Map((await listCmsRoles()).map((r) => [r.email, r.permission]));
   // Everyone who has logged in, plus anyone holding a CMS role who has not (so it can be removed).
+  const publishing = await publishingHealth();
   const known = await listPeople();
   const people = [
     ...known,
@@ -195,6 +199,53 @@ export default async function AdminSettingsPage({
         )}
 
         <RedLinesToggle enabled={redLinesEnabled} policyPublished={isPolicyServed()} />
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl text-brand-black">Publishing</h2>
+          <p className="text-brand-black/70">
+            The website editor publishes pages through the GitHub App. Setup
+            problems are shown here; editors are only told to ask a technical
+            admin. See github-app-setup.md.
+          </p>
+        </div>
+
+        {publishing.settings.ok ? (
+          <p className="text-brand-black">
+            Settings: <strong className="text-brand-navy">present</strong>. Key reads as a{" "}
+            {publishing.settings.key}; repo {publishing.settings.repo}.
+          </p>
+        ) : (
+          <p className="break-words text-brand-black">
+            Settings: <strong className="text-brand-red">problem</strong>. {publishing.settings.problem}
+          </p>
+        )}
+
+        {publishing.lastFailure ? (
+          <div className="flex flex-col gap-1">
+            <p className="text-brand-black">
+              Last failure{publishing.lastFailure.action === "withdraw" ? " (withdrawing)" : ""}:{" "}
+              {publishing.lastFailure.at.toLocaleString("en-GB", { timeZone: "UTC" })} UTC, page{" "}
+              {publishing.lastFailure.page}
+              {publishing.lastFailure.step && <>, at step {publishing.lastFailure.step}</>}
+              {publishing.lastFailure.setup ? " (setup problem)" : " (may pass on a retry)"}
+            </p>
+            <code className="break-words text-sm text-brand-black/80">{publishing.lastFailure.error}</code>
+            {publishing.lastSent && publishing.lastSent > publishing.lastFailure.at && (
+              <p className="text-sm text-brand-black/60">A page has been sent for publishing successfully since then.</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-brand-black/70">No failed publishes recorded.</p>
+        )}
+        {publishing.lastSent && (
+          <p className="text-sm text-brand-black/60">
+            Last sent for publishing {publishing.lastSent.toLocaleString("en-GB", { timeZone: "UTC" })} UTC.
+          </p>
+        )}
+
+        <CheckConnectionButton check={checkPublishingConnection} />
       </section>
 
       <section className="flex flex-col gap-4 rounded-sm border border-brand-black/15 p-4">
