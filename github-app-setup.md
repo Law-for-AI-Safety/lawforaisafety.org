@@ -105,7 +105,12 @@ If any condition stops holding (a maintainer pushes a commit, turns auto-merge o
 
 **How you hear about it.** When it turns on auto-merge it comments on the pull request, mentioning `@hturnbull93` (the `NOTIFY` setting in the workflow), so GitHub notifies you then and again when it merges. A failing check notifies you as on any pull request.
 
-**What a merge by the workflow does not do.** GitHub starts no workflows for events caused by a workflow's own token, so the merge commit on `main` gets no `push` runs: no **CI** run on `main` and no **IndexNow** submission for that page. Netlify is not affected (it deploys from its own GitHub App). The pull request's own checks have already run against it.
+**What a merge by the workflow does not do.** GitHub starts no workflow for an event caused by a workflow's own token (only manual dispatches), and the merge, with the pull request closing, is caused by it. So the merge commit on `main` gets no runs of its own:
+
+- **No IndexNow submission.** Search engines are not told the page changed; they find it when they next crawl. IndexNow still runs for every other push to `main`, but it submits only that push's changes, so an auto-merged page is never submitted. This is a known gap to be fixed separately.
+- **No CI run on `main`.** The pull request's CI already tested it merged into `main` (GitHub tests `refs/pull/<n>/merge`), so the merged tree was tested unless `main` moved between that run and the merge, a window of minutes for a change to one content file. **Require branches to be up to date** would close it, but would leave every CMS pull request stuck, since the App never updates its branch: leave it off.
+
+Netlify is not affected: it deploys from its own GitHub App.
 
 **To stop one pull request**: press **Disable auto-merge** on it, make it a draft, or push a commit to it. Each leaves it for you for good.
 
