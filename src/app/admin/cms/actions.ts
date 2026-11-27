@@ -10,7 +10,7 @@ import { recordAdminAction } from "@/lib/audit-log";
 import { recordDraftEdit } from "@/lib/cms-audit";
 import { requireCms } from "@/lib/cms-access";
 import { checkPage, cmsDirs, loadCmsPage } from "@/lib/cms-pages";
-import { cmsGitHub } from "@/lib/cms-publishing";
+import { cmsGitHub, gitHubSetupProblem } from "@/lib/cms-publishing";
 import { deleteDraft, insertSubmission, latestSubmission, lockDraft, unlockDraft, updateSubmission, writeDraft } from "@/lib/cms-store";
 
 /**
@@ -94,13 +94,16 @@ export async function discardDraft(slug: unknown, version: unknown): Promise<Dis
 
 export type PublishDraftResult =
   | { ok: true; message: string }
-  | { ok: false; reason: "unavailable" | "nothing" | "failed"; message: string }
+  | { ok: false; reason: "unavailable" | "nothing" | "failed" | "setup"; message: string }
   | { ok: false; reason: "checks"; message: string; problems: Problem[] }
   | { ok: false; reason: "stale"; message: string; changes: FieldChange[] }
   | Refusal;
 
 const NOT_SET_UP = "Publishing is not set up on this site yet. Your draft is saved.";
 const FAILED = "Publishing did not work this time, and nothing was sent. Your draft is saved; try again in a few minutes.";
+/** For a failure in the App's settings, which trying again cannot fix. */
+const SETUP =
+  "Publishing isn't working because of a setup problem, so nothing was sent. Your draft is saved. Trying again won't help until it is fixed: a technical admin can see the details under Publishing in Settings.";
 const STALE =
   "The live page was changed by someone else since this draft was started, in the places listed below. Publishing this draft would undo those changes, so it was not sent. Copy your changes somewhere, discard the draft, and make them again on the current page.";
 
@@ -134,7 +137,7 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
   }
   const github = cmsGitHub();
   if (!github) {
-    await audit({ outcome: "not_set_up" });
+    await audit({ outcome: "not_set_up", error: gitHubSetupProblem() });
     return { ok: false, reason: "unavailable", message: NOT_SET_UP };
   }
   if (!(await lockDraft(page, at))) return { ok: false, reason: "conflict", message: CONFLICT };
@@ -192,9 +195,11 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
       case "github": {
         const step = result.reason === "record" ? "record" : result.step;
         const error = result.reason === "record" ? String(result.error) : result.message;
+        const setup = result.reason === "github" && result.setup;
         if (result.leftBranch) console.error(`[cms] Publishing "${page}" failed and its branch ${result.leftBranch} could not be deleted`);
-        await audit({ outcome: "failed", step, error, ...(result.leftBranch ? { cleanup: "failed", leftBranch: result.leftBranch } : {}) });
-        return { ok: false, reason: "failed", message: FAILED };
+        if (setup) console.error(`[cms] Publishing "${page}" failed at ${step} because of a setup problem: ${error}`);
+        await audit({ outcome: "failed", step, error, ...(setup ? { setup: true } : {}), ...(result.leftBranch ? { cleanup: "failed", leftBranch: result.leftBranch } : {}) });
+        return setup ? { ok: false, reason: "setup", message: SETUP } : { ok: false, reason: "failed", message: FAILED };
       }
     }
   }
@@ -216,7 +221,7 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
   return { ok: true, message: "Sent for publishing. The page goes live once it is approved." };
 }
 
-export type WithdrawResult = { ok: true } | { ok: false; reason: "unavailable" | "failed" | "not_publishing"; message: string } | Refusal;
+export type WithdrawResult = { ok: true } | { ok: false; reason: "unavailable" | "failed" | "setup" | "not_publishing"; message: string } | Refusal;
 
 /**
  * Takes back a page sent for publishing: closes its pull request, deletes its branch, and
@@ -238,9 +243,21 @@ export async function withdrawPublish(slug: unknown): Promise<WithdrawResult> {
 
   const result = await withdrawFromGitHub(github, latest.prNumber, latest.branch);
   if (!result.ok) {
-    await recordAdminAction({ actorEmail: actor.email, action: "cms_withdraw", detail: { page, number: latest.prNumber, outcome: result.reason } });
-    return result.reason === "merged"
-      ? { ok: false, reason: "not_publishing", message: "This page has just been approved, so it can no longer be withdrawn. Reload the page to see where it stands." }
+    if (result.reason === "merged") {
+      await recordAdminAction({ actorEmail: actor.email, action: "cms_withdraw", detail: { page, number: latest.prNumber, outcome: "merged" } });
+      return { ok: false, reason: "not_publishing", message: "This page has just been approved, so it can no longer be withdrawn. Reload the page to see where it stands." };
+    }
+    await recordAdminAction({
+      actorEmail: actor.email,
+      action: "cms_withdraw",
+      detail: { page, number: latest.prNumber, outcome: "github", error: result.message, ...(result.setup ? { setup: true } : {}) },
+    });
+    return result.setup
+      ? {
+          ok: false,
+          reason: "setup",
+          message: "Withdrawing isn't working because of a setup problem. Trying again won't help until it is fixed: a technical admin can see the details under Publishing in Settings.",
+        }
       : { ok: false, reason: "failed", message: "Withdrawing did not work this time. Try again in a few minutes." };
   }
   await updateSubmission(latest.id, "open", { state: "withdrawn", resolvedAt: new Date() });

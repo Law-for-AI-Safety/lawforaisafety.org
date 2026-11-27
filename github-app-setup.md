@@ -61,11 +61,36 @@ Why deploy previews too: so publishing can be checked on a preview before it rea
 | --- | --- | --- |
 | `GITHUB_APP_ID` | The App ID. | No |
 | `GITHUB_APP_INSTALLATION_ID` | The installation ID. | No |
-| `GITHUB_APP_PRIVATE_KEY` | The whole `.pem` file, including the `BEGIN` and `END` lines. Line breaks may be kept or written as `\n`. | **Yes**: tick "Contains secret values". |
+| `GITHUB_APP_PRIVATE_KEY` | The whole `.pem` file, including the `BEGIN` and `END` lines. See [the key's format](#the-keys-format) for the forms accepted. | **Yes**: tick "Contains secret values". |
 | `GITHUB_REPO_OWNER` | `Law-for-AI-Safety` | No |
 | `GITHUB_REPO_NAME` | `lawforaisafety.org` | No |
 | `GITHUB_API_URL` | Leave unset. Only `https://api.github.com` is accepted. The end-to-end tests point it at a fake on their own machine, which needs the test-only `CMS_TEST_LOCAL_GITHUB=1`; that flag is ignored on any Netlify deploy, so never set it there. | Do not set. |
 | `CMS_PREVIEW_SITE_NAME` | Optional. The Netlify site name used in the deploy preview link, `https://deploy-preview-<N>--<site>.netlify.app/<page>`. Defaults to `law-for-ai-safety-org`. | No |
+
+### The key's format
+
+Paste the `.pem` file as it is. Hosts often change a value on the way in, so the site also accepts the key:
+
+- with real line breaks, Windows line breaks, or `\n` (or `\r\n`) escapes on one line;
+- with its line breaks turned into spaces, or lost altogether;
+- with whitespace or quotes (`"`, `'` or `` ` ``) around it;
+- base64-encoded as a whole (`base64 -w0 key.pem`), for a host that cannot keep the PEM.
+
+It rebuilds a proper PEM from the `BEGIN` line's type and the base64 between the `BEGIN` and `END` lines. Both `BEGIN RSA PRIVATE KEY` (PKCS#1, as GitHub issues it) and `BEGIN PRIVATE KEY` (PKCS#8, e.g. after `openssl pkcs8 -topk8 -nocrypt`) work. It must be an RSA key without a passphrase.
+
+When the key cannot be read, the site says why without quoting any of it: it has no `BEGIN` line; it is too short and looks like a client secret (a common mix-up: the key is under **Key pairs**, not Client secrets); it is another kind of PEM (a public key, a certificate, an OpenSSH or encrypted key); it has no matching `END` line; the text between the lines is not base64; or it could not be parsed (usually cut short).
+
+### Checking it works
+
+**Settings → Publishing** (technical admins) shows:
+
+- whether the settings are all present and how the key reads (for example "PKCS#1 RSA key, 2048 bits"), or which settings are missing and what is wrong with the key;
+- the last publish that failed: when, which page, the step, and the error, marked as a setup problem or one that may pass on a retry;
+- **Check connection**: signs in as the App afresh and reads the head of `main`, changing nothing. It answers "Connected to … main is at <commit>" or the error.
+
+Use **Check connection** after changing any of these settings and redeploying.
+
+When a publish fails because of the setup (a key that cannot be read, settings missing, or GitHub answering 401, 403 or 404 to the App or the repo), the editor is told it is a setup problem that trying again will not fix, and that a technical admin can see the details in Settings. Their draft is kept. Timeouts, GitHub's server errors and rate limits keep the "try again in a few minutes" message. Each failure is also in the audit log (`/admin/audit`, action `cms_publish`).
 
 Env var changes apply from the next deploy. The server never logs the key or the tokens it gets with it. Each installation token it requests is limited to this repo and to contents and pull requests, and is reused until shortly before it expires (one hour).
 
@@ -120,4 +145,4 @@ Also check, the first time, that `/admin/cms` lists the pages on Netlify: the ad
 
 ## Rotating the key
 
-Generate a new private key in the App settings, replace `GITHUB_APP_PRIVATE_KEY` in Netlify, redeploy, then delete the old key in the App settings.
+Generate a new private key in the App settings, replace `GITHUB_APP_PRIVATE_KEY` in Netlify, redeploy, press **Check connection** in Settings → Publishing, then delete the old key in the App settings.

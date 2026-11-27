@@ -236,6 +236,17 @@ describe("checks and publishing", () => {
     expect(title()).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("shows a setup problem as an error, keeping the draft editable", async () => {
+    const server = fakeServer();
+    const message = "Publishing isn't working because of a setup problem, so nothing was sent. Your draft is saved.";
+    server.publish.mockResolvedValue({ ok: false, reason: "setup", message });
+    renderEditor(server, { canPublish: true, initialState: "draft", initialVersion: 0 });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(title()).not.toBeDisabled();
+  });
+
   it("does nothing when publishing is not confirmed, and cannot publish a live page", () => {
     const server = renderEditor(fakeServer(), { canPublish: true, initialState: "draft" });
     vi.spyOn(window, "confirm").mockReturnValue(false);

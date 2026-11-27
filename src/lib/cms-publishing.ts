@@ -1,5 +1,9 @@
-import { gitHubClientFor, type GitHubClient } from "@/cms/github";
-import { gitHubSetup } from "@/cms/github-config";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { adminAuditLog } from "@/drizzle/schema";
+import { GitHubAppClient, GitHubError, gitHubClientFor, type GitHubClient } from "@/cms/github";
+import { gitHubSetup, MAIN_BRANCH } from "@/cms/github-config";
+import { describeKey, readPrivateKey } from "@/cms/private-key";
+import { db } from "@/lib/db";
 import { isStaleLock, readOutcome } from "@/cms/publish";
 import { pagePath } from "@/cms/pages";
 import { editorState, isDeployed, type EditorState } from "@/cms/publish-status";
@@ -32,6 +36,84 @@ import { deleteMergedDraft, getDraft, latestSubmission, unlockDraft, updateSubmi
 export function cmsGitHub(): GitHubClient | null {
   const setup = gitHubSetup();
   return setup.ok ? gitHubClientFor(setup.config) : null;
+}
+
+/** Why publishing is not set up (which settings are missing), or null when it is. */
+export function gitHubSetupProblem(): string | null {
+  const setup = gitHubSetup();
+  return setup.ok ? null : setup.problem;
+}
+
+export type PublishingHealth = {
+  /** Whether the GitHub App's settings are all present and its key can be read. */
+  settings: { ok: true; key: string; repo: string } | { ok: false; problem: string };
+  /** The most recent publish that failed for a reason other than the page itself. */
+  lastFailure: { at: Date; page: string; step: string | null; error: string; setup: boolean } | null;
+  /** When a page was last sent for publishing. */
+  lastSent: Date | null;
+};
+
+/**
+ * Where publishing stands, for technical admins: the settings, read without calling GitHub,
+ * and the last failed and last successful publish from the audit log. Errors in the audit log
+ * were written by this code and never quote the key.
+ */
+export async function publishingHealth(): Promise<PublishingHealth> {
+  const setup = gitHubSetup();
+  let settings: PublishingHealth["settings"];
+  if (!setup.ok) settings = { ok: false, problem: setup.problem };
+  else {
+    const key = readPrivateKey(setup.config.privateKey);
+    settings = key.ok ? { ok: true, key: describeKey(key), repo: `${setup.config.owner}/${setup.config.repo}` } : { ok: false, problem: key.problem };
+  }
+
+  const outcome = sql<string>`${adminAuditLog.detail}->>'outcome'`;
+  const latest = (outcomes: string[]) =>
+    db
+      .select({ at: adminAuditLog.at, detail: adminAuditLog.detail })
+      .from(adminAuditLog)
+      .where(and(eq(adminAuditLog.action, "cms_publish"), sql`${outcome} in (${sql.join(outcomes.map((o) => sql`${o}`), sql`, `)})`))
+      .orderBy(desc(adminAuditLog.at))
+      .limit(1);
+  const [[failed], [sent]] = await Promise.all([latest(["failed", "not_set_up"]), latest(["sent"])]);
+
+  let lastFailure: PublishingHealth["lastFailure"] = null;
+  if (failed) {
+    const detail = failed.detail as Record<string, unknown>;
+    const notSetUp = detail.outcome === "not_set_up";
+    lastFailure = {
+      at: failed.at,
+      page: String(detail.page),
+      step: typeof detail.step === "string" ? detail.step : null,
+      error: typeof detail.error === "string" ? detail.error : notSetUp ? "Publishing is not set up" : "No error was recorded",
+      // Failures recorded before setup problems were told apart are judged by their error.
+      setup: notSetUp || detail.setup === true || (typeof detail.error === "string" && detail.error.startsWith("GITHUB_APP_PRIVATE_KEY")),
+    };
+  }
+  return { settings, lastFailure, lastSent: sent?.at ?? null };
+}
+
+export type ConnectionCheck = { ok: true; message: string } | { ok: false; message: string; setup: boolean };
+
+/**
+ * Signs in as the App afresh and reads the head of main, changing nothing: what a publish
+ * does first. A new client is used, so a token cached by an earlier publish cannot hide a
+ * key that no longer works.
+ */
+export async function checkGitHubConnection(): Promise<ConnectionCheck> {
+  const setup = gitHubSetup();
+  if (!setup.ok) return { ok: false, message: setup.problem, setup: true };
+  const { owner, repo } = setup.config;
+  try {
+    const head = await new GitHubAppClient(setup.config).branchHead(MAIN_BRANCH);
+    if (!head) {
+      return { ok: false, message: `The App can't see the ${MAIN_BRANCH} branch of ${owner}/${repo}. Check that it is installed on that repo.`, setup: true };
+    }
+    return { ok: true, message: `Connected to ${owner}/${repo}: ${MAIN_BRANCH} is at ${head.commit.slice(0, 7)}.` };
+  } catch (e) {
+    if (!(e instanceof GitHubError)) throw e;
+    return { ok: false, message: e.message, setup: e.setup };
+  }
 }
 
 export type RefreshResult = { checked: boolean };
