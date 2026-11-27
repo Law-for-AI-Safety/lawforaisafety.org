@@ -15,6 +15,7 @@ import {
   date,
 } from "drizzle-orm/pg-core";
 import type { OpportunityRound } from "@/opportunities/types";
+import type { SourceOutcome, Topic } from "@/news-radar/types";
 
 export const applicationStatus = pgEnum("application_status", [
   "draft",
@@ -264,6 +265,8 @@ export const adminAuditAction = pgEnum("admin_audit_action", [
   "newsletter_cancel",
   "newsletter_web_publish",
   "newsletter_web_unpublish",
+  "news_radar_settings",
+  "news_radar_run",
 ]);
 
 // Append-only record of who did what in the admin panel. The application row
@@ -670,3 +673,79 @@ export const newsletters = pgTable("newsletters", {
   webPublished: boolean("web_published").notNull().default(true),
   webSlug: text("web_slug").unique(),
 });
+
+export const newsRadarItemState = pgEnum("news_radar_item_state", ["new", "useful", "dismissed"]);
+export const newsRadarRunTrigger = pgEnum("news_radar_run_trigger", ["schedule", "manual"]);
+
+// One run of the News radar (src/news-radar/run.ts): the weekly scheduled one, or a technical
+// admin's "Run now". `sources` holds what each source returned or why it failed, so the admin
+// page can say "source X failed this week" without the function logs. `email` is what happened
+// to the weekly summary: sent, or the reason it was not.
+export const newsRadarRuns = pgTable("news_radar_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  trigger: newsRadarRunTrigger("trigger").notNull(),
+  triggeredBy: text("triggered_by"),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  sources: jsonb("sources").$type<SourceOutcome[]>().notNull().default([]),
+  newCount: integer("new_count").notNull().default(0),
+  seenCount: integer("seen_count").notNull().default(0),
+  email: text("email"),
+  // Set when the run itself failed after starting (say, storing the results), so it is not left "running".
+  error: text("error"),
+});
+
+// An article or paper the News radar found relevant. Weekly runs look back further than a week,
+// so most articles come back more than once: a re-found one updates its row (last_seen_at,
+// last_run_id, sources, topics) and never makes a new one, so its triage state survives. It is
+// the same article when it has the same normalised address (`url_key`), or failing that the
+// same normalised title from the same outlet (`title_key`) seen recently, since an outlet may
+// reuse a headline for a regular column; see recordFound in src/lib/news-radar-store.ts.
+// `story_key` is the title alone, which groups one story syndicated across outlets.
+export const newsRadarItems = pgTable(
+  "news_radar_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    urlKey: text("url_key").notNull().unique(),
+    titleKey: text("title_key").notNull(),
+    storyKey: text("story_key").notNull(),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    outlet: text("outlet").notNull(),
+    snippet: text("snippet").notNull().default(""),
+    kind: text("kind").$type<"news" | "paper">().notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    sources: text("sources").array().notNull(),
+    topics: text("topics").array().notNull(),
+    score: integer("score").notNull(),
+    state: newsRadarItemState("state").notNull().default("new"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+    firstRunId: uuid("first_run_id").references(() => newsRadarRuns.id, { onDelete: "set null" }),
+    lastRunId: uuid("last_run_id").references(() => newsRadarRuns.id, { onDelete: "set null" }),
+    triagedBy: text("triaged_by"),
+    triagedAt: timestamp("triaged_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("news_radar_items_first_seen_idx").on(table.firstSeenAt),
+    index("news_radar_items_last_run_idx").on(table.lastRunId),
+    index("news_radar_items_title_key_idx").on(table.titleKey),
+  ],
+);
+
+// The News radar's editable settings: one row (id 1), written from /admin/news-radar/settings.
+// Until it is first saved, the defaults in src/news-radar/defaults.ts apply. `recipient` is the
+// team group the weekly summary goes to; it lives here rather than in code or an environment
+// variable so a technical admin can change it without a deploy, and is empty until set.
+export const newsRadarSettings = pgTable(
+  "news_radar_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    topics: jsonb("topics").$type<Topic[]>().notNull(),
+    trustedOutlets: text("trusted_outlets").array().notNull(),
+    recipient: text("recipient"),
+    updatedBy: text("updated_by").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check("news_radar_settings_one_row", sql`${table.id} = 1`)],
+);

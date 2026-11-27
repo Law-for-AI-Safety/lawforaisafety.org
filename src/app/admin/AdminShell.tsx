@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { countCollaborationQueue, countMyOverdueTasks, getRedLinesSummary } from "@/lib/admin-summary";
 import { countPendingSubmissions } from "@/lib/opportunity-submission-flow";
+import { countUntriaged } from "@/lib/news-radar-store";
 import { getAdminSession } from "@/lib/session";
 import { getAdminAccess } from "./access";
 import AdminSidebar from "./AdminSidebar";
@@ -11,6 +12,7 @@ const COUNTS: Record<NavCountKey, (email: string) => Promise<number>> = {
   redLines: async () => (await getRedLinesSummary()).pending,
   submissions: countPendingSubmissions,
   myOverdueTasks: countMyOverdueTasks,
+  newsRadar: countUntriaged,
 };
 
 /** A badge is a convenience: if its count cannot be read, the link is shown without one. */

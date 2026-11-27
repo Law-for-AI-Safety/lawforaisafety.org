@@ -17,7 +17,7 @@ export type AdminAccess = {
 };
 
 /** The waiting-work counts the sidebar can show; each is fetched by the shell (COUNTS in AdminShell.tsx). */
-export type NavCountKey = "collaboration" | "redLines" | "submissions" | "myOverdueTasks";
+export type NavCountKey = "collaboration" | "redLines" | "submissions" | "myOverdueTasks" | "newsRadar";
 
 export const NAV_GROUPS = ["Review", "Publish", "Work"] as const;
 export type NavGroup = (typeof NAV_GROUPS)[number];
@@ -35,6 +35,8 @@ export type AdminNavItem = {
 export const NAV_ITEMS: AdminNavItem[] = [
   { group: "Review", href: "/admin/applications", label: "Collaboration", count: { key: "collaboration", label: "waiting" } },
   { group: "Review", href: "/admin/red-lines-dialogue", label: "Red Lines", count: { key: "redLines", label: "waiting" } },
+  // Every admin, like the Newsletter it feeds: triage and "Add to newsletter" need nothing more.
+  { group: "Review", href: "/admin/news-radar", label: "News radar", count: { key: "newsRadar", label: "new this week to triage" } },
   { group: "Publish", href: "/admin/cms", label: "Website pages", show: (a) => a.cmsEdit },
   { group: "Publish", href: "/admin/newsletters", label: "Newsletter" },
   {

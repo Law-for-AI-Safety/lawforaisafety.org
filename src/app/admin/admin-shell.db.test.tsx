@@ -90,15 +90,15 @@ describe("the sidebar", () => {
     [
       "tech",
       ["Review", "Publish", "Work"],
-      ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/cms", "/admin/newsletters", "/admin/opportunities", "/admin/task-tracker"],
+      ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/news-radar", "/admin/cms", "/admin/newsletters", "/admin/opportunities", "/admin/task-tracker"],
     ],
     [
       "publish",
       ["Review", "Publish", "Work"],
-      ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/cms", "/admin/newsletters", "/admin/opportunities", "/admin/task-tracker"],
+      ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/news-radar", "/admin/cms", "/admin/newsletters", "/admin/opportunities", "/admin/task-tracker"],
     ],
-    ["draft", ["Review", "Publish", "Work"], ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/cms", "/admin/newsletters", "/admin/task-tracker"]],
-    ["reviewer", ["Review", "Publish"], ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/newsletters"]],
+    ["draft", ["Review", "Publish", "Work"], ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/news-radar", "/admin/cms", "/admin/newsletters", "/admin/task-tracker"]],
+    ["reviewer", ["Review", "Publish"], ["/admin", "/admin/applications", "/admin/red-lines-dialogue", "/admin/news-radar", "/admin/newsletters"]],
   ])("shows %s the groups and links they can use, and hides empty groups", async (who, groups, hrefs) => {
     await signInAs(who);
     render(await ProtectedAdminLayout({ children: <p>body</p> }));

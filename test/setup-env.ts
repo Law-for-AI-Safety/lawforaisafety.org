@@ -7,6 +7,7 @@ import { turnstile } from "./fakes/turnstile";
 import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
 import { indexNow } from "./fakes/indexnow";
+import { newsSources } from "./fakes/news-sources";
 import { dataCache } from "./next-cache";
 import { afterTasks } from "./next-after";
 
@@ -61,6 +62,7 @@ beforeEach(() => {
   oauthProviders.reset();
   slack.reset();
   indexNow.reset();
+  newsSources.reset();
   afterTasks.reset();
 });
 
