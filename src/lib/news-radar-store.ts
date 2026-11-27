@@ -155,9 +155,21 @@ export async function listItems(filter: ItemFilter = {}, limit = 500): Promise<N
     .limit(limit);
 }
 
-export async function getItem(id: string): Promise<NewsRadarItem | null> {
-  const [row] = await db.select().from(newsRadarItems).where(eq(newsRadarItems.id, id));
-  return row ?? null;
+/** How far back the newsletter composer's "Insert from News radar" reaches. */
+export const PICKER_DAYS = 60;
+
+/**
+ * Items the newsletter composer offers: first seen in the last PICKER_DAYS, Useful before New,
+ * newest first within each. Dismissed items are left out.
+ */
+export async function listPickerItems(now: Date, limit = 300): Promise<NewsRadarItem[]> {
+  const since = new Date(now.getTime() - PICKER_DAYS * 24 * 60 * 60 * 1000);
+  return db
+    .select()
+    .from(newsRadarItems)
+    .where(and(ne(newsRadarItems.state, "dismissed"), gte(newsRadarItems.firstSeenAt, since)))
+    .orderBy(sql`${newsRadarItems.state} = 'useful' desc`, desc(newsRadarItems.firstSeenAt), desc(newsRadarItems.score))
+    .limit(limit);
 }
 
 /**

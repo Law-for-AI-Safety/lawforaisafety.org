@@ -147,12 +147,15 @@ export default function RichTextField({
   kind,
   onChange,
   invalid,
+  onEditor,
 }: {
   label: string;
   value: string;
   kind: RichTextKind;
   onChange: (value: string) => void;
   invalid?: boolean;
+  /** Hands over the toolbar editor once it exists, for a caller that inserts content at the cursor. */
+  onEditor?: (editor: Editor | null) => void;
 }) {
   const labelId = useId();
   const emitted = useRef(value);
@@ -193,6 +196,10 @@ export default function RichTextField({
       onChangeRef.current(next);
     },
   });
+
+  useEffect(() => {
+    onEditor?.(editor);
+  }, [editor, onEditor]);
 
   useEffect(() => {
     if (!editor || value === emitted.current) return;
