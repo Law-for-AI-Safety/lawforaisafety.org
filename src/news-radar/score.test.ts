@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTrustedOutlet, keywordScorer, TRUSTED_OUTLET_BONUS } from "./score";
+import { isTrustedOutlet, keywordScorer, matchTopics, TRUSTED_OUTLET_BONUS } from "./score";
 import type { Candidate, Topic } from "./types";
 
 const topic = (over: Partial<Topic> = {}): Topic => ({ id: "t", name: "T", queries: ["q"], include: ["class action"], require: [], exclude: [], ...over });
@@ -34,6 +34,20 @@ describe("keywordScorer", () => {
   it("lists the topics best first and adds the trusted outlet bonus", () => {
     const topics = [topic({ id: "weak", include: ["filed"] }), topic({ id: "strong", include: ["class action", "chatbot"] })];
     expect(keywordScorer(candidate({ outlet: "Reuters" }), topics, ["Reuters"])).toEqual({ topics: ["strong", "weak"], score: 6 + TRUSTED_OUTLET_BONUS });
+  });
+});
+
+describe("matchTopics", () => {
+  it("says which include keywords each matching topic found, best topic first", () => {
+    const topics = [
+      topic({ id: "weak", include: ["filed", "court"] }),
+      topic({ id: "strong", include: ["class action", "chatbot", "damages"] }),
+      topic({ id: "excluded", include: ["chatbot"], exclude: ["filed"] }),
+    ];
+    expect(matchTopics(candidate({ snippet: "No damages yet." }), topics)).toEqual([
+      { id: "strong", keywords: ["class action", "chatbot", "damages"], points: 5 },
+      { id: "weak", keywords: ["filed"], points: 2 },
+    ]);
   });
 });
 

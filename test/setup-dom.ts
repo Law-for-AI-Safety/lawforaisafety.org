@@ -27,6 +27,11 @@ globalThis.IntersectionObserver ??= class {
   }
 };
 
+// Nor does it measure text: a Range has no client rects, which the rich-text editor reads to
+// scroll its cursor into view after a change. Every range measures empty, at the origin.
+Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+
 // Under vitest's jsdom environment, TextEncoder hands back a Uint8Array made in another realm,
 // so `bytes instanceof Uint8Array` is false here, unlike in Node or a browser. Libraries that
 // check it, such as jose when it signs the admin session cookie, then refuse their input. The

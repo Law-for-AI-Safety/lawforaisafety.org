@@ -25,7 +25,7 @@ export const GDELT_THROTTLE_NOTICE = "Please limit requests to one every 5 secon
 /** What GDELT answers, with status 200, to a query it will not take. */
 export const GDELT_LENGTH_NOTICE = "Your query was too short or too long.";
 
-/** GDELT answered a query of 225 characters and refused one of 261. */
+/** Longer queries are refused, as by GDELT, whose own limit is a little above QUERY_MAX_CHARS. */
 const GDELT_LONGEST_QUERY = 250;
 
 class FakeNewsSources {

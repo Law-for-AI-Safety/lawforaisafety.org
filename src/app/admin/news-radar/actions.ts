@@ -3,11 +3,8 @@
 import { z } from "zod";
 import { recordAdminAction } from "@/lib/audit-log";
 import { getAdminSession, isTechAdminEmail } from "@/lib/session";
-import { getItem, getNewsRadarSettings, saveNewsRadarSettings, setItemState } from "@/lib/news-radar-store";
-import { getNewsletter, insertNewsletter, writeNewsletter } from "@/lib/newsletter-store";
-import { BODY_MAX } from "@/newsletter/template";
-import { appendItem } from "@/news-radar/newsletter";
 import { isNetlifyDeploy } from "@/lib/deploy-context";
+import { getNewsRadarSettings, saveNewsRadarSettings, setItemState } from "@/lib/news-radar-store";
 import { failureReason } from "@/news-radar/run";
 import { runInProgress, startNewsRadarRun } from "@/news-radar/start";
 import { formatTime } from "@/news-radar/view";
@@ -16,9 +13,8 @@ import type { Topic } from "@/news-radar/types";
 
 /**
  * The News radar's server actions. Each is a public endpoint, so each reads the caller's session
- * from the database and checks every argument itself. Any admin may triage, add items to a
- * newsletter draft (as any admin may write the newsletter) and change the topics; only a
- * technical admin may run the radar by hand or change where the weekly email goes.
+ * from the database and checks every argument itself. Any admin may triage and change the
+ * topics; only a technical admin may run the radar by hand or change where the weekly email goes.
  */
 
 export type Refusal = { ok: false; message: string };
@@ -42,39 +38,6 @@ export async function triageItem(itemId: unknown, newState: unknown, copyIds: un
     return { ok: false, message: "That item no longer exists." };
   }
   return { ok: true };
-}
-
-/** Adds the item to the end of draft `newsletterId`, or to a new draft when it is null. */
-export async function addToNewsletter(
-  itemId: unknown,
-  newsletterId: unknown,
-): Promise<{ ok: true; newsletterId: string; subject: string } | Refusal> {
-  const session = await getAdminSession();
-  if (!session) return SIGNED_OUT;
-  const parsedItem = id.safeParse(itemId);
-  const parsedNewsletter = id.nullable().safeParse(newsletterId);
-  if (!parsedItem.success || !parsedNewsletter.success) return INVALID;
-  const item = await getItem(parsedItem.data);
-  if (!item) return { ok: false, message: "That item no longer exists." };
-
-  // Checked before a new draft is made, so a refused link never leaves an empty draft behind.
-  const alone = appendItem("", item);
-  if (!alone.ok) return { ok: false, message: alone.problem };
-
-  const target = parsedNewsletter.data ?? (await insertNewsletter(session.email));
-  // A save made in the editor between the read and the write moves the version on; read again once.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const draft = await getNewsletter(target);
-    if (!draft || draft.state !== "draft") return { ok: false, message: "That newsletter is no longer a draft. Choose another." };
-    const appended = appendItem(draft.body, item);
-    if (!appended.ok) return { ok: false, message: appended.problem };
-    if (appended.body.length > BODY_MAX) return { ok: false, message: "That draft is too long to add more to." };
-    const fields = { subject: draft.subject, previewText: draft.previewText, body: appended.body };
-    if ((await writeNewsletter(target, fields, draft.version, session.email)) !== null) {
-      return { ok: true, newsletterId: target, subject: draft.subject.trim() || "Untitled newsletter" };
-    }
-  }
-  return { ok: false, message: "Someone is editing that draft right now. Try again in a moment." };
 }
 
 /**

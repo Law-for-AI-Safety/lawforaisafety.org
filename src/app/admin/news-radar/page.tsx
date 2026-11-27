@@ -5,7 +5,9 @@ import { getAdminSession, isTechAdminEmail } from "@/lib/session";
 import { getNewsRadarSettings, latestRuns, listItems, type ItemState } from "@/lib/news-radar-store";
 import { listNewsletters } from "@/lib/newsletter-store";
 import { safeHref } from "@/news-radar/digest";
+import { entryHref, linkedHrefs } from "@/news-radar/newsletter";
 import { SOURCES, SOURCE_LABELS } from "@/news-radar/sources";
+import { matchedKeywords } from "@/news-radar/tuning";
 import type { SourceId } from "@/news-radar/types";
 import { formatDay, groupByWeek, isSeenBefore, runSummary } from "@/news-radar/view";
 import ItemActions from "./ItemActions";
@@ -47,7 +49,17 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
     state: STATES.some((s) => s.value === search.state) ? (search.state as ItemState) : undefined,
   };
   const [items, runs, newsletters] = await Promise.all([listItems(filter), latestRuns(1), listNewsletters()]);
-  const drafts = newsletters.filter((n) => n.state === "draft").map((n) => ({ id: n.id, subject: n.subject.trim() || "Untitled newsletter" }));
+  // Which items the subscriber newsletter already links to: issues Brevo has (sent or scheduled)
+  // first, then drafts. One partway through its hand-over to Brevo counts as neither yet.
+  const inNewsletter = new Map<string, string>();
+  for (const [state, label] of [
+    ["submitted", "In a sent or scheduled subscriber newsletter"],
+    ["draft", "In a subscriber newsletter draft"],
+  ] as const) {
+    for (const n of newsletters.filter((n) => n.state === state)) {
+      for (const href of linkedHrefs(n.body)) if (!inNewsletter.has(href)) inNewsletter.set(href, label);
+    }
+  }
   const weeks = groupByWeek(items);
   const run = runs[0] ? runSummary(runs[0]) : null;
   const selectClass = "w-full max-w-full rounded-sm border border-brand-black/30 bg-brand-white px-2 py-1";
@@ -134,6 +146,8 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
             <ul className="flex flex-col">
               {week.stories.map(({ item, alsoIn }) => {
                 const href = safeHref(item.url);
+                const keywords = [...new Set(matchedKeywords(item, settings).flatMap((m) => m.keywords))];
+                const used = inNewsletter.get(entryHref(item.url));
                 return (
                   <li key={item.id} className="flex flex-col gap-1 border-t border-brand-black/10 py-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -156,6 +170,10 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
                     <span className="text-sm text-brand-black/60">
                       {item.topics.map((t) => topicNames.get(t) ?? t).join(", ")} · via {item.sources.map((s) => SOURCE_LABELS[s as SourceId] ?? s).join(", ")}
                     </span>
+                    <span className="text-sm text-brand-black/60">
+                      {keywords.length > 0 ? `Matched: ${keywords.join(", ")}` : "Matches no topic under the current settings"}
+                    </span>
+                    {used && <span className="text-sm text-brand-navy">{used}</span>}
                     {isSeenBefore(item) && (
                       <span className="text-sm text-brand-black/60">Seen before (first seen {formatDay(item.firstSeenAt)})</span>
                     )}
@@ -179,7 +197,7 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
                         })}
                       </span>
                     )}
-                    <ItemActions itemId={item.id} copyIds={alsoIn.map((other) => other.id)} state={item.state} drafts={drafts} />
+                    <ItemActions itemId={item.id} copyIds={alsoIn.map((other) => other.id)} state={item.state} />
                   </li>
                 );
               })}

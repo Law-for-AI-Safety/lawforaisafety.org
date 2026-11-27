@@ -3,9 +3,8 @@ import type { Candidate, SourceAdapter, Topic } from "../types";
 import { failure, getText } from "./http";
 
 /**
- * Plain HTTP, as in GDELT's own documentation: its TLS handshake often takes longer than the 10
- * seconds Node's fetch allows for connecting, so over HTTPS most requests failed before GDELT
- * had answered. What it returns is public news listings, and nothing private is sent.
+ * Plain HTTP, as in GDELT's own documentation: its TLS handshake often outlasts the time Node's
+ * fetch allows for connecting, so over HTTPS requests fail before GDELT has answered. What it returns is public news listings, and nothing private is sent.
  */
 export const GDELT_URL = "http://api.gdeltproject.org/api/v2/doc/doc";
 
@@ -29,8 +28,8 @@ export const GDELT_CONNECT_TRIES = 3;
 const MAX_PHRASES = 14;
 
 /**
- * Longest GDELT query, in characters. GDELT refuses longer ones as "too short or too long": a
- * query of 225 characters was answered and one of 261 refused.
+ * Longest GDELT query, in characters, with a margin below the length at which GDELT refuses a
+ * query as "too short or too long".
  */
 export const QUERY_MAX_CHARS = 220;
 
