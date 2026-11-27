@@ -58,7 +58,7 @@ Then:
 
 [Site configuration → Environment variables](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/env). Mark only the private key as a **secret** value (the others are identifiers, not credentials). Set them for the **production** and **deploy preview** contexts, with at least the **Functions** scope: only the server code reads them, never the build. Use **the same value in both contexts** (Netlify's "Same value for all deploy contexts" is fine if only those two are ticked): there is one App, and previews publish to the same repo. Leave them unset for branch deploys and local development (`.env.local`); there the editor just says publishing is not set up.
 
-Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 6), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. **Revisit this as soon as anyone else gets write access**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy ([deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys)) keeps the key out of builds of pull requests from forks; keep that setting on.
+Why deploy previews too: so publishing can be checked on a preview before it reaches production (step 6), and so a preview of a CMS change shows the editor working. The cost is that any build of a deploy preview can read the key, and anyone who can push a branch to this repo gets a deploy preview built from their code. Today only the owner has write access, so that is no wider than production. Since CMS pull requests merge themselves (step 4), whoever reads the key can put a change to one content file live without a maintainer seeing it first, so the key is worth more than when every pull request waited for review. **Revisit this as soon as anyone else gets write access, or a preview build runs code you do not trust**: then set the key for production only (and use a separate test App for previews, if publishing from previews is still wanted). Netlify's sensitive-variable policy ([deploy settings](https://app.netlify.com/projects/law-for-ai-safety-org/configuration/deploys)) keeps the key out of builds of pull requests from forks; keep that setting on.
 
 | Variable | Value | Secret? |
 | --- | --- | --- |
@@ -91,11 +91,12 @@ If repository variables turn out not to be passed to pull requests from forks, t
 - opened by `CMS_BOT_LOGIN`, open and not a draft, from a branch in this repository (not a fork) into `main`;
 - the branch is `cms/<page>-<YYYY-MM-DD>`, optionally with `-2`, `-3`, …;
 - every commit is authored and committed by the bot, signed by GitHub, and none is a merge;
-- exactly one file changes, `content/<page>.json` for the page in the branch name, and it is modified, not added, removed or renamed.
+- exactly one file changes, `content/<page>.json` for the page in the branch name, and it is modified, not added, removed or renamed;
+- no maintainer has stepped in: it was never closed, and nobody but the workflow has turned its auto-merge on or off or dismissed a review on it.
 
-GitHub then merges it once `main`'s required checks pass (step 5), so nothing polls. The approval and the auto-merge are both tied to the head commit that was checked: a newer push needs a new decision.
+GitHub then merges it once `main`'s required checks pass (step 5), so nothing polls. The approval is for the head commit that was checked, and auto-merge is turned on only if that is still the head. Auto-merge itself stays on after a later push by anyone with write access: what stops such a push from merging on the old approval is **Dismiss stale pull request approvals** (step 5), until the workflow's next run turns the auto-merge off.
 
-If any condition stops holding (a maintainer pushes a commit, the pull request is retargeted or made a draft), the next run dismisses the workflow's approvals and turns off the auto-merge it turned on, and the pull request waits for a maintainer as before. It never touches an approval or an auto-merge a maintainer made. Each run's log lists why a pull request was left. The rules are in `scripts/cms-auto-merge.mjs` (main's copy always runs) and tested in `scripts/cms-auto-merge.test.ts`; `test/ci-workflow.test.ts` checks the workflow only ever checks out `main`.
+If any condition stops holding (a maintainer pushes a commit, turns auto-merge off, the pull request is retargeted or made a draft), the next run dismisses the workflow's approvals and turns off the auto-merge it turned on, and the pull request waits for a maintainer from then on. A declined pull request that is reopened is never merged by the workflow. It never touches an approval or an auto-merge a maintainer made. Each run's log lists why a pull request was left. If a run fails (GitHub down after three tries per request), it takes back the same way, to be safe; the pull request's next event (an edit, say) decides again, or a maintainer merges it. The rules are in `scripts/cms-auto-merge.mjs` (main's copy always runs) and tested in `scripts/cms-auto-merge.test.ts`; `test/ci-workflow.test.ts` checks the workflow only ever checks out `main`.
 
 **Two settings to switch on**, or the workflow fails and nothing merges itself:
 
@@ -106,7 +107,9 @@ If any condition stops holding (a maintainer pushes a commit, the pull request i
 
 **What a merge by the workflow does not do.** GitHub starts no workflows for events caused by a workflow's own token, so the merge commit on `main` gets no `push` runs: no **CI** run on `main` and no **IndexNow** submission for that page. Netlify is not affected (it deploys from its own GitHub App). The pull request's own checks have already run against it.
 
-**To turn it off**: open the [workflow](https://github.com/Law-for-AI-Safety/lawforaisafety.org/actions/workflows/cms-auto-merge.yml), **…** → **Disable workflow**. New CMS pull requests then wait for a maintainer. A pull request already set to merge itself still will: turn its auto-merge off on the pull request (**Disable auto-merge**), or push a commit to it. Switching off **Allow auto-merge** in the settings turns off every pending auto-merge at once.
+**To stop one pull request**: press **Disable auto-merge** on it, or push a commit to it. Either leaves it for you for good.
+
+**To turn it off**: open the [workflow](https://github.com/Law-for-AI-Safety/lawforaisafety.org/actions/workflows/cms-auto-merge.yml), **…** → **Disable workflow**. New CMS pull requests then wait for a maintainer. A pull request already set to merge itself still will, unless you stop it as above. Switching off **Allow auto-merge** in the settings turns off every pending auto-merge at once.
 
 ## 5. Protection on `main`
 

@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { checkAutoMerge, createGitHub, main, pageFromBranch, planActions, MARKER } from "./cms-auto-merge.mjs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ATTEMPTS, checkAutoMerge, createGitHub, main, pageFromBranch, planActions, MARKER } from "./cms-auto-merge.mjs";
 
 /**
  * The CMS auto-merge (.github/workflows/cms-auto-merge.yml): which pull requests merge
@@ -42,7 +42,9 @@ const pr = (extra: Record<string, unknown> = {}) => ({
 });
 
 const files = (...list: Record<string, unknown>[]) => (list.length ? list : [{ filename: "content/field-building.json", status: "modified" }]);
-const input = (over: Record<string, unknown> = {}) => ({ botLogin: BOT, repository: REPO, pr: pr(), commits: [commit()], files: files(), ...over });
+const input = (over: Record<string, unknown> = {}) => ({ botLogin: BOT, repository: REPO, pr: pr(), commits: [commit()], files: files(), events: [] as unknown[], ...over });
+const event = (name: string, login: string) => ({ event: name, actor: { login } });
+const noWait = async () => {};
 
 describe("pageFromBranch", () => {
   it("reads the page from cms/<page>-<YYYY-MM-DD>, with an optional -N", () => {
@@ -182,6 +184,28 @@ describe("checkAutoMerge", () => {
     ]);
   });
 
+  it("leaves a pull request a maintainer stepped into", () => {
+    for (const name of ["auto_merge_disabled", "auto_merge_enabled", "auto_squash_enabled", "auto_rebase_enabled", "review_dismissed"]) {
+      expect(checkAutoMerge(input({ events: [event(name, "owner")] })), name).toEqual([`owner took it over (${name}), so they decide.`]);
+    }
+    expect(checkAutoMerge(input({ events: [{ event: "review_dismissed", actor: null }] }))).toEqual(["Someone took it over (review_dismissed), so they decide."]);
+  });
+
+  it("does not count its own approvals and auto-merge, or unrelated events, as a takeover", () => {
+    const own = ["auto_merge_enabled", "auto_merge_disabled", "review_dismissed"].map((name) => event(name, ACTIONS));
+    expect(checkAutoMerge(input({ events: [...own, event("labeled", "owner"), event("head_ref_force_pushed", BOT)] }))).toEqual([]);
+  });
+
+  it("leaves a pull request that was ever closed, so a declined one that is reopened is not merged", () => {
+    expect(checkAutoMerge(input({ events: [event("closed", "owner"), event("reopened", "owner")] }))).toEqual(["It was closed before, so a maintainer decides."]);
+  });
+
+  it("leaves a pull request whose events may be incomplete", () => {
+    expect(checkAutoMerge(input({ events: Array.from({ length: 100 }, () => event("labeled", "owner")) }))).toEqual([
+      "It has 100 or more events, so they cannot all be checked.",
+    ]);
+  });
+
   it("lists every reason at once", () => {
     expect(checkAutoMerge(input({ pr: pr({ user: { login: "x" }, draft: true }), commits: [commit(gitOwner)] }))).toHaveLength(3);
   });
@@ -238,7 +262,7 @@ describe("planActions", () => {
 });
 
 /** A fake of the GitHub REST and GraphQL API, recording every request. */
-function fakeApi(state: { pr: ReturnType<typeof pr>; commits: unknown[]; files: unknown[]; reviews: unknown[]; comments: unknown[] }) {
+function fakeApi(state: { pr: ReturnType<typeof pr>; commits: unknown[]; files: unknown[]; reviews: unknown[]; comments: unknown[]; events?: unknown[] }) {
   const requests: { method: string; url: string; body: unknown; auth: string | null }[] = [];
   const fetch = async (url: string, init: RequestInit = {}) => {
     const method = init.method ?? "GET";
@@ -251,6 +275,7 @@ function fakeApi(state: { pr: ReturnType<typeof pr>; commits: unknown[]; files: 
     if (method === "GET" && route === "/pulls/7/files?per_page=100") return json(state.files);
     if (method === "GET" && route === "/pulls/7/reviews?per_page=100") return json(state.reviews);
     if (method === "GET" && route === "/issues/7/comments?per_page=100") return json(state.comments);
+    if (method === "GET" && route === "/issues/7/events?per_page=100") return json(state.events ?? []);
     if (method === "POST" && route === "/pulls/7/reviews") return json({ id: 9 });
     if (method === "PUT" && /^\/pulls\/7\/reviews\/\d+\/dismissals$/.test(route)) return json({});
     if (method === "POST" && route === "/issues/7/comments") return json({});
@@ -276,7 +301,7 @@ describe("the script, against a fake GitHub", () => {
   const run = async (mode: string, api: ReturnType<typeof fakeApi>, over: Record<string, string> = {}) => {
     const lines: string[] = [];
     const e = env(over);
-    const code = await main(mode, e, createGitHub(e, api.fetch as typeof fetch), (line) => lines.push(line));
+    const code = await main(mode, e, createGitHub(e, api.fetch as typeof fetch, noWait), (line) => lines.push(line));
     return { code, lines };
   };
   const state = () => ({ pr: pr(), commits: [commit()], files: files(), reviews: [] as unknown[], comments: [] as unknown[] });
@@ -326,6 +351,7 @@ describe("the script, against a fake GitHub", () => {
     ]);
     expect(String((api.writes()[1].body as { query: string }).query)).toContain("mergeMethod: MERGE");
     expect((api.writes()[2].body as { body: string }).body).toContain("@owner");
+    expect((api.writes()[2].body as { body: string }).body).toContain("will merge itself once the required checks pass");
   });
 
   it("merge: comments without a mention when nobody is to be notified", async () => {
@@ -388,6 +414,7 @@ describe("the script, against a fake GitHub", () => {
   it("fails on a missing setting or an unknown mode, before calling GitHub", async () => {
     const api = fakeApi(state());
     expect(await run("check", api, { PR_NUMBER: "" })).toEqual({ code: 1, lines: ["::error::The CMS auto-merge needs PR_NUMBER."] });
+    expect(await run("check", api, { GITHUB_OUTPUT: "" })).toEqual({ code: 1, lines: ["::error::The CMS auto-merge needs GITHUB_OUTPUT."] });
     expect(await run("check", api, { PR_NUMBER: "7; rm" })).toEqual({ code: 1, lines: ["::error::PR_NUMBER is not a number."] });
     expect(await run("merge", api)).toEqual({ code: 1, lines: ["::error::The CMS auto-merge needs HEAD_SHA."] });
     expect(await run("other", api)).toEqual({ code: 1, lines: ['::error::Unknown mode "other": use check, merge or withdraw.'] });
@@ -399,12 +426,12 @@ describe("the script, against a fake GitHub", () => {
     await expect(run("check", api, { PR_NUMBER: "8" })).rejects.toThrow("GET /pulls/8: 404 Not Found");
   });
 
-  it("merge: merges that head at once when GitHub says it may already merge", async () => {
+  it.each(["clean", "unstable", "has_hooks"])("merge: merges that head at once when GitHub says it may already merge (%s)", async (status) => {
     const api = fakeApi(state());
     const clean = async (url: string, init: RequestInit = {}) => {
       if (url.endsWith("/graphql")) {
         await api.fetch(url, init);
-        return new Response(JSON.stringify({ errors: [{ message: "Pull request Pull request is in clean status" }] }), { status: 200 });
+        return new Response(JSON.stringify({ errors: [{ message: `Pull request Pull request is in ${status} status` }] }), { status: 200 });
       }
       if (url.endsWith("/pulls/7/merge")) {
         api.requests.push({ method: init.method ?? "GET", url, body: JSON.parse(String(init.body)), auth: null });
@@ -414,7 +441,7 @@ describe("the script, against a fake GitHub", () => {
     };
     const e = env({ HEAD_SHA: HEAD });
     const lines: string[] = [];
-    expect(await main("merge", e, createGitHub(e, clean as typeof fetch), (line) => lines.push(line))).toBe(0);
+    expect(await main("merge", e, createGitHub(e, clean as typeof fetch, noWait), (line) => lines.push(line))).toBe(0);
     expect(api.writes().map((w) => w.url.replace("https://api.github.com", ""))).toEqual([
       `/repos/${REPO}/pulls/7/reviews`,
       "/graphql",
@@ -423,6 +450,9 @@ describe("the script, against a fake GitHub", () => {
     ]);
     expect(api.writes()[2].body).toEqual({ sha: HEAD, merge_method: "merge" });
     expect(lines).toEqual(["Pull request #7: approved, merged, commented."]);
+    const comment = (api.writes()[3].body as { body: string }).body;
+    expect(comment).toContain("merged, its required checks having passed");
+    expect(comment).not.toContain("will merge itself");
   });
 
   it("merge: says so when there is nothing left to do", async () => {
@@ -436,11 +466,83 @@ describe("the script, against a fake GitHub", () => {
     expect(api.writes()).toEqual([]);
   });
 
+  it("check: leaves a pull request a maintainer turned auto-merge off on", async () => {
+    const api = fakeApi({ ...state(), events: [event("auto_merge_disabled", "owner")] });
+    expect((await run("check", api)).lines).toEqual(["Pull request #7 is left for a maintainer:", "- owner took it over (auto_merge_disabled), so they decide."]);
+    expect(fs.readFileSync(out, "utf8")).toBe(`eligible=false\nhead_sha=${HEAD}\n`);
+  });
+
+  it("tries a 5xx or a network failure again before giving up", async () => {
+    const api = fakeApi(state());
+    let failures = 0;
+    const waits: number[] = [];
+    const flaky = async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith("/pulls/7/files?per_page=100") && failures < ATTEMPTS - 1) {
+        failures++;
+        if (failures === 1) throw new TypeError("fetch failed");
+        return new Response("<html>Bad gateway</html>", { status: 502 });
+      }
+      return api.fetch(url, init);
+    };
+    const e = env();
+    const lines: string[] = [];
+    expect(await main("check", e, createGitHub(e, flaky as typeof fetch, async (ms) => void waits.push(ms)), (line) => lines.push(line))).toBe(0);
+    expect(fs.readFileSync(out, "utf8")).toBe(`eligible=true\nhead_sha=${HEAD}\n`);
+    expect(waits).toEqual([2000, 4000]);
+  });
+
+  it("gives up after the last try, saying which call failed even without a JSON body", async () => {
+    const api = fakeApi(state());
+    let calls = 0;
+    const down = async (url: string, init: RequestInit = {}) => {
+      if (!url.endsWith("/pulls/7/files?per_page=100")) return api.fetch(url, init);
+      calls++;
+      return new Response("<html>Bad gateway</html>", { status: 502 });
+    };
+    const e = env();
+    await expect(main("check", e, createGitHub(e, down as typeof fetch, noWait), () => {})).rejects.toThrow("GET /pulls/7/files?per_page=100: 502 (no JSON body)");
+    expect(calls).toBe(ATTEMPTS);
+    const offline = async () => {
+      throw new TypeError("fetch failed");
+    };
+    await expect(main("check", e, createGitHub(e, offline as typeof fetch, noWait), () => {})).rejects.toThrow("fetch failed");
+  });
+
+  it("waits for real between tries by default", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const once = async () => {
+        calls++;
+        return calls === 1 ? new Response("", { status: 503 }) : new Response(JSON.stringify(pr()), { status: 200 });
+      };
+      const e = env();
+      const github = createGitHub(e, once as typeof fetch);
+      const reading = github.read(7).catch(() => null);
+      await vi.advanceTimersByTimeAsync(2000);
+      await reading;
+      expect(calls).toBeGreaterThan(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not try a 4xx again", async () => {
+    let calls = 0;
+    const missing = async () => {
+      calls++;
+      return new Response(JSON.stringify({ message: "Not Found" }), { status: 404 });
+    };
+    const e = env();
+    await expect(main("check", e, createGitHub(e, missing as typeof fetch, noWait), () => {})).rejects.toThrow("GET /pulls/7: 404 Not Found");
+    expect(calls).toBe(1);
+  });
+
   it("throws on a GraphQL error", async () => {
     const api = fakeApi(state());
     const failing = async (url: string, init: RequestInit = {}) =>
       url.endsWith("/graphql") ? new Response(JSON.stringify({ errors: [{ message: "Auto merge is not allowed" }] }), { status: 200 }) : api.fetch(url, init);
     const e = env({ HEAD_SHA: HEAD });
-    await expect(main("merge", e, createGitHub(e, failing as typeof fetch), () => {})).rejects.toThrow("GraphQL: Auto merge is not allowed");
+    await expect(main("merge", e, createGitHub(e, failing as typeof fetch, noWait), () => {})).rejects.toThrow("GraphQL: Auto merge is not allowed");
   });
 });

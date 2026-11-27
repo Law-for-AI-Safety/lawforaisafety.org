@@ -7,7 +7,10 @@
  * - from a `cms/<page>-<YYYY-MM-DD>` branch (optional `-N`) in this repository, into `main`;
  * - every commit authored and committed by the bot, signed by GitHub, and not a merge;
  * - exactly one file changed, `content/<page>.json` for the page in the branch name, modified
- *   (not added, removed or renamed).
+ *   (not added, removed or renamed);
+ * - no maintainer has stepped in: it was never closed (a declined pull request that is
+ *   reopened is theirs), and nobody but this workflow turned its auto-merge on or off or
+ *   dismissed a review on it.
  *
  * Anything else is left for a maintainer, and whatever this script did on the pull request
  * before (its approvals, the auto-merge it enabled) is taken back: a maintainer's push makes
@@ -39,6 +42,10 @@ export const ACTIONS_LOGIN = "github-actions[bot]";
 export const MARKER = "<!-- cms-auto-merge -->";
 /** One page of a list; a pull request with more is not the editor's. */
 const PAGE = 100;
+/** Events by which a maintainer takes a pull request over, unless this workflow caused them. */
+const TAKEOVER = new Set(["auto_merge_enabled", "auto_merge_disabled", "auto_squash_enabled", "auto_rebase_enabled", "review_dismissed"]);
+/** Tries per GitHub request: a transient failure must not take back a pull request that qualifies. */
+export const ATTEMPTS = 3;
 
 // The slug rule from src/cms/slugs.ts, then the date and the optional attempt from
 // src/cms/branch-publish.ts (`-2`, `-3`, ... never `-1`).
@@ -58,10 +65,10 @@ const short = (/** @type {string} */ sha) => sha.slice(0, 12);
 
 /**
  * Every reason the pull request must not merge itself; none means it may.
- * @param {{ botLogin: string, repository: string, pr: any, commits: any[], files: any[] }} input
+ * @param {{ botLogin: string, repository: string, pr: any, commits: any[], files: any[], events: any[] }} input
  * @returns {string[]}
  */
-export function checkAutoMerge({ botLogin, repository, pr, commits, files }) {
+export function checkAutoMerge({ botLogin, repository, pr, commits, files, events }) {
   const login = botLogin.trim();
   const bad = botLoginProblem(login);
   if (bad) return [bad];
@@ -108,6 +115,14 @@ export function checkAutoMerge({ botLogin, repository, pr, commits, files }) {
     else if (c.commit.verification?.verified !== true) problems.push(`Commit ${short(c.sha)} is not signed by GitHub.`);
     if (c.parents.length > 1) problems.push(`Commit ${short(c.sha)} is a merge commit.`);
   }
+
+  if (events.length >= PAGE) problems.push(`It has ${events.length} or more events, so they cannot all be checked.`);
+  if (events.some((e) => e.event === "closed")) problems.push("It was closed before, so a maintainer decides.");
+  for (const e of events) {
+    if (TAKEOVER.has(e.event) && !same(e.actor?.login, ACTIONS_LOGIN)) {
+      problems.push(`${e.actor?.login ?? "Someone"} took it over (${e.event}), so they decide.`);
+    }
+  }
   return problems;
 }
 
@@ -134,10 +149,12 @@ export function planActions({ eligible, pr, reviews, comments }) {
 
 /**
  * The GitHub API, through `fetch` (a parameter, so tests can fake it).
+ * Network failures and 5xx answers are tried again, up to ATTEMPTS times.
  * @param {Record<string, string | undefined>} env
  * @param {typeof fetch} fetchImpl
+ * @param {(ms: number) => Promise<void>} wait
  */
-export function createGitHub(env, fetchImpl = fetch) {
+export function createGitHub(env, fetchImpl = fetch, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
   const api = env.GITHUB_API_URL ?? "https://api.github.com";
   const headers = {
     authorization: `Bearer ${env.GITHUB_TOKEN}`,
@@ -145,41 +162,60 @@ export function createGitHub(env, fetchImpl = fetch) {
     "x-github-api-version": "2022-11-28",
     "content-type": "application/json",
   };
+  /**
+   * The answer and its body (parsed when it is JSON), trying again on a network failure or a
+   * 5xx. @param {string} url @param {string} method @param {unknown} [body]
+   * @returns {Promise<{ status: number, ok: boolean, json: any }>}
+   */
+  const send = async (url, method, body) => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const response = await fetchImpl(url, {
+          method,
+          headers,
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          signal: AbortSignal.timeout(30_000),
+        });
+        const text = await response.text();
+        if (response.status < 500 || attempt === ATTEMPTS) {
+          let json = null;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            // A proxy's error page, say: reported by status alone.
+          }
+          return { status: response.status, ok: response.ok, json };
+        }
+      } catch (e) {
+        if (attempt === ATTEMPTS) throw e;
+      }
+      await wait(attempt * 2000);
+    }
+  };
   /** @param {string} method @param {string} route @param {unknown} [body] */
   const rest = async (method, route, body) => {
-    const response = await fetchImpl(`${api}/repos/${env.GITHUB_REPOSITORY}${route}`, {
-      method,
-      headers,
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    const json = await response.json();
-    if (!response.ok) throw new Error(`${method} ${route}: ${response.status} ${json.message}`);
+    const { status, ok, json } = await send(`${api}/repos/${env.GITHUB_REPOSITORY}${route}`, method, body);
+    if (!ok || json === null) throw new Error(`${method} ${route}: ${status} ${json?.message ?? "(no JSON body)"}`);
     return json;
   };
   /** @param {string} query @param {Record<string, string>} variables */
   const graphql = async (query, variables) => {
-    const response = await fetchImpl(`${api}/graphql`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query, variables }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    const json = await response.json();
-    if (!response.ok || json.errors?.length) throw new Error(`GraphQL: ${json.errors?.map((/** @type {any} */ e) => e.message).join("; ") ?? response.status}`);
+    const { status, ok, json } = await send(`${api}/graphql`, "POST", { query, variables });
+    if (!ok || !json || json.errors?.length) throw new Error(`GraphQL: ${json?.errors?.map((/** @type {any} */ e) => e.message).join("; ") ?? status}`);
     return json.data;
   };
   return {
     /** @param {number} n */
     read: async (n) => {
       const pr = await rest("GET", `/pulls/${n}`);
-      const [commits, files, reviews, comments] = await Promise.all([
+      const [commits, files, reviews, comments, events] = await Promise.all([
         rest("GET", `/pulls/${n}/commits?per_page=${PAGE}`),
         rest("GET", `/pulls/${n}/files?per_page=${PAGE}`),
         rest("GET", `/pulls/${n}/reviews?per_page=${PAGE}`),
         rest("GET", `/issues/${n}/comments?per_page=${PAGE}`),
+        rest("GET", `/issues/${n}/events?per_page=${PAGE}`),
       ]);
-      return { pr, commits, files, reviews, comments };
+      return { pr, commits, files, reviews, comments, events };
     },
     /** @param {number} n @param {string} sha @param {string} body */
     approve: (n, sha, body) => rest("POST", `/pulls/${n}/reviews`, { commit_id: sha, event: "APPROVE", body }),
@@ -206,18 +242,21 @@ export function createGitHub(env, fetchImpl = fetch) {
 const approval = (page, login) =>
   `The website editor's change to ${ALLOWED_DIR}${page}.json alone, every commit by ${login}: approved automatically by .github/workflows/cms-auto-merge.yml.`;
 
-/** @param {string} page @param {string} notify */
-const commentBody = (page, notify) =>
+/** @param {string} page @param {string} notify @param {boolean} merged */
+const commentBody = (page, notify, merged) =>
   [
     MARKER,
-    `This pull request changes only \`${ALLOWED_DIR}${page}.json\`, and every commit in it is the website editor's, so it was approved automatically and will merge itself once the required checks pass.${notify ? ` @${notify}` : ""}`,
+    `This pull request changes only \`${ALLOWED_DIR}${page}.json\`, and every commit in it is the website editor's, so it was approved automatically and ${merged ? "merged, its required checks having passed" : "will merge itself once the required checks pass"}.${notify ? ` @${notify}` : ""}`,
     "",
-    "To stop it, push a commit of your own (that leaves it for a maintainer to merge) or close it with a comment, which the editor sees.",
+    merged
+      ? "To undo it, revert the merge commit on main."
+      : "To stop it, disable auto-merge or push a commit of your own (either leaves it for a maintainer to merge), or close it with a comment, which the editor sees.",
   ].join("\n");
 
 /**
- * Runs one mode. Returns the exit code; what it found goes to `log`. GitHub errors throw, so
- * the job fails and a later run decides again.
+ * Runs one mode. Returns the exit code; what it found goes to `log`. GitHub errors that
+ * outlast the retries throw, so the job fails. A failed check is followed by `withdraw`
+ * (the safe direction), so the pull request waits for a maintainer, or for its next event.
  * @param {string} mode @param {Record<string, string | undefined>} env @param {GitHub} github
  * @param {(line: string) => void} log
  */
@@ -226,7 +265,7 @@ export async function main(mode, env, github, log = console.log) {
     log(`::error::Unknown mode "${escapeCommand(mode)}": use check, merge or withdraw.`);
     return 1;
   }
-  const required = ["PR_NUMBER", ...(mode === "merge" ? ["HEAD_SHA"] : [])];
+  const required = ["PR_NUMBER", ...(mode === "check" ? ["GITHUB_OUTPUT"] : []), ...(mode === "merge" ? ["HEAD_SHA"] : [])];
   const missing = required.filter((name) => !env[name]);
   if (missing.length) {
     log(`::error::The CMS auto-merge needs ${missing.join(", ")}.`);
@@ -269,14 +308,16 @@ export async function main(mode, env, github, log = console.log) {
     try {
       await github.enableAutoMerge(pr.node_id, pr.head.sha);
     } catch (e) {
-      // GitHub refuses auto-merge on a pull request that may already merge (its checks passed
-      // before it was approved, say). Merging it now is the same, under the same protection.
-      if (!/clean status/i.test(String(e))) throw e;
+      // GitHub refuses auto-merge on a pull request that may already merge: its required
+      // checks passed before it was approved ("clean"), with a check that is not required
+      // still pending or failing ("unstable"), or with hooks to run ("has_hooks"). Merging that
+      // head now is the same, under the same protection.
+      if (!/\b(clean|unstable|has_hooks) status/i.test(String(e))) throw e;
       await github.merge(n, pr.head.sha);
       merged = true;
     }
   }
-  if (plan.comment) await github.comment(n, commentBody(page, (env.NOTIFY ?? "").trim()));
+  if (plan.comment) await github.comment(n, commentBody(page, (env.NOTIFY ?? "").trim(), merged));
   const done = [
     plan.dismiss.length && `dismissed ${plan.dismiss.length} approval(s)`,
     plan.disable && "turned off auto-merge",
