@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireNewsletter } from "@/lib/newsletter-access";
 import { getNewsletter } from "@/lib/newsletter-store";
+import { getNewsRadarSettings, listPickerItems } from "@/lib/news-radar-store";
 import { emailSender } from "@/lib/email";
 import { renderNewsletterHtml } from "@/newsletter/template";
 import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
@@ -10,6 +11,7 @@ import { statusOf, websiteStanding, withSent } from "../load";
 import StatusBadge from "../StatusBadge";
 import WebsiteOption from "../WebsiteOption";
 import Composer from "./Composer";
+import type { PickerItem } from "./RadarPicker";
 import SubmittedControls from "./SubmittedControls";
 
 export const metadata: Metadata = {
@@ -25,6 +27,21 @@ function senderLabel(): string {
   } catch {
     return "(no sender set: BREVO_FROM_EMAIL is missing)";
   }
+}
+
+/** Recent News radar items for the composer, with their topics by name. */
+async function radarItems(): Promise<PickerItem[]> {
+  const [items, settings] = await Promise.all([listPickerItems(new Date()), getNewsRadarSettings()]);
+  const names = new Map(settings.topics.map((t) => [t.id, t.name]));
+  return items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    outlet: item.outlet,
+    url: item.url,
+    publishedAt: item.publishedAt?.toISOString() ?? null,
+    topics: item.topics.map((t) => names.get(t) ?? t),
+    state: item.state === "useful" ? "useful" : "new",
+  }));
 }
 
 /** One newsletter: the editor while it is a draft, or where it stands once Brevo has it. */
@@ -57,6 +74,7 @@ export default async function NewsletterPage({ params }: { params: Promise<{ id:
         sender={sender}
         onWebsite={row.webPublished}
         website={<WebsiteOption id={row.id} initial={websiteStanding(row)} />}
+        radar={await radarItems()}
       />
     );
   }

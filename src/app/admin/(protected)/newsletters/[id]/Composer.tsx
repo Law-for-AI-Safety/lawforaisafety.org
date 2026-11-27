@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { Editor } from "@tiptap/core";
 import RichTextField from "@/app/admin/cms/[slug]/RichTextField";
 import { scheduleProblem } from "@/newsletter/schedule";
 import { siteUrl, TEST_UNSUBSCRIBE_HREF } from "@/newsletter/site";
@@ -16,6 +17,7 @@ import {
 import { deleteNewsletter, saveNewsletter, scheduleNewsletter, sendTestNewsletter } from "../actions";
 import ConfirmSend from "../ConfirmSend";
 import WhenPicker, { whenFromInput } from "../WhenPicker";
+import RadarPicker, { type PickerItem } from "./RadarPicker";
 
 type Notice = { tone: "ok" | "error"; text: string } | null;
 
@@ -69,6 +71,7 @@ export default function Composer({
   sender,
   website,
   onWebsite,
+  radar,
 }: {
   id: string;
   initial: NewsletterFields;
@@ -80,6 +83,8 @@ export default function Composer({
   website: ReactNode;
   /** Whether "Also publish on the website" is ticked, for the confirmation step. */
   onWebsite: boolean;
+  /** Recent News radar items, for "Insert from News radar". */
+  radar: PickerItem[];
 }) {
   const router = useRouter();
   const [fields, setFields] = useState(initial);
@@ -91,6 +96,7 @@ export default function Composer({
   const [when, setWhen] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [editor, setEditor] = useState<Editor | null>(null);
 
   const dirty = fields.subject !== saved.subject || fields.previewText !== saved.previewText || fields.body !== saved.body;
   const problems = newsletterProblems(fields);
@@ -167,7 +173,7 @@ export default function Composer({
         <Link href="/admin/newsletters" className="text-sm underline">
           All newsletters
         </Link>
-        <h1 className="font-sans text-3xl text-brand-black">Write the newsletter</h1>
+        <h1 className="font-sans text-3xl text-brand-black">Write the subscriber newsletter</h1>
         <TextField
           label="Subject"
           value={fields.subject}
@@ -184,7 +190,15 @@ export default function Composer({
           hint="Shown after the subject in most inboxes. Optional."
           problem={problems.previewText}
         />
-        <RichTextField label="Newsletter" value={fields.body} kind="blocks" onChange={set("body")} invalid={!!problems.body && fields.body !== ""} />
+        <RadarPicker items={radar} body={fields.body} editor={editor} onAppend={set("body")} />
+        <RichTextField
+          label="Newsletter"
+          value={fields.body}
+          kind="blocks"
+          onChange={set("body")}
+          invalid={!!problems.body && fields.body !== ""}
+          onEditor={setEditor}
+        />
         {problems.body && fields.body !== "" && <p className="text-sm text-brand-red">{problems.body}</p>}
 
         <div className="flex flex-wrap items-center gap-3">
