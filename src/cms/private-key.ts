@@ -24,6 +24,8 @@ const FORMATS: Record<string, KeyFormat> = { "RSA PRIVATE KEY": "pkcs1", "PRIVAT
 /** A GitHub App key is well over this; an OAuth client secret (40 characters) or an ID is well under. */
 const SHORTEST_KEY = 200;
 
+const MIN_BITS = 2048;
+
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 const problem = (text: string): KeyReading => ({ ok: false, problem: `${KEY_ENV} ${text}` });
@@ -64,7 +66,7 @@ export function readPrivateKey(raw: string): KeyReading {
   if (!begin) return problem("has a -----BEGIN line this site cannot read. Paste the whole .pem file again.");
   const label = begin[1];
   const format = FORMATS[label];
-  if (!format) return problem(`is a ${label}, not an RSA private key. Use the .pem file from the App's Key pairs section (BEGIN RSA PRIVATE KEY).`);
+  if (!format) return problem(`is ${/^[AEIOU]/.test(label) ? "an" : "a"} ${label}, not an RSA private key. Use the .pem file from the App's Key pairs section (BEGIN RSA PRIVATE KEY).`);
 
   const rest = text.slice(begin.index + begin[0].length);
   const end = rest.indexOf(`-----END ${label}-----`);
@@ -83,10 +85,13 @@ export function readPrivateKey(raw: string): KeyReading {
     key = createPrivateKey(pem);
   } catch {
     // The parser's message can quote the key, so it is not passed on.
-    return problem(`could not be read as a ${label}. It may have been cut short or changed: paste the whole .pem file again.`);
+    return problem(`could not be read as ${format === "pkcs1" ? "a PKCS#1" : "a PKCS#8"} private key. It may have been cut short or changed: paste the whole .pem file again.`);
   }
-  if (key.asymmetricKeyType !== "rsa") return problem(`is a ${key.asymmetricKeyType?.toUpperCase()} key, not an RSA key. GitHub App keys are RSA.`);
-  return { ok: true, key, format, bits: key.asymmetricKeyDetails?.modulusLength ?? 0 };
+  if (key.asymmetricKeyType !== "rsa") return problem(`is not an RSA key (its type is ${key.asymmetricKeyType}). GitHub App keys are RSA.`);
+  const bits = key.asymmetricKeyDetails?.modulusLength ?? 0;
+  // Signing a JWT with RS256 needs at least this; GitHub issues 2048-bit keys.
+  if (bits < MIN_BITS) return problem(`is an RSA key of ${bits} bits; it needs at least ${MIN_BITS}. Use the .pem file GitHub issued.`);
+  return { ok: true, key, format, bits };
 }
 
 /** A key's kind and size, as Settings shows it. */

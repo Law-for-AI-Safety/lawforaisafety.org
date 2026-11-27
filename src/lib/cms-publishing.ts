@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql, type SQL } from "drizzle-orm";
 import { adminAuditLog } from "@/drizzle/schema";
 import { GitHubAppClient, GitHubError, gitHubClientFor, type GitHubClient } from "@/cms/github";
 import { gitHubSetup, MAIN_BRANCH } from "@/cms/github-config";
@@ -47,8 +47,8 @@ export function gitHubSetupProblem(): string | null {
 export type PublishingHealth = {
   /** Whether the GitHub App's settings are all present and its key can be read. */
   settings: { ok: true; key: string; repo: string } | { ok: false; problem: string };
-  /** The most recent publish that failed for a reason other than the page itself. */
-  lastFailure: { at: Date; page: string; step: string | null; error: string; setup: boolean } | null;
+  /** The most recent publish or withdrawal that failed for a reason other than the page itself. */
+  lastFailure: { at: Date; page: string; action: "publish" | "withdraw"; step: string | null; error: string; setup: boolean } | null;
   /** When a page was last sent for publishing. */
   lastSent: Date | null;
 };
@@ -68,14 +68,22 @@ export async function publishingHealth(): Promise<PublishingHealth> {
   }
 
   const outcome = sql<string>`${adminAuditLog.detail}->>'outcome'`;
-  const latest = (outcomes: string[]) =>
+  const latest = (where: SQL | undefined) =>
     db
-      .select({ at: adminAuditLog.at, detail: adminAuditLog.detail })
+      .select({ at: adminAuditLog.at, action: adminAuditLog.action, detail: adminAuditLog.detail })
       .from(adminAuditLog)
-      .where(and(eq(adminAuditLog.action, "cms_publish"), sql`${outcome} in (${sql.join(outcomes.map((o) => sql`${o}`), sql`, `)})`))
+      .where(where)
       .orderBy(desc(adminAuditLog.at))
       .limit(1);
-  const [[failed], [sent]] = await Promise.all([latest(["failed", "not_set_up"]), latest(["sent"])]);
+  const [[failed], [sent]] = await Promise.all([
+    latest(
+      or(
+        and(eq(adminAuditLog.action, "cms_publish"), sql`${outcome} in ('failed', 'not_set_up')`),
+        and(eq(adminAuditLog.action, "cms_withdraw"), sql`${outcome} = 'github'`),
+      ),
+    ),
+    latest(and(eq(adminAuditLog.action, "cms_publish"), sql`${outcome} = 'sent'`)),
+  ]);
 
   let lastFailure: PublishingHealth["lastFailure"] = null;
   if (failed) {
@@ -84,9 +92,10 @@ export async function publishingHealth(): Promise<PublishingHealth> {
     lastFailure = {
       at: failed.at,
       page: String(detail.page),
+      action: failed.action === "cms_withdraw" ? "withdraw" : "publish",
       step: typeof detail.step === "string" ? detail.step : null,
       error: typeof detail.error === "string" ? detail.error : notSetUp ? "Publishing is not set up" : "No error was recorded",
-      // Failures recorded before setup problems were told apart are judged by their error.
+      // An entry without `setup` counts as one when its error is about the key.
       setup: notSetUp || detail.setup === true || (typeof detail.error === "string" && detail.error.startsWith("GITHUB_APP_PRIVATE_KEY")),
     };
   }

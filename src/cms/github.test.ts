@@ -30,6 +30,7 @@ describe("telling setup problems from passing ones", () => {
     [403, "Resource not accessible by integration", true],
     [404, "Not Found", true],
     [403, "API rate limit exceeded for installation", false],
+    [403, "You have triggered an abuse detection mechanism", false],
     [422, "Reference already exists", false],
     [500, "Server Error", false],
     [0, "Could not reach GitHub", false],
@@ -40,6 +41,24 @@ describe("telling setup problems from passing ones", () => {
   it("marks a refused installation token as a setup problem", async () => {
     github.failNext("POST /app/installations/777/access_tokens", { status: 404 });
     await expect(client().branchHead("main")).rejects.toMatchObject({ status: 404, setup: true });
+  });
+
+  it("marks an installation token refused for the repo or its permissions as a setup problem", async () => {
+    github.failNext("POST /app/installations/777/access_tokens", { status: 422 });
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 422, setup: true });
+  });
+
+  it.each([
+    ["Retry-After", { "retry-after": "60" }],
+    ["no requests left", { "x-ratelimit-remaining": "0" }],
+  ])("does not mark a 403 with %s as one", async (_what, headers) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ message: "Forbidden" }, { status: 403, headers }));
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 403, setup: false });
+  });
+
+  it("does not mark a throttled installation token as one", async () => {
+    github.failNext("POST /app/installations/777/access_tokens", { status: 429 });
+    await expect(client().branchHead("main")).rejects.toMatchObject({ status: 429, setup: false });
   });
 
   it("does not mark a timeout as one", async () => {

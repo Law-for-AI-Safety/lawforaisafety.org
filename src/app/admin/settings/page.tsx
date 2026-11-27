@@ -225,7 +225,7 @@ export default async function AdminSettingsPage({
         {publishing.lastFailure ? (
           <div className="flex flex-col gap-1">
             <p className="text-brand-black">
-              Last failure:{" "}
+              Last failure{publishing.lastFailure.action === "withdraw" ? " (withdrawing)" : ""}:{" "}
               {publishing.lastFailure.at.toLocaleString("en-GB", { timeZone: "UTC" })} UTC, page{" "}
               {publishing.lastFailure.page}
               {publishing.lastFailure.step && <>, at step {publishing.lastFailure.step}</>}

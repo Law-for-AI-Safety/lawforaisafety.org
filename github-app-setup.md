@@ -76,7 +76,7 @@ Paste the `.pem` file as it is. Hosts often change a value on the way in, so the
 - with whitespace or quotes (`"`, `'` or `` ` ``) around it;
 - base64-encoded as a whole (`base64 -w0 key.pem`), for a host that cannot keep the PEM.
 
-It rebuilds a proper PEM from the `BEGIN` line's type and the base64 between the `BEGIN` and `END` lines. Both `BEGIN RSA PRIVATE KEY` (PKCS#1, as GitHub issues it) and `BEGIN PRIVATE KEY` (PKCS#8, e.g. after `openssl pkcs8 -topk8 -nocrypt`) work. It must be an RSA key without a passphrase.
+It rebuilds a proper PEM from the `BEGIN` line's type and the base64 between the `BEGIN` and `END` lines. Both `BEGIN RSA PRIVATE KEY` (PKCS#1, as GitHub issues it) and `BEGIN PRIVATE KEY` (PKCS#8, e.g. after `openssl pkcs8 -topk8 -nocrypt`) work. It must be an RSA key of at least 2048 bits, without a passphrase.
 
 When the key cannot be read, the site says why without quoting any of it: it has no `BEGIN` line; it is too short and looks like a client secret (a common mix-up: the key is under **Key pairs**, not Client secrets); it is another kind of PEM (a public key, a certificate, an OpenSSH or encrypted key); it has no matching `END` line; the text between the lines is not base64; or it could not be parsed (usually cut short).
 
@@ -85,12 +85,12 @@ When the key cannot be read, the site says why without quoting any of it: it has
 **Settings → Publishing** (technical admins) shows:
 
 - whether the settings are all present and how the key reads (for example "PKCS#1 RSA key, 2048 bits"), or which settings are missing and what is wrong with the key;
-- the last publish that failed: when, which page, the step, and the error, marked as a setup problem or one that may pass on a retry;
+- the last publish or withdrawal that failed: when, which page, the step, and the error, marked as a setup problem or one that may pass on a retry;
 - **Check connection**: signs in as the App afresh and reads the head of `main`, changing nothing. It answers "Connected to … main is at <commit>" or the error.
 
 Use **Check connection** after changing any of these settings and redeploying.
 
-When a publish fails because of the setup (a key that cannot be read, settings missing, or GitHub answering 401, 403 or 404 to the App or the repo), the editor is told it is a setup problem that trying again will not fix, and that a technical admin can see the details in Settings. Their draft is kept. Timeouts, GitHub's server errors and rate limits keep the "try again in a few minutes" message. Each failure is also in the audit log (`/admin/audit`, action `cms_publish`).
+When a publish fails because of the setup (a key that cannot be read, settings missing, GitHub refusing the App a token for the repo, or answering 401, 403 or 404 to the App or the repo), the editor is told it is a setup problem that trying again will not fix, and that a technical admin can see the details in Settings. Their draft is kept. Timeouts, GitHub's server errors and rate limits (including a 403 that says to wait) keep the "try again in a few minutes" message. Each failure is also in the audit log (`/admin/audit`, action `cms_publish`).
 
 Env var changes apply from the next deploy. The server never logs the key or the tokens it gets with it. Each installation token it requests is limited to this repo and to contents and pull requests, and is reused until shortly before it expires (one hour).
 

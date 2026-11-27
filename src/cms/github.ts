@@ -73,7 +73,12 @@ export interface GitHubClient {
  * installation or repo is not there for it (404). A 403 for a rate limit passes with time.
  */
 function isSetupStatus(status: number, message: string): boolean {
-  return (status === 401 || status === 403 || status === 404) && !/rate limit/i.test(message);
+  return (status === 401 || status === 403 || status === 404) && !isThrottled(message);
+}
+
+/** GitHub's rate limits and abuse detection, which pass with time; GitHub also says so in headers. */
+function isThrottled(message: string, headers?: Headers): boolean {
+  return /rate limit|abuse|retry later/i.test(message) || Boolean(headers?.get("retry-after")) || headers?.get("x-ratelimit-remaining") === "0";
 }
 
 /**
@@ -113,10 +118,10 @@ const JWT_BACKDATE_S = 60;
 
 type Json = Record<string, unknown>;
 
-/** GitHub has no such installation for the App, so it gives no token. */
+/** GitHub would not give the App an installation token for this repo: always a setup problem. */
 class TokenRefused extends GitHubError {
-  constructor(message: string) {
-    super(404, message, true);
+  constructor(status: number, message: string) {
+    super(status, message, true);
   }
 }
 
@@ -164,8 +169,9 @@ export class GitHubAppClient implements GitHubClient {
         body: { repositories: [this.config.repo], permissions: { contents: "write", pull_requests: "write" } },
       });
     } catch (e) {
-      // A 404 here is a wrong installation ID, not a missing file or branch (see `maybe`).
-      if (e instanceof GitHubError && e.status === 404) throw new TokenRefused(e.message);
+      // Refused by the installation (a wrong installation ID is a 404, a repo it is not installed
+      // on or a permission it lacks a 422): setup, unless throttled. Never a missing file (`maybe`).
+      if (e instanceof GitHubError && e.status >= 400 && e.status < 500 && e.status !== 429 && (e.setup || e.status !== 403)) throw new TokenRefused(e.status, e.message);
       throw e;
     }
     const token = body.token;
@@ -213,7 +219,8 @@ export class GitHubAppClient implements GitHubClient {
     }
     if (!response.ok) {
       const detail = typeof json.message === "string" ? json.message : `HTTP ${response.status}`;
-      throw new GitHubError(response.status, `GitHub refused ${method} ${path}: ${detail}`);
+      const message = `GitHub refused ${method} ${path}: ${detail}`;
+      throw new GitHubError(response.status, message, isSetupStatus(response.status, message) && !isThrottled(message, response.headers));
     }
     return { json, next: this.nextPage(response.headers.get("link")) };
   }

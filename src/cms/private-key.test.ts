@@ -110,7 +110,7 @@ describe("a value that is not a usable key", () => {
     ["OPENSSH PRIVATE KEY", "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjE=\n-----END OPENSSH PRIVATE KEY-----"],
     ["ENCRYPTED PRIVATE KEY", "-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIB\n-----END ENCRYPTED PRIVATE KEY-----"],
   ])("is a %s", (label, stored) => {
-    expectProblem(stored, `GITHUB_APP_PRIVATE_KEY is a ${label}, not an RSA private key`);
+    expectProblem(stored, `GITHUB_APP_PRIVATE_KEY is ${/^[AEIOU]/.test(label) ? "an" : "a"} ${label}, not an RSA private key`);
   });
 
   it("is cut short before its END line", () => {
@@ -136,13 +136,23 @@ describe("a value that is not a usable key", () => {
     expectProblem(stored, /not base64/);
   });
 
-  it("is cut short inside its body", () => {
-    const text = expectProblem([lines[0], ...lines.slice(1, 6), lines.at(-1)].join("\n"), "could not be read as a RSA PRIVATE KEY");
+  it("is a PKCS#1 key cut short inside its body", () => {
+    const text = expectProblem([lines[0], ...lines.slice(1, 6), lines.at(-1)].join("\n"), "could not be read as a PKCS#1 private key");
     expect(text).not.toContain(body.slice(0, 12));
   });
 
   it("is an EC key, which GitHub Apps do not use", () => {
     const ec = generateKeyPairSync("ec", { namedCurve: "P-256", privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
-    expectProblem(ec.privateKey, "is a EC key, not an RSA key");
+    expectProblem(ec.privateKey, "is not an RSA key (its type is ec)");
+  });
+
+  it("is an RSA key too small to sign with", () => {
+    const small = generateKeyPairSync("rsa", { modulusLength: 1024, privateKeyEncoding: { type: "pkcs1", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
+    expectProblem(small.privateKey, "is an RSA key of 1024 bits; it needs at least 2048");
+  });
+
+  it("is a PKCS#8 key cut short", () => {
+    const short = pkcs8.privateKey.trimEnd().split("\n");
+    expectProblem([short[0], ...short.slice(1, 6), short.at(-1)].join("\n"), "could not be read as a PKCS#8 private key");
   });
 });

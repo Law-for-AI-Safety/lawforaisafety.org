@@ -79,7 +79,7 @@ describe("the Publishing section", () => {
     expect(section).not.toHaveTextContent("Last sent for publishing");
   });
 
-  it("counts failures logged before setup problems were marked by their key error", async () => {
+  it("counts a failure without the setup mark as one when its error is about the key", async () => {
     await logged({ page: "home", version: 3, outcome: "failed", step: "read_main", error: "GITHUB_APP_PRIVATE_KEY is not a valid PEM private key" });
     expect(await publishingSection()).toHaveTextContent("at step read_main (setup problem)");
   });
@@ -92,6 +92,18 @@ describe("the Publishing section", () => {
     expect(section).toHaveTextContent("page about, at step commit (may pass on a retry)");
     expect(section).toHaveTextContent("A page has been sent for publishing successfully since then.");
     expect(section).toHaveTextContent("Last sent for publishing 15/10/2026, 13:00:00 UTC.");
+  });
+
+  it("shows a withdrawal that failed", async () => {
+    await db.insert(adminAuditLog).values({
+      actorEmail: KIM,
+      action: "cms_withdraw",
+      at: new Date(),
+      detail: { page: "home", number: 3, outcome: "github", setup: true, error: "GitHub refused PATCH /pulls/3: Resource not accessible by integration" },
+    });
+    const section = await publishingSection();
+    expect(section).toHaveTextContent("Last failure (withdrawing): 15/10/2026, 12:00:00 UTC, page home (setup problem)");
+    expect(section).toHaveTextContent("Resource not accessible by integration");
   });
 
   it("shows a publish refused because it was not set up", async () => {
