@@ -12,7 +12,7 @@ import type { SourceOutcome } from "@/news-radar/types";
 import { cookieJar } from "../../../../test/next-headers";
 import { navigation } from "../../../../test/next-navigation";
 import { newsSources } from "../../../../test/fakes/news-sources";
-import { addToNewsletter, runNow, saveSettings, triageItem } from "./actions";
+import { runNow, saveSettings, triageItem } from "./actions";
 import NewsRadarLayout from "./layout";
 import NewsRadarPage from "./page";
 import NewsRadarSettingsPage from "./settings/page";
@@ -21,7 +21,7 @@ vi.mock("next/headers", () => import("../../../../test/next-headers"));
 
 /**
  * The News radar's admin pages and actions against a real database: who may do what, triage,
- * "Add to newsletter", the run status line and the settings.
+ * which items the subscriber newsletter links to, the run status line and the settings.
  */
 
 type Who = "signed out" | "admin" | "tech";
@@ -77,7 +77,7 @@ describe("who may do what", () => {
     await seedRun(MONDAY, [found(1)]);
     const { id } = await itemRow("Item 1");
     await signInAs("signed out");
-    for (const result of [await triageItem(id, "useful"), await addToNewsletter(id, null), await runNow(), await saveSettings(DEFAULT_SETTINGS)]) {
+    for (const result of [await triageItem(id, "useful"), await runNow(), await saveSettings(DEFAULT_SETTINGS)]) {
       expect(result).toMatchObject({ ok: false, message: expect.stringContaining("signed out") });
     }
     await expect(page()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
@@ -118,8 +118,6 @@ describe("who may do what", () => {
     expect(await triageItem("00000000-0000-4000-8000-000000000000", "useful", ["nope"])).toEqual({ ok: false, message: "The request was not understood." });
     expect(await triageItem("00000000-0000-4000-8000-000000000000", "archived")).toEqual({ ok: false, message: "The request was not understood." });
     expect(await triageItem("00000000-0000-4000-8000-000000000000", "useful")).toEqual({ ok: false, message: "That item no longer exists." });
-    expect(await addToNewsletter("00000000-0000-4000-8000-000000000000", "x")).toEqual({ ok: false, message: "The request was not understood." });
-    expect(await addToNewsletter("00000000-0000-4000-8000-000000000000", null)).toEqual({ ok: false, message: "That item no longer exists." });
   });
 });
 
@@ -228,65 +226,35 @@ describe("the items page", () => {
   });
 });
 
-describe("Add to newsletter", () => {
-  it("appends the title and link to the chosen draft", async () => {
-    await seedRun(MONDAY, [found(1, { title: "Court rules on AI", outlet: "Reuters" })]);
-    await signInAs("admin");
-    const draft = await insertNewsletter(EMAIL.admin);
-    await db.update(newsletters).set({ subject: "December update", body: "Intro." }).where(eq(newsletters.id, draft));
-
-    render(await page());
-    expect(screen.getByRole("combobox", { name: "Newsletter draft" })).toHaveValue(draft);
-    await userEvent.click(screen.getByRole("button", { name: "Add to newsletter" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Added to “December update”."));
-    expect(screen.getByRole("link", { name: "Open the draft" })).toHaveAttribute("href", `/admin/newsletters/${draft}`);
-    const [row] = await db.select().from(newsletters).where(eq(newsletters.id, draft));
-    expect(row).toMatchObject({ body: "Intro.\n\n- [Court rules on AI](https://news.test/1) (Reuters)", version: 2, updatedBy: EMAIL.admin });
-  });
-
-  it("builds one list when adding several items with no draft to start from", async () => {
-    await seedRun(MONDAY, [found(1), found(2)]);
-    await signInAs("admin");
-    render(await page());
-    const [first] = screen.getAllByRole("button", { name: "Add to newsletter" });
-    await userEvent.click(first);
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Added to “Untitled newsletter”."));
-    cleanup();
-    // After the refresh, the new draft is every item's target.
-    render(await page());
-    const [draft] = await db.select().from(newsletters);
-    for (const select of screen.getAllByRole("combobox", { name: "Newsletter draft" })) expect(select).toHaveValue(draft.id);
-    await userEvent.click(screen.getAllByRole("button", { name: "Add to newsletter" })[1]);
-    await waitFor(async () => expect((await db.select().from(newsletters))[0].body.split("\n")).toHaveLength(2));
-    expect(await db.select().from(newsletters)).toHaveLength(1);
-  });
-
-  it("starts a new draft when asked", async () => {
+describe("the subscriber newsletter", () => {
+  it("is not added to from here: items go in from the newsletter composer", async () => {
     await seedRun(MONDAY, [found(1)]);
+    await insertNewsletter(EMAIL.admin);
     await signInAs("admin");
-    const result = await addToNewsletter((await itemRow("Item 1")).id, null);
-    expect(result).toMatchObject({ ok: true, subject: "Untitled newsletter" });
-    const rows = await db.select().from(newsletters);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].body).toBe("- [Item 1](https://news.test/1) (News)");
+    render(await page());
+    expect(screen.queryByRole("button", { name: /newsletter/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /newsletter/i })).not.toBeInTheDocument();
   });
 
-  it("refuses a newsletter that is no longer a draft, and an item whose link cannot go in one", async () => {
-    await seedRun(MONDAY, [found(1), found(2, { url: "ftp://files.test/2" })]);
-    await signInAs("admin");
+  it("marks items a sent or scheduled issue or a draft links to, a sent one first, and not one partway to Brevo", async () => {
+    await seedRun(MONDAY, [found(1), found(2), found(3), found(4, { url: "http://news.test/4" })]);
+    const draft = await insertNewsletter(EMAIL.admin);
+    await db.update(newsletters).set({ body: "- [One](https://news.test/1)\n- [Two](https://news.test/2)\n- [Four](https://news.test/4)" }).where(eq(newsletters.id, draft));
     const sent = await insertNewsletter(EMAIL.admin);
-    await db.update(newsletters).set({ state: "submitted" }).where(eq(newsletters.id, sent));
-    expect(await addToNewsletter((await itemRow("Item 1")).id, sent)).toEqual({ ok: false, message: "That newsletter is no longer a draft. Choose another." });
-    expect(await addToNewsletter((await itemRow("Item 2")).id, null)).toMatchObject({ ok: false, message: expect.stringContaining("only https links") });
-    expect(await db.select().from(newsletters)).toHaveLength(1);
-  });
-
-  it("refuses a draft that would grow too long", async () => {
-    await seedRun(MONDAY, [found(1)]);
+    await db.update(newsletters).set({ state: "submitted", body: "See [two](https://news.test/2)." }).where(eq(newsletters.id, sent));
+    const handing = await insertNewsletter(EMAIL.admin);
+    await db.update(newsletters).set({ state: "submitting", body: "See [three](https://news.test/3)." }).where(eq(newsletters.id, handing));
+    const broken = await insertNewsletter(EMAIL.admin);
+    await db.update(newsletters).set({ body: "**unclosed [three](https://news.test/3)" }).where(eq(newsletters.id, broken));
     await signInAs("admin");
-    const draft = await insertNewsletter(EMAIL.admin);
-    await db.update(newsletters).set({ body: "a".repeat(100_000) }).where(eq(newsletters.id, draft));
-    expect(await addToNewsletter((await itemRow("Item 1")).id, draft)).toEqual({ ok: false, message: "That draft is too long to add more to." });
+    render(await page());
+    const entry = (title: string) => screen.getByRole("link", { name: title }).closest("li")!;
+    expect(within(entry("Item 1")).getByText("In a subscriber newsletter draft")).toBeInTheDocument();
+    expect(within(entry("Item 2")).getByText("In a sent or scheduled subscriber newsletter")).toBeInTheDocument();
+    expect(within(entry("Item 2")).queryByText("In a subscriber newsletter draft")).not.toBeInTheDocument();
+    expect(within(entry("Item 3")).queryByText(/In a subscriber newsletter/)).not.toBeInTheDocument();
+    // Its stored http: link went in upgraded to https:.
+    expect(within(entry("Item 4")).getByText("In a subscriber newsletter draft")).toBeInTheDocument();
   });
 });
 
