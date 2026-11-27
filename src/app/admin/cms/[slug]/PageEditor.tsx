@@ -254,17 +254,17 @@ export default function PageEditor(props: PageEditorProps) {
         )}
         {!props.statusChecked && (
           <p role="status" className="border border-brand-black/30 px-3 py-2 text-sm text-brand-black/80">
-            Could not check whether this page has been approved yet. Reload the page to try again.
+            Could not check whether this page has been published yet. Reload the page to try again.
           </p>
         )}
         {locked && (
           <div role="status" className="flex flex-col gap-2 border border-brand-navy bg-brand-navy/5 px-3 py-3 text-brand-black">
             {approved ? (
-              <p>Approved. The website is being updated, which takes a few minutes; then this page shows as Live.</p>
+              <p>Checks passed. The website is being updated, which takes a few minutes; then this page shows as Live.</p>
             ) : (
               <p>
-                Sent for publishing{sent ? ` on ${sent.at.toLocaleString("en-GB", DATE_FORMAT)} UTC by ${sent.by}` : ""}. It goes live once it is
-                approved. The page can&apos;t be changed until then.
+                Sent for publishing{sent ? ` on ${sent.at.toLocaleString("en-GB", DATE_FORMAT)} UTC by ${sent.by}` : ""}. It goes live in a few minutes,
+                once the automatic checks pass. The page can&apos;t be changed until then.
               </p>
             )}
             {canPublish && !approved && (

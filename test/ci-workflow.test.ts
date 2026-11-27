@@ -8,6 +8,10 @@ import { parse } from "yaml";
  * CI. Fork PRs run these workflows with a read-only token and no repository secrets, so the
  * workflows must never need either, and nothing they start may reach past the runner. CI must
  * also run the database tests, which `test:no-db` or a `--project` filter would leave out.
+ *
+ * One workflow is the exception: cms-auto-merge.yml approves and merges the website editor's
+ * pull requests, so it needs `pull_request_target` and a token that can write. Its own rules
+ * below keep it from ever running anything but main's code with that token.
  */
 
 const WORKFLOW_DIR = path.resolve(".github/workflows");
@@ -16,6 +20,8 @@ const LOCAL_HOSTS = ["localhost", "127.0.0.1"];
 const CREDENTIAL_NAME = /(KEY|TOKEN|SECRET|PASSWORD|PASS|CREDENTIALS?)$/i;
 
 type Yaml = Record<string, unknown>;
+
+const PRIVILEGED = "cms-auto-merge.yml";
 
 const workflows = fs
   .readdirSync(WORKFLOW_DIR)
@@ -55,24 +61,12 @@ function jobs(doc: Yaml): [string, Yaml][] {
   return Object.entries((doc.jobs ?? {}) as Record<string, Yaml>);
 }
 
-describe.each(workflows)("$file", ({ doc, text }) => {
-  it("is started only by pushes and pull requests", () => {
-    const on = doc.on;
-    const events =
-      typeof on === "string" ? [on] : Array.isArray(on) ? on : Object.keys((on ?? {}) as Yaml);
-    for (const event of events) expect(ALLOWED_TRIGGERS).toContain(event);
-  });
+const unprivileged = workflows.filter((w) => w.file !== PRIVILEGED);
 
+describe.each(workflows)("$file", ({ doc, text }) => {
   it("never references a repository secret", () => {
     for (const { at, value } of strings(doc)) {
       expect(value, `${at} references secrets`).not.toMatch(/secrets\s*\./);
-    }
-  });
-
-  it("grants only read access to the repository, at the workflow level", () => {
-    expect(doc.permissions).toEqual({ contents: "read" });
-    for (const [name, job] of jobs(doc)) {
-      expect(job.permissions, `job ${name} sets its own permissions`).toBeUndefined();
     }
   });
 
@@ -98,13 +92,6 @@ describe.each(workflows)("$file", ({ doc, text }) => {
     }
   });
 
-  it("gives every credential-shaped variable a literal dummy value", () => {
-    for (const { at, name, value } of envEntries(doc)) {
-      if (!CREDENTIAL_NAME.test(name)) continue;
-      expect(value, `${at}.${name}`).not.toMatch(/\$\{\{/);
-    }
-  });
-
   it("pulls service images without registry credentials", () => {
     for (const [name, job] of jobs(doc)) {
       for (const [service, spec] of Object.entries((job.services ?? {}) as Record<string, Yaml>)) {
@@ -116,6 +103,29 @@ describe.each(workflows)("$file", ({ doc, text }) => {
   it("never leaves out the database-backed tests", () => {
     expect(text).not.toContain("test:no-db");
     expect(text).not.toContain("--project");
+  });
+});
+
+describe.each(unprivileged)("$file", ({ doc }) => {
+  it("is started only by pushes and pull requests", () => {
+    const on = doc.on;
+    const events =
+      typeof on === "string" ? [on] : Array.isArray(on) ? on : Object.keys((on ?? {}) as Yaml);
+    for (const event of events) expect(ALLOWED_TRIGGERS).toContain(event);
+  });
+
+  it("grants only read access to the repository, at the workflow level", () => {
+    expect(doc.permissions).toEqual({ contents: "read" });
+    for (const [name, job] of jobs(doc)) {
+      expect(job.permissions, `job ${name} sets its own permissions`).toBeUndefined();
+    }
+  });
+
+  it("gives every credential-shaped variable a literal dummy value", () => {
+    for (const { at, name, value } of envEntries(doc)) {
+      if (!CREDENTIAL_NAME.test(name)) continue;
+      expect(value, `${at}.${name}`).not.toMatch(/\$\{\{/);
+    }
   });
 });
 
@@ -162,9 +172,73 @@ describe("cms-guard.yml", () => {
   });
 });
 
-it("CODEOWNERS gives the workflows and the CMS guard to a maintainer", () => {
+describe("cms-auto-merge.yml", () => {
+  const auto = workflows.find((w) => w.file === PRIVILEGED);
+  const all = () => jobs(auto!.doc);
+  const job = (name: string) => all().find(([n]) => n === name)?.[1] ?? {};
+  const steps = (name: string) => (job(name).steps ?? []) as Yaml[];
+
+  it("runs when a pull request opens or changes, from the base branch's copy of the workflow", () => {
+    expect(auto).toBeDefined();
+    expect(auto!.doc.on).toEqual({
+      pull_request_target: { types: ["opened", "synchronize", "reopened", "edited", "ready_for_review", "converted_to_draft"] },
+    });
+    // One run per pull request at a time; a newer event replaces an older run.
+    expect(auto!.doc.concurrency).toEqual({ group: "cms-auto-merge-${{ github.event.pull_request.number }}", "cancel-in-progress": true });
+  });
+
+  it("grants nothing at the workflow level, read only to the check and write only to the jobs that act", () => {
+    expect(auto!.doc.permissions).toEqual({});
+    expect(all().map(([name]) => name)).toEqual(["check", "merge", "withdraw"]);
+    expect(job("check").permissions).toEqual({ contents: "read", "pull-requests": "read" });
+    for (const name of ["merge", "withdraw"]) {
+      // Contents write is what enabling and disabling auto-merge need; nothing is pushed.
+      expect(job(name).permissions, name).toEqual({ contents: "write", "pull-requests": "write" });
+    }
+  });
+
+  it("only looks at pull requests the CMS bot opened, and acts only on the check's answer", () => {
+    expect(job("check").if).toBe("github.event.pull_request.user.login == vars.CMS_BOT_LOGIN");
+    expect(job("merge").needs).toBe("check");
+    expect(job("merge").if).toBe("needs.check.outputs.eligible == 'true'");
+    expect(job("withdraw").needs).toBe("check");
+    // A failed check takes back too; a skipped one (not the bot's pull request) does nothing.
+    expect(job("withdraw").if).toBe("!cancelled() && needs.check.result != 'skipped' && needs.check.outputs.eligible != 'true'");
+  });
+
+  it("never checks out or names the pull request's code, only main", () => {
+    expect(auto!.text).not.toMatch(/pull_request\.head|github\.head_ref|head_ref/);
+    for (const [name] of all()) {
+      const uses = steps(name).map((s) => String(s.uses ?? "").split("@")[0]);
+      expect(uses, name).toEqual(["actions/checkout", ""]);
+      const checkout = steps(name)[0];
+      expect(checkout.with, name).toEqual({ "persist-credentials": false, ref: "main" });
+    }
+  });
+
+  it("runs main's script with node, and nothing else, passing values only through env", () => {
+    for (const [name] of all()) {
+      const run = steps(name)[1];
+      expect(run.run, name).toBe(`node scripts/cms-auto-merge.mjs ${name}`);
+      const env = run.env as Yaml;
+      expect(env.GITHUB_TOKEN, name).toBe("${{ github.token }}");
+      expect(env.CMS_BOT_LOGIN, name).toBe("${{ vars.CMS_BOT_LOGIN }}");
+      expect(env.PR_NUMBER, name).toBe("${{ github.event.pull_request.number }}");
+    }
+    expect((steps("merge")[1].env as Yaml).HEAD_SHA).toBe("${{ needs.check.outputs.head_sha }}");
+  });
+
+  it("uses no credential but the workflow's own token", () => {
+    for (const { at, name, value } of envEntries(auto!.doc)) {
+      if (!CREDENTIAL_NAME.test(name)) continue;
+      expect(`${name}=${value}`, at).toBe("GITHUB_TOKEN=${{ github.token }}");
+    }
+  });
+});
+
+it("CODEOWNERS gives the workflows, the CMS guard and the auto-merge to a maintainer", () => {
   const owners = fs.readFileSync(path.resolve(".github/CODEOWNERS"), "utf8");
-  for (const pattern of ["/.github/", "/scripts/cms-guard.mjs", "/scripts/cms-guard.test.ts"]) {
+  for (const pattern of ["/.github/", "/scripts/cms-guard.mjs", "/scripts/cms-guard.test.ts", "/scripts/cms-auto-merge.mjs", "/scripts/cms-auto-merge.test.ts"]) {
     expect(owners).toMatch(new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+@hturnbull93$`, "m"));
   }
 });

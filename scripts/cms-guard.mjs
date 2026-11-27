@@ -42,22 +42,32 @@ export function isBot(who, botLogin) {
 }
 
 /**
+ * Why a configured bot login cannot be used, or null when it can. Fails closed: with no
+ * login, nothing can be told apart as the bot's.
+ * @param {string} login
+ * @returns {string | null}
+ */
+export function botLoginProblem(login) {
+  if (!login) {
+    return (
+      "CMS_BOT_LOGIN is not set, so the guard cannot tell the website editor's commits apart. " +
+      "Set the repository variable CMS_BOT_LOGIN to the GitHub App's bot login (see github-app-setup.md)."
+    );
+  }
+  // A person's login here would let the bot's commits pass as a maintainer's and restrict that person instead.
+  if (!login.endsWith("[bot]")) return `CMS_BOT_LOGIN is "${login}", which is not a GitHub App's bot login (those end in [bot]).`;
+  return null;
+}
+
+/**
  * Every reason the pull request must not pass; none means it may.
  * @param {{ botLogin: string, prAuthor: string, headRef: string, commits: Commit[] }} pr
  * @returns {string[]}
  */
 export function checkPullRequest({ botLogin, prAuthor, headRef, commits }) {
   const login = botLogin.trim();
-  if (!login) {
-    return [
-      "CMS_BOT_LOGIN is not set, so the guard cannot tell the website editor's commits apart. " +
-        "Set the repository variable CMS_BOT_LOGIN to the GitHub App's bot login (see github-app-setup.md).",
-    ];
-  }
-  if (!login.endsWith("[bot]")) {
-    // A person's login here would let the bot's commits pass as a maintainer's and restrict that person instead.
-    return [`CMS_BOT_LOGIN is "${login}", which is not a GitHub App's bot login (those end in [bot]).`];
-  }
+  const bad = botLoginProblem(login);
+  if (bad) return [bad];
   const problems = [];
   if (prAuthor.toLowerCase() === login.toLowerCase() && !headRef.startsWith(BRANCH_PREFIX)) {
     problems.push(`${login} opened this pull request from ${headRef}, which is not a ${BRANCH_PREFIX}* branch.`);

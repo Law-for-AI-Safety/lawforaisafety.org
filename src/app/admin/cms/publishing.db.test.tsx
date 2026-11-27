@@ -90,7 +90,7 @@ describe("publishing", () => {
   it("opens the pull request, records it, locks the page and logs it", async () => {
     const version = await seedDraft();
     await signInAs("publish");
-    expect(await publishDraft(SLUG, version)).toEqual({ ok: true, message: "Sent for publishing. The page goes live once it is approved." });
+    expect(await publishDraft(SLUG, version)).toEqual({ ok: true, message: "Sent for publishing. The page goes live in a few minutes, once the automatic checks pass." });
 
     const [pr] = github.openedPRs;
     expect(github.openedPRs).toHaveLength(1);
@@ -239,7 +239,7 @@ describe("what the editor page shows after review", () => {
     github.merge(1, new Date("2026-10-16T09:00:00Z"));
     const first = await openEditor();
     expect(screen.getByText("Publishing")).toBeInTheDocument();
-    expect(screen.getByText(/^Approved\. The website is being updated/)).toBeInTheDocument();
+    expect(screen.getByText(/^Checks passed\. The website is being updated/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Withdraw from publishing" })).toBeNull();
     first.unmount();
     expect(await submissions()).toMatchObject([{ state: "merged", resolvedAt: new Date("2026-10-16T09:00:00Z"), mergedHash: contentHash(printContent({ ...edited(), updatedAt: "2026-10-15" })) }]);
@@ -290,7 +290,7 @@ describe("what the editor page shows after review", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     await openEditor();
     expect(screen.getByText("Publishing")).toBeInTheDocument();
-    expect(screen.getByText("Could not check whether this page has been approved yet. Reload the page to try again.")).toBeInTheDocument();
+    expect(screen.getByText("Could not check whether this page has been published yet. Reload the page to try again.")).toBeInTheDocument();
   });
 
   it("releases a lock a stopped publish left behind, once it is old", async () => {
@@ -390,7 +390,7 @@ describe("a publish that stopped half way", () => {
     github.failNext("GET /pulls", { status: 502 });
     vi.spyOn(console, "error").mockImplementation(() => {});
     await openEditor();
-    expect(screen.getAllByText("Could not check whether this page has been approved yet. Reload the page to try again.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Could not check whether this page has been published yet. Reload the page to try again.").length).toBeGreaterThan(0);
     expect(await submissions()).toMatchObject([{ state: "pending" }]);
     expect((await draftRow()).lockedAt).not.toBeNull();
   });
