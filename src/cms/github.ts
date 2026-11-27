@@ -1,5 +1,6 @@
-import { createPrivateKey, type KeyObject } from "node:crypto";
+import type { KeyObject } from "node:crypto";
 import { SignJWT } from "jose";
+import { readPrivateKey } from "./private-key";
 
 /**
  * The CMS's one way to reach GitHub. Publishing, withdrawing and reading a page's status all
@@ -13,7 +14,7 @@ import { SignJWT } from "jose";
 export type GitHubConfig = {
   appId: string;
   installationId: string;
-  /** The app's private key, PEM (PKCS#1 as GitHub issues it, or PKCS#8). */
+  /** The app's private key, PEM (PKCS#1 as GitHub issues it, or PKCS#8), in any form `readPrivateKey` accepts. */
   privateKey: string;
   owner: string;
   repo: string;
@@ -66,11 +67,30 @@ export interface GitHubClient {
   findPullRequest(branch: string): Promise<number | null>;
 }
 
-/** A GitHub request that failed. `status` is 0 when GitHub could not be reached at all. */
+/**
+ * Whether a failure with this status comes from how the App is set up, so trying again cannot
+ * help: GitHub refused the App's credentials (401), the App may not do this (403), or the
+ * installation or repo is not there for it (404). A 403 for a rate limit passes with time.
+ */
+function isSetupStatus(status: number, message: string): boolean {
+  return (status === 401 || status === 403 || status === 404) && !isThrottled(message);
+}
+
+/** GitHub's rate limits and abuse detection, which pass with time; GitHub also says so in headers. */
+function isThrottled(message: string, headers?: Headers): boolean {
+  return /rate limit|abuse|retry later/i.test(message) || Boolean(headers?.get("retry-after")) || headers?.get("x-ratelimit-remaining") === "0";
+}
+
+/**
+ * A GitHub request that failed. `status` is 0 when GitHub could not be reached at all.
+ * `setup` is true when the failure is in the App's settings or installation (a key that cannot
+ * be read, refused credentials, no access to the repo), so trying again cannot help.
+ */
 export class GitHubError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly setup = isSetupStatus(status, message),
   ) {
     super(message);
     this.name = "GitHubError";
@@ -98,13 +118,17 @@ const JWT_BACKDATE_S = 60;
 
 type Json = Record<string, unknown>;
 
-function readKey(pem: string): KeyObject {
-  try {
-    return createPrivateKey(pem);
-  } catch {
-    // The parser's message can quote the key, so it is not passed on.
-    throw new GitHubError(0, "GITHUB_APP_PRIVATE_KEY is not a valid PEM private key");
+/** GitHub would not give the App an installation token for this repo: always a setup problem. */
+class TokenRefused extends GitHubError {
+  constructor(status: number, message: string) {
+    super(status, message, true);
   }
+}
+
+function readKey(stored: string): KeyObject {
+  const reading = readPrivateKey(stored);
+  if (!reading.ok) throw new GitHubError(0, reading.problem, true);
+  return reading.key;
 }
 
 /**
@@ -136,12 +160,20 @@ export class GitHubAppClient implements GitHubClient {
     if (this.token && this.token.expiresAt - TOKEN_RENEW_MARGIN_MS > Date.now()) return this.token.value;
     this.token = null;
     const jwt = await this.appJwt();
-    const body = await this.send(`/app/installations/${encodeURIComponent(this.config.installationId)}/access_tokens`, {
-      method: "POST",
-      auth: jwt,
-      // The token is narrowed to this one repo and to what publishing needs.
-      body: { repositories: [this.config.repo], permissions: { contents: "write", pull_requests: "write" } },
-    });
+    let body: Json;
+    try {
+      body = await this.send(`/app/installations/${encodeURIComponent(this.config.installationId)}/access_tokens`, {
+        method: "POST",
+        auth: jwt,
+        // The token is narrowed to this one repo and to what publishing needs.
+        body: { repositories: [this.config.repo], permissions: { contents: "write", pull_requests: "write" } },
+      });
+    } catch (e) {
+      // Refused by the installation (a wrong installation ID is a 404, a repo it is not installed
+      // on or a permission it lacks a 422): setup, unless throttled. Never a missing file (`maybe`).
+      if (e instanceof GitHubError && e.status >= 400 && e.status < 500 && e.status !== 429 && (e.setup || e.status !== 403)) throw new TokenRefused(e.status, e.message);
+      throw e;
+    }
     const token = body.token;
     const expiresAt = Date.parse(String(body.expires_at));
     if (typeof token !== "string" || !Number.isFinite(expiresAt)) {
@@ -187,7 +219,8 @@ export class GitHubAppClient implements GitHubClient {
     }
     if (!response.ok) {
       const detail = typeof json.message === "string" ? json.message : `HTTP ${response.status}`;
-      throw new GitHubError(response.status, `GitHub refused ${method} ${path}: ${detail}`);
+      const message = `GitHub refused ${method} ${path}: ${detail}`;
+      throw new GitHubError(response.status, message, isSetupStatus(response.status, message) && !isThrottled(message, response.headers));
     }
     return { json, next: this.nextPage(response.headers.get("link")) };
   }
@@ -234,7 +267,7 @@ export class GitHubAppClient implements GitHubClient {
     try {
       return await this.repo(path);
     } catch (e) {
-      if (e instanceof GitHubError && e.status === 404) return null;
+      if (e instanceof GitHubError && e.status === 404 && !(e instanceof TokenRefused)) return null;
       throw e;
     }
   }

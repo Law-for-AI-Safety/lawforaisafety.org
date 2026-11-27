@@ -211,6 +211,17 @@ describe("withdrawing", () => {
     expect(await submissions()).toMatchObject([{ state: "open" }]);
   });
 
+  it("says a setup problem when withdrawing is refused for the App's settings", async () => {
+    await sent();
+    github.failNext("PATCH /pulls/1", { status: 403 });
+    await signInAs("publish");
+    expect(await withdrawPublish(SLUG)).toMatchObject({ ok: false, reason: "setup", message: expect.stringMatching(/^Withdrawing isn't working because of a setup problem/) });
+    expect((await draftRow()).lockedAt).not.toBeNull();
+    expect(await audit()).toEqual([
+      { action: "cms_withdraw", actor: EMAIL.publish, detail: { page: SLUG, number: 1, outcome: "github", setup: true, error: expect.stringContaining("PATCH") } },
+    ]);
+  });
+
   it("cannot withdraw what was just merged", async () => {
     await sent();
     github.merge(1);
@@ -593,6 +604,77 @@ describe("a publish that cannot go ahead", () => {
     await signInAs("publish");
     expect(await publishDraft(SLUG, version)).toMatchObject({ ok: false, reason: "failed" });
     expect((await draftRow()).lockedAt).toBeNull();
+  });
+
+  it("says a key that cannot be read is a setup problem, not one to retry, and logs why safely", async () => {
+    const version = await seedDraft();
+    // A key pasted with its body changed, as a host can mangle it.
+    const mangled = githubEnv().GITHUB_APP_PRIVATE_KEY.replace(/\n(.)/, "\n*$1");
+    vi.stubEnv("GITHUB_APP_PRIVATE_KEY", mangled);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    await signInAs("publish");
+    expect(await publishDraft(SLUG, version)).toEqual({
+      ok: false,
+      reason: "setup",
+      message:
+        "Publishing isn't working because of a setup problem, so nothing was sent. Your draft is saved. Trying again won't help until it is fixed: a technical admin can see the details under Publishing in Settings.",
+    });
+    expect((await draftRow()).lockedAt).toBeNull();
+    expect(github.requests).toEqual([]);
+    const [entry] = await audit();
+    expect(entry.detail).toEqual({
+      page: SLUG,
+      version,
+      outcome: "failed",
+      step: "read_main",
+      setup: true,
+      error: expect.stringMatching(/^GITHUB_APP_PRIVATE_KEY has characters between its BEGIN and END lines that are not base64/),
+    });
+    const body = mangled.split("\n").slice(2, -2).join("");
+    expect(JSON.stringify(entry.detail)).not.toContain(body.slice(0, 16));
+    expect(logged.mock.calls.flat().join(" ")).not.toContain(body.slice(0, 16));
+  });
+
+  it("publishes with a key whose line breaks were lost on the way into the host", async () => {
+    const version = await seedDraft();
+    vi.stubEnv("GITHUB_APP_PRIVATE_KEY", githubEnv().GITHUB_APP_PRIVATE_KEY.replace(/\n/g, ""));
+    await signInAs("publish");
+    expect(await publishDraft(SLUG, version)).toMatchObject({ ok: true });
+  });
+
+  it.each([
+    ["the installation is not found", "POST /app/installations/777/access_tokens", 404],
+    ["GitHub refuses the App's token", "GET /git/ref/heads/main", 401],
+    ["the App may not write to the repo", "POST /git/trees", 403],
+  ])("says it is a setup problem when %s", async (_why, call, status) => {
+    const version = await seedDraft();
+    // A refused token is tried again once with a fresh one.
+    github.failNext(call, { status });
+    if (status === 401) github.failNext(call, { status });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await signInAs("publish");
+    expect(await publishDraft(SLUG, version)).toMatchObject({ ok: false, reason: "setup" });
+    expect((await draftRow()).lockedAt).toBeNull();
+    expect((await audit())[0].detail).toMatchObject({ outcome: "failed", setup: true });
+  });
+
+  it.each([
+    ["GitHub has a server error", 500],
+    ["GitHub rate-limits the App", 429],
+  ])("keeps the try-again message when %s", async (_why, status) => {
+    const version = await seedDraft();
+    github.failNext("POST /git/trees", { status });
+    await signInAs("publish");
+    expect(await publishDraft(SLUG, version)).toMatchObject({ ok: false, reason: "failed", message: expect.stringMatching(/try again in a few minutes/) });
+    expect((await audit())[0].detail).not.toHaveProperty("setup");
+  });
+
+  it("logs which settings are missing when publishing is not set up", async () => {
+    const version = await seedDraft();
+    vi.stubEnv("GITHUB_APP_INSTALLATION_ID", "");
+    await signInAs("publish");
+    expect(await publishDraft(SLUG, version)).toMatchObject({ ok: false, reason: "unavailable" });
+    expect((await audit())[0].detail).toMatchObject({ outcome: "not_set_up", error: "Missing GITHUB_APP_INSTALLATION_ID" });
   });
 
   it("says when the page is no longer on main", async () => {

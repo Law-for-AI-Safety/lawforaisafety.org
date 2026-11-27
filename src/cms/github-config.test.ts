@@ -10,13 +10,13 @@ const env = {
 };
 
 describe("gitHubSetup", () => {
-  it("reads the app's settings, turning \\n escapes in the key into line breaks", () => {
+  it("reads the app's settings, leaving the key as stored for readPrivateKey", () => {
     expect(gitHubSetup(env)).toEqual({
       ok: true,
       config: {
         appId: "1",
         installationId: "2",
-        privateKey: "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----",
+        privateKey: "-----BEGIN RSA PRIVATE KEY-----\\nabc\\n-----END RSA PRIVATE KEY-----",
         owner: "Law-for-AI-Safety",
         repo: "lawforaisafety.org",
         apiUrl: "https://api.github.com",
