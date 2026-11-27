@@ -1,5 +1,6 @@
 /**
- * Netlify scheduled function: every Monday at 06:00 UTC, asks the app to run the News radar.
+ * Netlify scheduled function: every Monday at 06:00 UTC, asks the app to start the News radar,
+ * which then runs in the background function news-radar-run.mts.
  * As with sweep-expired-data.mts, this file is only the clock; the run itself lives in the Next
  * route it calls (src/app/api/cron/news-radar/route.ts), next to the code it depends on. A
  * separate function rather than a branch in the sweep, so each keeps its own schedule and its
@@ -26,7 +27,7 @@ async function runNewsRadar(): Promise<void> {
     // Thrown so the run shows as failed in Netlify's function log.
     throw new Error(`[cron] News radar failed: ${response.status} ${await response.text()}`);
   }
-  console.log(`[cron] News radar done: ${await response.text()}`);
+  console.log(`[cron] News radar started: ${await response.text()}`);
 }
 
 export default runNewsRadar;

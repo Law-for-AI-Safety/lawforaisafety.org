@@ -63,8 +63,11 @@ const nextConfig: NextConfig = {
   ],
   // Netlify's CONTEXT only exists at build time; this inlines it so runtime
   // code can still tell production from a preview (src/lib/deploy-context.ts).
+  // DEPLOY_ORIGIN is where this deploy's own Netlify functions answer: the site's
+  // address in production, the deploy's own address on a preview.
   env: {
     DEPLOY_CONTEXT: process.env.CONTEXT ?? "",
+    DEPLOY_ORIGIN: (process.env.CONTEXT === "production" ? process.env.URL : process.env.DEPLOY_URL) ?? "",
   },
   // Old page addresses kept working after a page moves (content/_redirects.json). They are
   // checked here too, so a redirect that breaks the rules fails the build, not only CI.

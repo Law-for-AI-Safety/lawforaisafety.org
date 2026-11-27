@@ -8,6 +8,7 @@ import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
 import { indexNow } from "./fakes/indexnow";
 import { newsSources } from "./fakes/news-sources";
+import { netlifyFunctions } from "./fakes/netlify-functions";
 import { dataCache } from "./next-cache";
 import { afterTasks } from "./next-after";
 
@@ -29,6 +30,7 @@ Object.assign(process.env, {
   TURNSTILE_SECRET_KEY: "test-turnstile-secret",
 });
 delete process.env.DEPLOY_CONTEXT;
+delete process.env.DEPLOY_ORIGIN;
 // IndexNow pings only go out once a test sets a key (`vi.stubEnv("INDEXNOW_KEY", INDEXNOW_KEY)`).
 delete process.env.INDEXNOW_KEY;
 // Publishing is not set up unless a test points it at the fake GitHub (`githubEnv()`).
@@ -63,6 +65,7 @@ beforeEach(() => {
   slack.reset();
   indexNow.reset();
   newsSources.reset();
+  netlifyFunctions.reset();
   afterTasks.reset();
 });
 

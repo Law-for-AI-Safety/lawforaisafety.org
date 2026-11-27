@@ -14,17 +14,26 @@ import type { NewsRadarSettings, SourceAdapter, SourceOutcome } from "./types";
  *
  * Each source runs alone with its own time limit, so one being slow, down or throttled costs
  * only its own results: the run goes on with the rest and records the failure, which the admin
- * page shows. The limit keeps the whole run inside the time a Netlify function is given.
+ * page shows. On Netlify a run happens in a background function (netlify/functions/
+ * news-radar-run.mts), started by startNewsRadarRun; the limit keeps it inside that function's
+ * 15 minutes, with time left to store the results and send the email.
  */
 
 /** How far back each run looks: a week, so weekly runs overlap at their edges. */
 export const LOOKBACK_DAYS = 7;
 
-/** Time each source has before its requests are abandoned. */
-export const SOURCE_BUDGET_MS = 15_000;
+/**
+ * Time each source has before its requests are abandoned. GDELT needs most of it on a busy day,
+ * when it turns requests away for minutes at a time (see sources/gdelt.ts).
+ */
+export const SOURCE_BUDGET_MS = 10 * 60_000;
 
 export type RunOptions = {
   trigger: "schedule" | "manual";
+  /** The run's row, when startNewsRadarRun made it before handing the run on. */
+  runId?: string;
+  /** Email the summary at the end, as the weekly run always does. */
+  sendDigest?: boolean;
   triggeredBy?: string | null;
   now?: Date;
   sources?: SourceAdapter[];
@@ -38,10 +47,22 @@ export type RunResult = { runId: string; sources: SourceOutcome[]; newCount: num
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** Why a failure happened, in a line for the admin page. */
-function reason(err: unknown, signal: AbortSignal): string {
-  if (signal.aborted) return "took too long and was stopped";
-  return err instanceof Error ? err.message : String(err);
+/**
+ * Why a source failed, in a line for the admin page: out of time (and, when the source said, what
+ * it was waiting on), a service that could not be reached, or the service's own answer.
+ */
+function reason(err: unknown, signal: AbortSignal, budgetMs: number): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (signal.aborted) {
+    const limit = budgetMs >= 60_000 ? `${Math.round(budgetMs / 60_000)} min` : budgetMs >= 1000 ? `${Math.round(budgetMs / 1000)}s` : `${budgetMs}ms`;
+    const why = err instanceof Error && err.name !== "AbortError" ? `: ${message}` : "";
+    return `timed out after ${limit} and was stopped${why}`;
+  }
+  if (err instanceof TypeError && message === "fetch failed") {
+    const cause = err.cause as { code?: string; message?: string } | undefined;
+    return `could not be reached${cause?.code ?? cause?.message ? ` (${cause.code ?? cause.message})` : ""}`;
+  }
+  return message;
 }
 
 async function askSource(
@@ -82,7 +103,7 @@ async function askSource(
     return { outcome: { source: source.id, ok: true, found: candidates.length, relevant: found.length }, found };
   } catch (err) {
     console.error(`[news-radar] ${source.label} failed`, err);
-    return { outcome: { source: source.id, ok: false, error: reason(err, controller.signal) }, found: [] };
+    return { outcome: { source: source.id, ok: false, error: reason(err, controller.signal, budgetMs) }, found: [] };
   } finally {
     clearTimeout(timer);
   }
@@ -144,19 +165,20 @@ async function sendDigest(runId: string, settings: NewsRadarSettings, sources: S
 
 export async function runNewsRadar(options: RunOptions): Promise<RunResult> {
   const now = options.now ?? new Date();
-  const settings = await getNewsRadarSettings();
-  const runId = await startRun(options.trigger, options.triggeredBy ?? null, now);
-  const asked = await Promise.all(
-    (options.sources ?? SOURCES).map((source) =>
-      askSource(source, settings, now, options.scorer ?? keywordScorer, options.sleep ?? realSleep, options.budgetMs ?? SOURCE_BUDGET_MS),
-    ),
-  );
-  const sources = asked.map((a) => a.outcome);
+  const runId = options.runId ?? (await startRun(options.trigger, options.triggeredBy ?? null, now));
+  let sources: SourceOutcome[] = [];
   const counts = { newCount: 0, seenCount: 0 };
   try {
+    const settings = await getNewsRadarSettings();
+    const asked = await Promise.all(
+      (options.sources ?? SOURCES).map((source) =>
+        askSource(source, settings, now, options.scorer ?? keywordScorer, options.sleep ?? realSleep, options.budgetMs ?? SOURCE_BUDGET_MS),
+      ),
+    );
+    sources = asked.map((a) => a.outcome);
     const { added, seenBefore } = await recordFound(runId, now, mergeFound(asked.flatMap((a) => a.found)));
     Object.assign(counts, { newCount: added, seenCount: seenBefore });
-    const email = options.trigger === "schedule" ? await sendDigest(runId, settings, sources, now) : null;
+    const email = (options.sendDigest ?? options.trigger === "schedule") ? await sendDigest(runId, settings, sources, now) : null;
     await finishRun(runId, { sources, ...counts, email });
     return { runId, sources, ...counts, email };
   } catch (err) {

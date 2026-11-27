@@ -8,8 +8,9 @@ import { route } from "./network";
 /**
  * Stands in for the News radar's sources: GDELT, Google News RSS, OpenAlex and the Commission's
  * digital-strategy feed. A test publishes what each would return (`newsSources.googleNews(...)`),
- * can make one fail (`down`) or, for GDELT, turn the next request away as too fast
- * (`throttleGdelt`), and reads back every request made. `test/setup-env.ts` resets it before
+ * can make one fail (`down`) or, for GDELT, turn the next requests away as too fast
+ * (`throttleGdelt`), and reads back every request made. GDELT refuses a query longer than it
+ * takes, as the real one does. `test/setup-env.ts` resets it before
  * each test.
  */
 
@@ -20,6 +21,12 @@ const xml = (s: string) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").re
 
 /** The notice GDELT sends, as plain text, to a request that comes too soon after another. */
 export const GDELT_THROTTLE_NOTICE = "Please limit requests to one every 5 seconds or contact us for larger queries.";
+
+/** What GDELT answers, with status 200, to a query it will not take. */
+export const GDELT_LENGTH_NOTICE = "Your query was too short or too long.";
+
+/** GDELT answered a query of 225 characters and refused one of 261. */
+const GDELT_LONGEST_QUERY = 250;
 
 class FakeNewsSources {
   readonly requests: { source: SourceId; url: URL; userAgent: string | null }[] = [];
@@ -46,8 +53,9 @@ class FakeNewsSources {
     this.published.google_news.push({ article, when });
   }
 
-  gdelt(article: FakeArticle): void {
-    this.published.gdelt.push({ article });
+  /** GDELT returns `article` for queries that contain `when` (any query if left out). */
+  gdelt(article: FakeArticle, when?: string): void {
+    this.published.gdelt.push({ article, when });
   }
 
   /** A paper, with `summary` as its abstract and `outlet` as its journal. */
@@ -64,7 +72,7 @@ class FakeNewsSources {
     this.failures.set(source, how);
   }
 
-  /** The next `count` GDELT requests get the plain-text "too fast" notice. */
+  /** The next `count` GDELT requests get the plain-text "too fast" notice (`Infinity`: every one). */
   throttleGdelt(count = 1): void {
     this.throttled = count;
   }
@@ -98,8 +106,11 @@ class FakeNewsSources {
           this.throttled--;
           return new Response(GDELT_THROTTLE_NOTICE, { status: 429, headers: { "Content-Type": "text/plain" } });
         }
+        if ((url.searchParams.get("query") ?? "").length > GDELT_LONGEST_QUERY) {
+          return new Response(GDELT_LENGTH_NOTICE, { headers: { "Content-Type": "text/plain" } });
+        }
         return Response.json({
-          articles: this.published.gdelt.map(({ article: a }) => ({
+          articles: this.matching(source, url.searchParams.get("query") ?? "").map((a) => ({
             url: a.url,
             title: a.title,
             domain: a.outlet,

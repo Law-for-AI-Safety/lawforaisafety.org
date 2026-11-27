@@ -21,5 +21,5 @@ export function daysAgo(now: Date, days: number): Date {
 /** A source's own words for what went wrong, kept short for the admin page. */
 export function failure(service: string, status: number, body: string): Error {
   const detail = body.replace(/\s+/g, " ").trim().slice(0, 160);
-  return new Error(`${service} answered ${status}${detail ? `: ${detail}` : ""}`);
+  return new Error(`${service} answered HTTP ${status}${detail ? `: ${detail}` : ""}`);
 }

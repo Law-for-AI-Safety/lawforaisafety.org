@@ -36,9 +36,23 @@ export function groupByWeek(items: NewsRadarItem[]): Week[] {
     .map((w) => ({ start: w.start, stories: [...w.stories.values()] }));
 }
 
+/**
+ * A run unfinished for longer than this has stopped without recording why (the background
+ * function that runs it has 15 minutes; see start.ts), so it no longer counts as running.
+ */
+export const RUN_STALE_MS = 20 * 60_000;
+
+/** Started recently enough to still be going. */
+export const isRunning = (run: Pick<NewsRadarRun, "finishedAt" | "startedAt">, now = new Date()) =>
+  !run.finishedAt && now.getTime() - run.startedAt.getTime() < RUN_STALE_MS;
+
 /** The run's status line: when, what each source returned, what was stored, the email. */
-export function runSummary(run: NewsRadarRun): {
+export function runSummary(
+  run: NewsRadarRun,
+  now = new Date(),
+): {
   when: string;
+  running: boolean;
   sources: string[];
   failures: string[];
   counts: string;
@@ -46,12 +60,15 @@ export function runSummary(run: NewsRadarRun): {
   error: string | null;
 } {
   const how = run.trigger === "schedule" ? "weekly run" : `run by hand${run.triggeredBy ? ` by ${run.triggeredBy}` : ""}`;
+  const running = isRunning(run, now);
+  const stopped = !run.finishedAt && !running;
   return {
-    when: run.finishedAt ? `${formatTime(run.startedAt)} (${how})` : `Running since ${formatTime(run.startedAt)} (${how})`,
+    when: run.finishedAt ? `${formatTime(run.startedAt)} (${how})` : running ? `Running since ${formatTime(run.startedAt)} (${how})` : `${formatTime(run.startedAt)} (${how})`,
+    running,
     sources: run.sources.flatMap((s) => (s.ok ? [`${SOURCE_LABELS[s.source] ?? s.source}: ${s.found} found, ${s.relevant} relevant`] : [])),
     failures: run.sources.flatMap((s) => (s.ok ? [] : [`${SOURCE_LABELS[s.source] ?? s.source} failed this week: ${s.error}`])),
     counts: `${run.newCount} new, ${run.seenCount} seen before`,
     email: run.email,
-    error: run.error,
+    error: stopped ? "it stopped without finishing. The news-radar-run function's log on Netlify says why." : run.error,
   };
 }

@@ -58,6 +58,11 @@ export async function finishRun(
     .where(eq(newsRadarRuns.id, id));
 }
 
+export async function getRun(id: string): Promise<NewsRadarRun | null> {
+  const [row] = await db.select().from(newsRadarRuns).where(eq(newsRadarRuns.id, id));
+  return row ?? null;
+}
+
 export async function latestRuns(limit = 5): Promise<NewsRadarRun[]> {
   return db.select().from(newsRadarRuns).orderBy(desc(newsRadarRuns.startedAt)).limit(limit);
 }

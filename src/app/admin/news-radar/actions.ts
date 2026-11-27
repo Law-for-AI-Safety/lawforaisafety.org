@@ -7,7 +7,10 @@ import { getItem, getNewsRadarSettings, saveNewsRadarSettings, setItemState } fr
 import { getNewsletter, insertNewsletter, writeNewsletter } from "@/lib/newsletter-store";
 import { BODY_MAX } from "@/newsletter/template";
 import { appendItem } from "@/news-radar/newsletter";
-import { runNewsRadar } from "@/news-radar/run";
+import { isNetlifyDeploy } from "@/lib/deploy-context";
+import { failureReason } from "@/news-radar/run";
+import { runInProgress, startNewsRadarRun } from "@/news-radar/start";
+import { formatTime } from "@/news-radar/view";
 import { parseSettings } from "@/news-radar/settings";
 import type { Topic } from "@/news-radar/types";
 
@@ -74,13 +77,29 @@ export async function addToNewsletter(
   return { ok: false, message: "Someone is editing that draft right now. Try again in a moment." };
 }
 
-export async function runNow(): Promise<{ ok: true; newCount: number; seenCount: number; failed: number } | Refusal> {
+/**
+ * Starts a run by hand. With `sendDigest`, it also emails the summary to the recipient in the
+ * settings at the end, as the weekly run does (and, like it, only from the production site), so
+ * the email can be tried without waiting for Monday. One run at a time, as two would share GDELT's
+ * request limit.
+ */
+export async function runNow(sendDigest: unknown = false): Promise<{ ok: true; finished: boolean } | Refusal> {
   const session = await getAdminSession();
   if (!session) return SIGNED_OUT;
   if (!isTechAdminEmail(session.email)) return TECH_ONLY;
-  const result = await runNewsRadar({ trigger: "manual", triggeredBy: session.email });
-  await recordAdminAction({ actorEmail: session.email, action: "news_radar_run", detail: { runId: result.runId } });
-  return { ok: true, newCount: result.newCount, seenCount: result.seenCount, failed: result.sources.filter((s) => !s.ok).length };
+  if (typeof sendDigest !== "boolean") return INVALID;
+  const going = await runInProgress();
+  if (going) return { ok: false, message: `A run is already going: it started ${formatTime(going.startedAt)}. Wait for it to finish.` };
+  const recipient = sendDigest ? (await getNewsRadarSettings()).recipient : null;
+  if (sendDigest && !recipient) return { ok: false, message: "No recipient is set in the News radar settings." };
+  let runId: string;
+  try {
+    ({ runId } = await startNewsRadarRun({ trigger: "manual", triggeredBy: session.email, sendDigest }));
+  } catch (err) {
+    return { ok: false, message: `The run could not start: ${failureReason(err)}` };
+  }
+  await recordAdminAction({ actorEmail: session.email, action: "news_radar_run", detail: sendDigest ? { runId, sendDigest, recipient } : { runId, sendDigest } });
+  return { ok: true, finished: !isNetlifyDeploy() };
 }
 
 /**

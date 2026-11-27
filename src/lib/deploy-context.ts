@@ -24,3 +24,12 @@ export function isProductionDeploy(): boolean {
 export function isNetlifyDeploy(): boolean {
   return deployContext() !== "";
 }
+
+/**
+ * Where this deploy's own Netlify functions answer ("" off Netlify): the site's address in
+ * production, the deploy's own address on a preview, so a preview never calls production's.
+ * Captured at build time like DEPLOY_CONTEXT (see `env` in next.config.ts).
+ */
+export function deployOrigin(): string {
+  return process.env.DEPLOY_ORIGIN ?? "";
+}

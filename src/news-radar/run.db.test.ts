@@ -84,9 +84,9 @@ describe("a run", () => {
     expect(stored[0].topics[0]).toBe("ai-act-enforcement");
 
     expect(newsSources.requests.every((r) => r.userAgent === USER_AGENT)).toBe(true);
-    // One Google News search per topic, one GDELT query for them all, one OpenAlex search per topic, one feed.
+    // One Google News search per topic, two GDELT queries for them all, one OpenAlex search per topic, one feed.
     expect(newsSources.to("google_news")).toHaveLength(DEFAULT_SETTINGS.topics.length);
-    expect(newsSources.to("gdelt")).toHaveLength(1);
+    expect(newsSources.to("gdelt")).toHaveLength(2);
     expect(newsSources.to("openalex")).toHaveLength(DEFAULT_SETTINGS.topics.length);
     expect(newsSources.to("eu_digital")).toHaveLength(1);
     expect(newsSources.to("google_news")[0].searchParams.get("q")).toMatch(/ when:7d$/);
@@ -236,30 +236,67 @@ describe("a source failing", () => {
     expect(row.finishedAt).not.toBeNull();
   });
 
-  it("stops a source that does not answer in time", async () => {
+  it("stops a source that does not answer in time, and says after how long", async () => {
     newsSources.down("openalex", "hang");
     const result = await runNewsRadar({ trigger: "manual", now: MONDAY, sleep: noWait, budgetMs: 50 });
-    expect(result.sources.find((s) => s.source === "openalex")).toEqual({ source: "openalex", ok: false, error: "took too long and was stopped" });
+    expect(result.sources.find((s) => s.source === "openalex")).toEqual({ source: "openalex", ok: false, error: "timed out after 50ms and was stopped" });
   });
 
-  it("waits and tries GDELT once more when it says the requests are too fast", async () => {
+  it("asks GDELT in queries short enough for it to take, spaced apart", async () => {
     const waits: number[] = [];
-    newsSources.throttleGdelt(1);
-    newsSources.gdelt(FINE);
+    newsSources.gdelt(FINE, "ai act enforcement");
+    newsSources.gdelt(LAWSUIT, "court ruling");
     const result = await runNewsRadar({ trigger: "manual", now: MONDAY, sleep: async (ms) => void waits.push(ms) });
+    expect(result.sources.find((s) => s.source === "gdelt")).toEqual({ source: "gdelt", ok: true, found: 2, relevant: 2 });
     expect(newsSources.to("gdelt")).toHaveLength(2);
     expect(waits).toContain(6_000);
+  });
+
+  it("keeps asking GDELT, waiting longer each time, while it says the requests are too fast", async () => {
+    const waits: number[] = [];
+    newsSources.throttleGdelt(5);
+    newsSources.gdelt(FINE);
+    const result = await runNewsRadar({ trigger: "manual", now: MONDAY, sleep: async (ms) => void waits.push(ms) });
+    expect(newsSources.to("gdelt")).toHaveLength(7);
+    expect(waits.slice(0, 5)).toEqual([10_000, 20_000, 40_000, 60_000, 60_000]);
     expect(result.sources.find((s) => s.source === "gdelt")).toMatchObject({ ok: true, relevant: 1 });
   });
 
-  it("records GDELT as failed when it is still throttled after the retry", async () => {
-    newsSources.throttleGdelt(2);
-    const result = await run();
+  it("says GDELT was still turning requests away when it ran out of time", async () => {
+    newsSources.throttleGdelt(Infinity);
+    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, Math.min(ms, 5)));
+    const result = await runNewsRadar({ trigger: "manual", now: MONDAY, sleep, budgetMs: 200 });
     expect(result.sources.find((s) => s.source === "gdelt")).toEqual({
       source: "gdelt",
       ok: false,
-      error: expect.stringMatching(/^GDELT answered 429: Please limit requests/),
+      error: expect.stringMatching(/^timed out after 200ms and was stopped: GDELT was still turning requests away as too fast \(429\) after \d+ tries$/),
     });
+  });
+
+  it("says when GDELT refuses a query, and keeps the other query's results", async () => {
+    await saveNewsRadarSettings(
+      { ...DEFAULT_SETTINGS, topics: [{ ...DEFAULT_SETTINGS.topics[0], include: ["market surveillance", "x".repeat(240) + " y"] }] },
+      "tech@example.com",
+    );
+    newsSources.gdelt(FINE);
+    const kept = await run();
+    expect(kept.sources.find((s) => s.source === "gdelt")).toMatchObject({ ok: true, relevant: 1 });
+
+    await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, topics: [{ ...DEFAULT_SETTINGS.topics[0], include: ["x".repeat(240) + " y"] }] }, "tech@example.com");
+    const refused = await run();
+    expect(refused.sources.find((s) => s.source === "gdelt")).toEqual({
+      source: "gdelt",
+      ok: false,
+      error: "GDELT refused the query: Your query was too short or too long.",
+    });
+  });
+
+  it("says when a source answers with an HTTP error or cannot be reached", async () => {
+    newsSources.down("gdelt", "http");
+    newsSources.down("openalex", "network");
+    const result = await run();
+    expect(result.sources.find((s) => s.source === "gdelt")).toEqual({ source: "gdelt", ok: false, error: "GDELT answered HTTP 503: Service Unavailable" });
+    expect(result.sources.find((s) => s.source === "openalex")).toEqual({ source: "openalex", ok: false, error: "could not be reached" });
   });
 
   it("keeps Google News results from the topics whose search worked", async () => {
@@ -281,7 +318,7 @@ describe("a source failing", () => {
   it("fails OpenAlex when every topic's search fails", async () => {
     newsSources.failSearches("(", "openalex");
     const result = await run();
-    expect(result.sources.find((s) => s.source === "openalex")).toMatchObject({ ok: false, error: "OpenAlex answered 503: Service Unavailable" });
+    expect(result.sources.find((s) => s.source === "openalex")).toMatchObject({ ok: false, error: "OpenAlex answered HTTP 503: Service Unavailable" });
   });
 
   it("stores a result whose text holds control characters, without them", async () => {
@@ -322,7 +359,7 @@ describe("a source failing", () => {
   it("fails Google News when every topic's search fails", async () => {
     newsSources.failSearches("when:");
     const result = await run();
-    expect(result.sources[0]).toEqual({ source: "google_news", ok: false, error: "Google News answered 503: Service Unavailable" });
+    expect(result.sources[0]).toEqual({ source: "google_news", ok: false, error: "Google News answered HTTP 503: Service Unavailable" });
   });
 });
 
@@ -363,6 +400,14 @@ describe("the weekly email", () => {
     await withRecipient();
     expect((await run(MONDAY, "manual")).email).toBeNull();
     expect(emails.sent).toEqual([]);
+  });
+
+  it("is sent for a run by hand when asked", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    await withRecipient();
+    newsSources.googleNews(FINE, "AI Act");
+    expect((await runNewsRadar({ trigger: "manual", now: MONDAY, sleep: noWait, sendDigest: true })).email).toBe(EMAIL_SENT);
+    expect(emails.to(GROUP)[0].html).toContain(FINE.title);
   });
 
   it("says so when Brevo refuses it, and the run still finishes", async () => {
