@@ -13,27 +13,29 @@ npm run -s news-radar -- rescore proposed.json --since 2026-09-01   # dry run: s
 npm run -s news-radar -- settings put proposed.json                 # saves; only after Harry approves
 ```
 
-`--since` (a day, `YYYY-MM-DD`) defaults to the last 90 days; a response covers at most 2000 items and says `"truncated": true` when there were more, so then ask for a shorter stretch. The endpoints behind these are `GET /api/admin/news-radar/items?since=`, `GET` and `PUT /api/admin/news-radar/settings` and `POST /api/admin/news-radar/rescore`, each taking `Authorization: Bearer <NEWS_RADAR_API_KEY>` or an admin's session. A save made with the key is recorded in the audit log as `news-radar@api`.
+`--since` and `--until` (days, `YYYY-MM-DD`; `--until` itself not included) choose the stretch of days the items were first seen in, by default the last 90 days. A response covers at most 2000 items, the newest, and says `"truncated": true` when there were more: then ask for the rest in parts, with `--until` set to the day the first part began. The endpoints behind these are `GET /api/admin/news-radar/items?since=&until=`, `GET` and `PUT /api/admin/news-radar/settings` and `POST /api/admin/news-radar/rescore`, each taking `Authorization: Bearer <NEWS_RADAR_API_KEY>` or an admin's session. A save made with the key is recorded in the audit log as `news-radar@api`.
 
 ### What an exported item holds
 
 - `title`, `outlet`, `url`, `snippet` (the summary the source gave), `kind` (`news` or `paper`), `publishedAt`, `firstSeenAt`, `sources` (which services found it).
 - `state`: `new` (nobody has looked yet), `useful` or `dismissed`; `triagedAt` is when the team decided.
 - `topics` and `score`: as stored when the radar found it, under the settings of the time.
-- `matched`: the topics it matches under the current settings, each with the include keywords found in it. The same line, "Matched: ...", is on each item in the admin page.
+- `matched`: the topics it matches under the current settings, each with the include keywords found in it. The same line, "Matched: ...", is on each item in the admin page. It is worked out from the stored title and summary, which are those of the first source to report the item; when another source's summary held the keyword, the run kept the item but `matched` (and rescore's `now`) can come out empty. Treat those items as kept by the radar, not as misses.
 
 ### The settings
 
 `settings get` returns `topics` and `trustedOutlets`. Each topic has:
 
-- `id`: keep it when editing a topic, so stored items keep their topic. Leave it out for a new topic and one is made from its name.
+- `id`: keep it when editing a topic, so stored items keep their topic. Leave it out for a new topic and one is made from its name; a new topic may leave out empty `require` and `exclude` lists too.
 - `name`: what the team sees.
 - `queries`: the searches sent to Google News and OpenAlex, ORed together as written, so put a phrase in double quotes (`"AI Act" fine`).
 - `include`: an item matches the topic only if its title or summary holds one of these, as whole words, ignoring case, accents and punctuation. Each one found scores a point, two in the title. GDELT is searched for the multi-word include keywords rather than the queries, and the Commission's digital policy feed is read whole, so `include` also decides what those two sources bring in.
 - `require`: when not empty, an item must also hold one of these (the shared list of AI words, say).
 - `exclude`: an item holding any of these never matches the topic.
 
-A trusted outlet (a name, or a domain such as `europa.eu`) adds 3 to an item's score. The radar keeps an item when it matches at least one topic; the score only orders the summary. Limits: 20 topics, 40 entries per list, 120 characters per entry, 100 trusted outlets. Where the weekly email goes is not part of these settings and cannot be changed through the API.
+A trusted outlet (a name, or a domain such as `europa.eu`) adds 3 to an item's score. `settings get` also returns `updatedAt`, which says which save these settings are. Keep it in the file you edit: `settings put` sends it back and is refused (409) if the settings were saved again since, on the settings page say, so nobody's change is lost. Then get the settings again, redo the change on them, and if it differs from what Harry approved, ask him again.
+
+The radar keeps an item when it matches at least one topic; the score only orders the summary. Limits: 20 topics, 40 entries per list, 120 characters per entry, 100 trusted outlets. Where the weekly email goes is not part of these settings and cannot be changed through the API.
 
 ## 1. Read the mission
 

@@ -104,6 +104,13 @@ describe("GET /items", () => {
     expect(JSON.stringify(body)).not.toContain("someone@example.com");
   });
 
+  it("covers a stretch up to, not including, an until day", async () => {
+    await seed();
+    const body = await (await getItems(send("GET", "/items?since=2026-10-01&until=2026-11-23"))).json();
+    expect(body).toMatchObject({ until: "2026-11-23T00:00:00.000Z" });
+    expect(body.items.map((i: { title: string }) => i.title)).toEqual(["Old AI lawsuit"]);
+  });
+
   it("looks back 90 days by default, and refuses a bad day", async () => {
     await seed();
     const body = await (await getItems(send("GET", "/items"))).json();
@@ -126,10 +133,16 @@ describe("/settings", () => {
 
   it("replaces the topics and outlets, keeps the recipient, and audits the change as the agent", async () => {
     await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "team@example.com" }, "admin@example.com");
-    const topics = [{ name: "Only topic", queries: ["q"], include: ["lawsuit"], require: [], exclude: [] }];
-    const response = await putSettings(send("PUT", "/settings", { topics, trustedOutlets: ["Reuters"] }));
+    const { updatedAt } = await (await getSettings(send("GET", "/settings"))).json();
+    vi.setSystemTime(new Date("2026-11-27T13:00:00Z"));
+    const topics = [{ name: "Only topic", queries: ["q"], include: ["lawsuit"] }];
+    const response = await putSettings(send("PUT", "/settings", { topics, trustedOutlets: ["Reuters"], updatedAt }));
     expect(response.status).toBe(200);
-    expect((await response.json()).topics).toEqual([{ ...topics[0], id: "only-topic" }]);
+    expect(await response.json()).toEqual({
+      topics: [{ ...topics[0], id: "only-topic", require: [], exclude: [] }],
+      trustedOutlets: ["Reuters"],
+      updatedAt: "2026-11-27T13:00:00.000Z",
+    });
 
     const saved = await getNewsRadarSettings();
     expect(saved).toMatchObject({ topics: [{ id: "only-topic" }], trustedOutlets: ["Reuters"], recipient: "team@example.com", updatedBy: "news-radar@api" });
@@ -137,10 +150,35 @@ describe("/settings", () => {
     expect(audit).toEqual([expect.objectContaining({ actorEmail: "news-radar@api", action: "news_radar_settings", detail: { topics: ["only-topic"], recipientChanged: false } })]);
   });
 
-  it("refuses a recipient, or settings the form would refuse, and saves nothing", async () => {
-    for (const body of [{ ...DEFAULT_SETTINGS, recipient: "x@example.com" }, { topics: [], trustedOutlets: [] }, "not an object"]) {
+  it("saves settings never saved before when sent the null updatedAt that get returned", async () => {
+    const { updatedAt } = await (await getSettings(send("GET", "/settings"))).json();
+    expect(updatedAt).toBeNull();
+    expect((await putSettings(send("PUT", "/settings", { ...DEFAULT_SETTINGS, recipient: undefined, updatedAt }))).status).toBe(200);
+    expect(await getNewsRadarSettings()).toMatchObject({ updatedBy: "news-radar@api", recipient: null });
+  });
+
+  it("refuses with 409 to overwrite settings saved since the file's updatedAt, and saves nothing", async () => {
+    await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "team@example.com" }, "admin@example.com");
+    const { updatedAt } = await (await getSettings(send("GET", "/settings"))).json();
+    vi.setSystemTime(new Date("2026-11-27T13:00:00Z"));
+    // An admin edits the settings page in between.
+    await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, trustedOutlets: ["Added by an admin"], recipient: "team@example.com" }, "admin@example.com");
+    vi.setSystemTime(new Date("2026-11-27T14:00:00Z"));
+    const response = await putSettings(send("PUT", "/settings", { topics: DEFAULT_SETTINGS.topics, trustedOutlets: [], updatedAt }));
+    expect(response.status).toBe(409);
+    expect(await getNewsRadarSettings()).toMatchObject({ trustedOutlets: ["Added by an admin"], updatedBy: "admin@example.com" });
+
+    // Settings saved since a file based on never-saved settings are not overwritten either.
+    const fromScratch = await putSettings(send("PUT", "/settings", { topics: DEFAULT_SETTINGS.topics, trustedOutlets: [], updatedAt: null }));
+    expect(fromScratch.status).toBe(409);
+    expect(await db.select().from(adminAuditLog)).toEqual([]);
+  });
+
+  it("refuses a recipient, a missing updatedAt, or settings the form would refuse, and saves nothing", async () => {
+    const tuning = { topics: DEFAULT_SETTINGS.topics, trustedOutlets: [], updatedAt: null };
+    for (const body of [{ ...tuning, recipient: "x@example.com" }, { ...tuning, updatedAt: undefined }, { ...tuning, topics: [] }, "not an object"]) {
       const response = await putSettings(send("PUT", "/settings", body));
-      expect(response.status).toBe(400);
+      expect(response.status, JSON.stringify(body)).toBe(400);
     }
     expect((await getNewsRadarSettings()).updatedBy).toBeNull();
     expect(await db.select().from(adminAuditLog)).toEqual([]);
@@ -169,7 +207,7 @@ describe("POST /rescore", () => {
   });
 
   it("refuses a bad body or day", async () => {
-    expect((await rescore(send("POST", "/rescore", { ...DEFAULT_SETTINGS, since: "soon" }))).status).toBe(400);
+    expect((await rescore(send("POST", "/rescore", { topics: DEFAULT_SETTINGS.topics, trustedOutlets: [], since: "soon" }))).status).toBe(400);
     expect((await rescore(send("POST", "/rescore", { topics: [] }))).status).toBe(400);
     expect((await rescore(send("POST", "/rescore", [1]))).status).toBe(400);
   });

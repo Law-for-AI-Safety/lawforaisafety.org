@@ -43,6 +43,31 @@ export async function saveNewsRadarSettings(settings: NewsRadarSettings, email: 
   await db.insert(newsRadarSettings).values({ id: 1, ...values }).onConflictDoUpdate({ target: newsRadarSettings.id, set: values });
 }
 
+/**
+ * Replaces the topics and trusted outlets, leaving the recipient as it is, but only if the
+ * settings were last saved at `basedOn` (null: never saved), so a change made since the caller
+ * read them is not overwritten. Returns false when they have changed since.
+ */
+export async function saveNewsRadarTuning(
+  tuning: Pick<NewsRadarSettings, "topics" | "trustedOutlets">,
+  email: string,
+  basedOn: Date | null,
+): Promise<boolean> {
+  const values = { topics: tuning.topics, trustedOutlets: tuning.trustedOutlets, updatedBy: email, updatedAt: new Date() };
+  const saved = basedOn
+    ? await db
+        .update(newsRadarSettings)
+        .set(values)
+        .where(and(eq(newsRadarSettings.id, 1), eq(newsRadarSettings.updatedAt, basedOn)))
+        .returning({ id: newsRadarSettings.id })
+    : await db
+        .insert(newsRadarSettings)
+        .values({ id: 1, ...values })
+        .onConflictDoNothing()
+        .returning({ id: newsRadarSettings.id });
+  return saved.length > 0;
+}
+
 export async function startRun(trigger: NewsRadarRun["trigger"], triggeredBy: string | null, now: Date): Promise<string> {
   const [row] = await db.insert(newsRadarRuns).values({ trigger, triggeredBy, startedAt: now }).returning({ id: newsRadarRuns.id });
   return row.id;
@@ -155,12 +180,12 @@ export async function listItems(filter: ItemFilter = {}, limit = 500): Promise<N
     .limit(limit);
 }
 
-/** Items first seen on or after `since`, newest first, for the News radar API. */
-export async function itemsSince(since: Date, limit: number): Promise<NewsRadarItem[]> {
+/** Items first seen on or after `since` and before `until`, newest first, for the News radar API. */
+export async function itemsBetween(since: Date, until: Date | null, limit: number): Promise<NewsRadarItem[]> {
   return db
     .select()
     .from(newsRadarItems)
-    .where(gte(newsRadarItems.firstSeenAt, since))
+    .where(and(gte(newsRadarItems.firstSeenAt, since), until ? lt(newsRadarItems.firstSeenAt, until) : undefined))
     .orderBy(desc(newsRadarItems.firstSeenAt), desc(newsRadarItems.score))
     .limit(limit);
 }
