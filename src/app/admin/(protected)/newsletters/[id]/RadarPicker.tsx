@@ -81,16 +81,17 @@ export default function RadarPicker({
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const [placed, setPlaced] = useState(false);
+  // The editor the cursor was last placed in; a new editor has no cursor until it is clicked into.
+  const [placedIn, setPlacedIn] = useState<Editor | null>(null);
+  const placed = editor !== null && placedIn === editor;
   const opener = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
 
   // The cursor counts once the editor has been clicked or tabbed into.
   useEffect(() => {
-    setPlaced(false);
     if (!editor) return;
-    const mark = () => setPlaced(true);
+    const mark = () => setPlacedIn(editor);
     editor.on("focus", mark);
     return () => {
       editor.off("focus", mark);
