@@ -218,7 +218,7 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
     return { ok: false, reason: "failed", message: FAILED };
   }
   await audit({ outcome: "sent", number: result.number, branch: result.branch, ...(result.bodyUpdated ? {} : { previewLink: "not_added" }) });
-  return { ok: true, message: "Sent for publishing. The page goes live once it is approved." };
+  return { ok: true, message: "Sent for publishing. It usually goes live within a few minutes, once the automatic checks pass; otherwise once someone reviews it." };
 }
 
 export type WithdrawResult = { ok: true } | { ok: false; reason: "unavailable" | "failed" | "setup" | "not_publishing"; message: string } | Refusal;
@@ -245,7 +245,7 @@ export async function withdrawPublish(slug: unknown): Promise<WithdrawResult> {
   if (!result.ok) {
     if (result.reason === "merged") {
       await recordAdminAction({ actorEmail: actor.email, action: "cms_withdraw", detail: { page, number: latest.prNumber, outcome: "merged" } });
-      return { ok: false, reason: "not_publishing", message: "This page has just been approved, so it can no longer be withdrawn. Reload the page to see where it stands." };
+      return { ok: false, reason: "not_publishing", message: "This page has just been published, so it can no longer be withdrawn. Reload the page to see where it stands." };
     }
     await recordAdminAction({
       actorEmail: actor.email,

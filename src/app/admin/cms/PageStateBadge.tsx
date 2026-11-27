@@ -8,8 +8,8 @@ const TONE: Record<EditorState, string> = {
 };
 
 /**
- * Draft: saved changes that are not public. Publishing: sent, waiting for approval or for the
- * site to update. Live: what visitors see is the latest. Not published: the last changes sent
+ * Draft: saved changes that are not public. Publishing: sent, waiting for the automatic checks
+ * or for the site to update. Live: what visitors see is the latest. Not published: the last changes sent
  * were declined.
  */
 export default function PageStateBadge({ state }: { state: EditorState }) {

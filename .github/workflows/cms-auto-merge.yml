@@ -1,0 +1,97 @@
+name: CMS auto-merge
+
+# A pull request the website editor opens merges itself when it is provably nothing but one
+# page's content: opened by the CMS App's bot from a cms/<page>-<date> branch in this repo into
+# main, every commit the bot's, and the only change content/<page>.json. This approves it with
+# the workflow's own token and turns on GitHub auto-merge (merge commit) for that exact head,
+# so GitHub merges it once main's required checks pass. Anything else is left for a
+# maintainer, and if the pull request stops qualifying (a maintainer pushes, it is retargeted
+# or made a draft) its approval is dismissed and its auto-merge turned off. Rules:
+# scripts/cms-auto-merge.mjs. Setup and how to turn it off: github-app-setup.md.
+#
+# `pull_request_target`, because approving and merging needs a token that can write, which
+# `pull_request` never gets. That trigger is safe only because nothing from the pull request
+# is checked out or run: every job checks out main and runs main's copy of the script, which
+# reads the pull request through the API. test/ci-workflow.test.ts holds it to that.
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] only main's code runs; see above
+    types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
+
+permissions: {}
+
+# A newer event on the same pull request replaces a run still going; the newest decides.
+concurrency:
+  group: cms-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Read only: decides, and writes nothing to GitHub.
+  check:
+    # Only pull requests the bot opened; everyone else's are not looked at. An unset
+    # CMS_BOT_LOGIN matches nobody.
+    if: github.event.pull_request.user.login == vars.CMS_BOT_LOGIN
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      eligible: ${{ steps.check.outputs.eligible }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Main, never the pull request's base: a pull request retargeted to another branch
+          # must not get to choose the script.
+          ref: main
+      - id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CMS_BOT_LOGIN: ${{ vars.CMS_BOT_LOGIN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/cms-auto-merge.mjs check
+
+  # Approves the head the check saw and turns on auto-merge for it. Checks again first.
+  merge:
+    needs: check
+    if: needs.check.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: main
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CMS_BOT_LOGIN: ${{ vars.CMS_BOT_LOGIN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ needs.check.outputs.head_sha }}
+          # Mentioned in the comment, so GitHub tells them when it merges.
+          NOTIFY: hturnbull93
+        run: node scripts/cms-auto-merge.mjs merge
+
+  # Takes back this workflow's own approvals and auto-merge; never a maintainer's. Also after
+  # a failed check or a failed merge (auto-merge not allowed, GitHub down), to be safe.
+  withdraw:
+    needs: [check, merge]
+    if: "!cancelled() && needs.check.result != 'skipped' && (needs.check.outputs.eligible != 'true' || needs.merge.result == 'failure')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: main
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CMS_BOT_LOGIN: ${{ vars.CMS_BOT_LOGIN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/cms-auto-merge.mjs withdraw
