@@ -67,7 +67,9 @@ describe("checkPullRequest", () => {
 
   it("fails closed when the bot's login is not configured", () => {
     for (const botLogin of ["", "  "]) {
-      expect(checkPullRequest({ ...pr, botLogin, commits: [] })).toEqual([expect.stringMatching(/^CMS_BOT_LOGIN is not set/)]);
+      expect(checkPullRequest({ ...pr, botLogin, commits: [] })).toEqual([
+        "CMS_BOT_LOGIN is not set, so the website editor's commits cannot be told apart. Set the repository variable CMS_BOT_LOGIN to the GitHub App's bot login (see github-app-setup.md).",
+      ]);
     }
   });
 });

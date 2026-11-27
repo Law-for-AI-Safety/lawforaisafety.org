@@ -6,11 +6,12 @@ import type { PageState } from "./drafts";
  * sees the words GitHub or pull request: a pull request is "sent for publishing".
  *
  * - Draft: the page has saved changes that are not public.
- * - Publishing: the changes were sent and wait for approval, or were approved and the site is
- *   still deploying them. The page is locked: saves, discards and publishes are refused.
+ * - Publishing: the changes were sent and wait for the automatic checks, which merge them
+ *   (or for a maintainer, if one took them over), or were merged and the site is still
+ *   deploying them. The page is locked: saves, discards and publishes are refused.
  * - Live: visitors see the latest; there are no unpublished changes.
- * - Not published: the reviewer declined the last changes sent (closed without merging). The
- *   draft is unlocked and unchanged since; the reviewer's last comment is shown. The next save
+ * - Not published: a maintainer declined the last changes sent (closed without merging). The
+ *   draft is unlocked and unchanged since; their last comment is shown. The next save
  *   makes it a Draft again.
  */
 

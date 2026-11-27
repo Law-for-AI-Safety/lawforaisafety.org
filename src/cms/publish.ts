@@ -118,7 +118,7 @@ export function pullRequestBody({ slug, editorName, changes, number }: PullReque
   lines.push(
     "---",
     "",
-    "Merging this makes the change live. To decline it, close this pull request with a comment: the editor sees the last comment. You may push your own commits to this branch first; the website editor never pushes to it again.",
+    "Merging this makes the change live. While every commit here is the website editor's and only this one file changes, it is approved and merged automatically once the required checks pass (`.github/workflows/cms-auto-merge.yml`). To decline it, close this pull request with a comment: the editor sees the last comment. Pushing a commit of your own turns the automatic merge off and leaves it for you to merge; the website editor never pushes to it again.",
   );
   return `${lines.join("\n")}\n`;
 }
