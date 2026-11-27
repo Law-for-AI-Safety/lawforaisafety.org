@@ -536,15 +536,15 @@ describe("publishing states", () => {
     expect(document.body.textContent).not.toMatch(/github|pull request/i);
   });
 
-  it("says when its checks passed and it is going live, without Withdraw", () => {
+  it("says when it was published and is going live, without Withdraw", () => {
     renderEditor(fakeServer(), { initialState: "publishing", canPublish: true, publishing: { sent, approved: true, note: null } });
-    expect(screen.getByText(/^Checks passed\. The website is being updated/)).toBeInTheDocument();
+    expect(screen.getByText(/^Published\. The website is being updated/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Withdraw from publishing" })).toBeNull();
   });
 
   it("offers no Withdraw to someone who may only edit", () => {
     renderEditor(fakeServer(), { initialState: "publishing", publishing: { sent: null, approved: false, note: null } });
-    expect(screen.getByText(/^Sent for publishing\. It goes live in a few minutes, once the automatic checks pass\./)).toBeInTheDocument();
+    expect(screen.getByText(/^Sent for publishing\. It usually goes live within a few minutes, once the automatic checks pass; otherwise once someone reviews it\./)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Withdraw from publishing" })).toBeNull();
   });
 

@@ -75,10 +75,11 @@ jobs:
           NOTIFY: hturnbull93
         run: node scripts/cms-auto-merge.mjs merge
 
-  # Takes back this workflow's own approvals and auto-merge; never a maintainer's.
+  # Takes back this workflow's own approvals and auto-merge; never a maintainer's. Also after
+  # a failed check or a failed merge (auto-merge not allowed, GitHub down), to be safe.
   withdraw:
-    needs: check
-    if: "!cancelled() && needs.check.result != 'skipped' && needs.check.outputs.eligible != 'true'"
+    needs: [check, merge]
+    if: "!cancelled() && needs.check.result != 'skipped' && (needs.check.outputs.eligible != 'true' || needs.merge.result == 'failure')"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

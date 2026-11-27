@@ -213,7 +213,7 @@ export async function publishDraft(slug: unknown, version: unknown): Promise<Pub
     return { ok: false, reason: "failed", message: FAILED };
   }
   await audit({ outcome: "sent", number: result.number, branch: result.branch, ...(result.bodyUpdated ? {} : { previewLink: "not_added" }) });
-  return { ok: true, message: "Sent for publishing. The page goes live in a few minutes, once the automatic checks pass." };
+  return { ok: true, message: "Sent for publishing. It usually goes live within a few minutes, once the automatic checks pass; otherwise once someone reviews it." };
 }
 
 export type WithdrawResult = { ok: true } | { ok: false; reason: "unavailable" | "failed" | "not_publishing"; message: string } | Refusal;

@@ -92,11 +92,11 @@ If repository variables turn out not to be passed to pull requests from forks, t
 - the branch is `cms/<page>-<YYYY-MM-DD>`, optionally with `-2`, `-3`, …;
 - every commit is authored and committed by the bot, signed by GitHub, and none is a merge;
 - exactly one file changes, `content/<page>.json` for the page in the branch name, and it is modified, not added, removed or renamed;
-- no maintainer has stepped in: it was never closed, and nobody but the workflow has turned its auto-merge on or off or dismissed a review on it.
+- no maintainer has stepped in: it was never closed, and nobody but the workflow has turned its auto-merge on or off, dismissed a review on it, made it a draft or changed its base.
 
 GitHub then merges it once `main`'s required checks pass (step 5), so nothing polls. The approval is for the head commit that was checked, and auto-merge is turned on only if that is still the head. Auto-merge itself stays on after a later push by anyone with write access: what stops such a push from merging on the old approval is **Dismiss stale pull request approvals** (step 5), until the workflow's next run turns the auto-merge off.
 
-If any condition stops holding (a maintainer pushes a commit, turns auto-merge off, the pull request is retargeted or made a draft), the next run dismisses the workflow's approvals and turns off the auto-merge it turned on, and the pull request waits for a maintainer from then on. A declined pull request that is reopened is never merged by the workflow. It never touches an approval or an auto-merge a maintainer made. Each run's log lists why a pull request was left. If a run fails (GitHub down after three tries per request), it takes back the same way, to be safe; the pull request's next event (an edit, say) decides again, or a maintainer merges it. The rules are in `scripts/cms-auto-merge.mjs` (main's copy always runs) and tested in `scripts/cms-auto-merge.test.ts`; `test/ci-workflow.test.ts` checks the workflow only ever checks out `main`.
+If any condition stops holding (a maintainer pushes a commit, turns auto-merge off, the pull request is retargeted or made a draft), the next run dismisses the workflow's approvals and turns off the auto-merge it turned on, and the pull request waits for a maintainer from then on. A declined pull request that is reopened is never merged by the workflow. It never touches an approval or an auto-merge a maintainer made. Each run's log lists why a pull request was left. If a run fails (GitHub still down after three tries of a read; writes are not tried again; **Allow auto-merge** off), it takes back the same way, to be safe; the pull request's next event (an edit, say) decides again, or a maintainer merges it. If the required checks have already passed when it approves, it merges at once, but only when every other check is green too; with one pending or failing it leaves the pull request for a maintainer. The rules are in `scripts/cms-auto-merge.mjs` (main's copy always runs) and tested in `scripts/cms-auto-merge.test.ts`; `test/ci-workflow.test.ts` checks the workflow only ever checks out `main`.
 
 **Two settings to switch on**, or the workflow fails and nothing merges itself:
 
@@ -107,7 +107,7 @@ If any condition stops holding (a maintainer pushes a commit, turns auto-merge o
 
 **What a merge by the workflow does not do.** GitHub starts no workflows for events caused by a workflow's own token, so the merge commit on `main` gets no `push` runs: no **CI** run on `main` and no **IndexNow** submission for that page. Netlify is not affected (it deploys from its own GitHub App). The pull request's own checks have already run against it.
 
-**To stop one pull request**: press **Disable auto-merge** on it, or push a commit to it. Either leaves it for you for good.
+**To stop one pull request**: press **Disable auto-merge** on it, make it a draft, or push a commit to it. Each leaves it for you for good.
 
 **To turn it off**: open the [workflow](https://github.com/Law-for-AI-Safety/lawforaisafety.org/actions/workflows/cms-auto-merge.yml), **…** → **Disable workflow**. New CMS pull requests then wait for a maintainer. A pull request already set to merge itself still will, unless you stop it as above. Switching off **Allow auto-merge** in the settings turns off every pending auto-merge at once.
 

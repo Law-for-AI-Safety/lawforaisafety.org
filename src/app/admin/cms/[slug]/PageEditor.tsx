@@ -260,11 +260,11 @@ export default function PageEditor(props: PageEditorProps) {
         {locked && (
           <div role="status" className="flex flex-col gap-2 border border-brand-navy bg-brand-navy/5 px-3 py-3 text-brand-black">
             {approved ? (
-              <p>Checks passed. The website is being updated, which takes a few minutes; then this page shows as Live.</p>
+              <p>Published. The website is being updated, which takes a few minutes; then this page shows as Live.</p>
             ) : (
               <p>
-                Sent for publishing{sent ? ` on ${sent.at.toLocaleString("en-GB", DATE_FORMAT)} UTC by ${sent.by}` : ""}. It goes live in a few minutes,
-                once the automatic checks pass. The page can&apos;t be changed until then.
+                Sent for publishing{sent ? ` on ${sent.at.toLocaleString("en-GB", DATE_FORMAT)} UTC by ${sent.by}` : ""}. It usually goes live within a few
+                minutes, once the automatic checks pass; otherwise once someone reviews it. The page can&apos;t be changed until then.
               </p>
             )}
             {canPublish && !approved && (

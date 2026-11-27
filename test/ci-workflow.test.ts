@@ -201,9 +201,12 @@ describe("cms-auto-merge.yml", () => {
     expect(job("check").if).toBe("github.event.pull_request.user.login == vars.CMS_BOT_LOGIN");
     expect(job("merge").needs).toBe("check");
     expect(job("merge").if).toBe("needs.check.outputs.eligible == 'true'");
-    expect(job("withdraw").needs).toBe("check");
-    // A failed check takes back too; a skipped one (not the bot's pull request) does nothing.
-    expect(job("withdraw").if).toBe("!cancelled() && needs.check.result != 'skipped' && needs.check.outputs.eligible != 'true'");
+    expect(job("withdraw").needs).toEqual(["check", "merge"]);
+    // A failed check or a failed merge takes back too; a skipped check (not the bot's pull
+    // request) does nothing.
+    expect(job("withdraw").if).toBe(
+      "!cancelled() && needs.check.result != 'skipped' && (needs.check.outputs.eligible != 'true' || needs.merge.result == 'failure')",
+    );
   });
 
   it("never checks out or names the pull request's code, only main", () => {

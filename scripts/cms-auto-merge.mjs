@@ -9,8 +9,8 @@
  * - exactly one file changed, `content/<page>.json` for the page in the branch name, modified
  *   (not added, removed or renamed);
  * - no maintainer has stepped in: it was never closed (a declined pull request that is
- *   reopened is theirs), and nobody but this workflow turned its auto-merge on or off or
- *   dismissed a review on it.
+ *   reopened is theirs), and nobody but this workflow turned its auto-merge on or off,
+ *   dismissed a review on it, made it a draft or changed its base.
  *
  * Anything else is left for a maintainer, and whatever this script did on the pull request
  * before (its approvals, the auto-merge it enabled) is taken back: a maintainer's push makes
@@ -23,7 +23,7 @@
  * - `check`: read only. Writes `eligible` and `head_sha` to GITHUB_OUTPUT.
  * - `merge`: reads again, and if still eligible at the head `check` saw (HEAD_SHA), approves
  *   that head, enables auto-merge (merge commit) for that head only, and comments once. If
- *   the checks have already passed, GitHub refuses auto-merge, so it merges that head now. If it
+ *   every check has already passed, GitHub refuses auto-merge, so it merges that head now. If it
  *   is no longer eligible, it takes back instead.
  * - `withdraw`: takes back its own approvals and its own auto-merge.
  *
@@ -43,8 +43,17 @@ export const MARKER = "<!-- cms-auto-merge -->";
 /** One page of a list; a pull request with more is not the editor's. */
 const PAGE = 100;
 /** Events by which a maintainer takes a pull request over, unless this workflow caused them. */
-const TAKEOVER = new Set(["auto_merge_enabled", "auto_merge_disabled", "auto_squash_enabled", "auto_rebase_enabled", "review_dismissed"]);
-/** Tries per GitHub request: a transient failure must not take back a pull request that qualifies. */
+const TAKEOVER = new Set([
+  "auto_merge_enabled",
+  "auto_merge_disabled",
+  "auto_squash_enabled",
+  "auto_rebase_enabled",
+  "review_dismissed",
+  // Holding it back: made a draft, or moved to another base (and perhaps back).
+  "convert_to_draft",
+  "base_ref_changed",
+]);
+/** Tries per GitHub read: a transient failure must not take back a pull request that qualifies. */
 export const ATTEMPTS = 3;
 
 // The slug rule from src/cms/slugs.ts, then the date and the optional attempt from
@@ -149,7 +158,8 @@ export function planActions({ eligible, pr, reviews, comments }) {
 
 /**
  * The GitHub API, through `fetch` (a parameter, so tests can fake it).
- * Network failures and 5xx answers are tried again, up to ATTEMPTS times.
+ * Reads are tried again after a network failure or a 5xx, up to ATTEMPTS times. Writes are
+ * not, as one that failed that way may still have been applied; the job fails instead.
  * @param {Record<string, string | undefined>} env
  * @param {typeof fetch} fetchImpl
  * @param {(ms: number) => Promise<void>} wait
@@ -163,11 +173,12 @@ export function createGitHub(env, fetchImpl = fetch, wait = (ms) => new Promise(
     "content-type": "application/json",
   };
   /**
-   * The answer and its body (parsed when it is JSON), trying again on a network failure or a
-   * 5xx. @param {string} url @param {string} method @param {unknown} [body]
+   * The answer and its body (parsed when it is JSON), trying a read again on a network
+   * failure or a 5xx. @param {string} url @param {string} method @param {unknown} [body]
    * @returns {Promise<{ status: number, ok: boolean, json: any }>}
    */
   const send = async (url, method, body) => {
+    const attempts = method === "GET" ? ATTEMPTS : 1;
     for (let attempt = 1; ; attempt++) {
       try {
         const response = await fetchImpl(url, {
@@ -177,7 +188,7 @@ export function createGitHub(env, fetchImpl = fetch, wait = (ms) => new Promise(
           signal: AbortSignal.timeout(30_000),
         });
         const text = await response.text();
-        if (response.status < 500 || attempt === ATTEMPTS) {
+        if (response.status < 500 || attempt === attempts) {
           let json = null;
           try {
             json = JSON.parse(text);
@@ -187,7 +198,7 @@ export function createGitHub(env, fetchImpl = fetch, wait = (ms) => new Promise(
           return { status: response.status, ok: response.ok, json };
         }
       } catch (e) {
-        if (attempt === ATTEMPTS) throw e;
+        if (attempt === attempts) throw e;
       }
       await wait(attempt * 2000);
     }
@@ -255,8 +266,9 @@ const commentBody = (page, notify, merged) =>
 
 /**
  * Runs one mode. Returns the exit code; what it found goes to `log`. GitHub errors that
- * outlast the retries throw, so the job fails. A failed check is followed by `withdraw`
- * (the safe direction), so the pull request waits for a maintainer, or for its next event.
+ * outlast the retries throw, so the job fails. A failed check or merge is followed by
+ * `withdraw` (the safe direction), so the pull request waits for a maintainer, or for its
+ * next event.
  * @param {string} mode @param {Record<string, string | undefined>} env @param {GitHub} github
  * @param {(line: string) => void} log
  */
@@ -308,11 +320,12 @@ export async function main(mode, env, github, log = console.log) {
     try {
       await github.enableAutoMerge(pr.node_id, pr.head.sha);
     } catch (e) {
-      // GitHub refuses auto-merge on a pull request that may already merge: its required
-      // checks passed before it was approved ("clean"), with a check that is not required
-      // still pending or failing ("unstable"), or with hooks to run ("has_hooks"). Merging that
-      // head now is the same, under the same protection.
-      if (!/\b(clean|unstable|has_hooks) status/i.test(String(e))) throw e;
+      // GitHub refuses auto-merge on a pull request that may already merge: every check
+      // passed before it was approved ("clean", or "has_hooks" with hooks to run). Merging that
+      // head now is the same, under the same protection. With a check that is not required
+      // still pending or failing ("unstable") it is left for a maintainer: this throws, the
+      // job fails, and withdraw takes the approval back.
+      if (!/\b(clean|has_hooks) status/i.test(String(e))) throw e;
       await github.merge(n, pr.head.sha);
       merged = true;
     }

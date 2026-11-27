@@ -50,7 +50,7 @@ export function isBot(who, botLogin) {
 export function botLoginProblem(login) {
   if (!login) {
     return (
-      "CMS_BOT_LOGIN is not set, so the guard cannot tell the website editor's commits apart. " +
+      "CMS_BOT_LOGIN is not set, so the website editor's commits cannot be told apart. " +
       "Set the repository variable CMS_BOT_LOGIN to the GitHub App's bot login (see github-app-setup.md)."
     );
   }

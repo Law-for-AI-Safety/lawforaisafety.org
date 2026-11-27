@@ -185,7 +185,7 @@ describe("checkAutoMerge", () => {
   });
 
   it("leaves a pull request a maintainer stepped into", () => {
-    for (const name of ["auto_merge_disabled", "auto_merge_enabled", "auto_squash_enabled", "auto_rebase_enabled", "review_dismissed"]) {
+    for (const name of ["auto_merge_disabled", "auto_merge_enabled", "auto_squash_enabled", "auto_rebase_enabled", "review_dismissed", "convert_to_draft", "base_ref_changed"]) {
       expect(checkAutoMerge(input({ events: [event(name, "owner")] })), name).toEqual([`owner took it over (${name}), so they decide.`]);
     }
     expect(checkAutoMerge(input({ events: [{ event: "review_dismissed", actor: null }] }))).toEqual(["Someone took it over (review_dismissed), so they decide."]);
@@ -426,7 +426,7 @@ describe("the script, against a fake GitHub", () => {
     await expect(run("check", api, { PR_NUMBER: "8" })).rejects.toThrow("GET /pulls/8: 404 Not Found");
   });
 
-  it.each(["clean", "unstable", "has_hooks"])("merge: merges that head at once when GitHub says it may already merge (%s)", async (status) => {
+  it.each(["clean", "has_hooks"])("merge: merges that head at once when GitHub says it may already merge (%s)", async (status) => {
     const api = fakeApi(state());
     const clean = async (url: string, init: RequestInit = {}) => {
       if (url.endsWith("/graphql")) {
@@ -455,6 +455,17 @@ describe("the script, against a fake GitHub", () => {
     expect(comment).not.toContain("will merge itself");
   });
 
+  it("merge: leaves it for a maintainer, failing, when a check that is not required is pending or failing", async () => {
+    const api = fakeApi(state());
+    const unstable = async (url: string, init: RequestInit = {}) =>
+      url.endsWith("/graphql")
+        ? new Response(JSON.stringify({ errors: [{ message: "Pull request Pull request is in unstable status" }] }), { status: 200 })
+        : api.fetch(url, init);
+    const e = env({ HEAD_SHA: HEAD });
+    await expect(main("merge", e, createGitHub(e, unstable as typeof fetch, noWait), () => {})).rejects.toThrow("unstable status");
+    expect(api.writes().map((w) => w.url.replace("https://api.github.com", ""))).toEqual([`/repos/${REPO}/pulls/7/reviews`]);
+  });
+
   it("merge: says so when there is nothing left to do", async () => {
     const api = fakeApi({
       ...state(),
@@ -472,7 +483,30 @@ describe("the script, against a fake GitHub", () => {
     expect(fs.readFileSync(out, "utf8")).toBe(`eligible=false\nhead_sha=${HEAD}\n`);
   });
 
-  it("tries a 5xx or a network failure again before giving up", async () => {
+  it("never tries a write again, since it may have been applied", async () => {
+    const api = fakeApi(state());
+    let posts = 0;
+    const flaky = async (url: string, init: RequestInit = {}) => {
+      if (init.method === "POST") {
+        posts++;
+        throw new TypeError("fetch failed");
+      }
+      return api.fetch(url, init);
+    };
+    const e = env({ HEAD_SHA: HEAD });
+    await expect(main("merge", e, createGitHub(e, flaky as typeof fetch, noWait), () => {})).rejects.toThrow("fetch failed");
+    const gateway = async (url: string, init: RequestInit = {}) => {
+      if (init.method === "POST") {
+        posts++;
+        return new Response("<html>Bad gateway</html>", { status: 502 });
+      }
+      return api.fetch(url, init);
+    };
+    await expect(main("merge", e, createGitHub(e, gateway as typeof fetch, noWait), () => {})).rejects.toThrow("POST /pulls/7/reviews: 502 (no JSON body)");
+    expect(posts).toBe(2);
+  });
+
+  it("tries a read again after a 5xx or a network failure before giving up", async () => {
     const api = fakeApi(state());
     let failures = 0;
     const waits: number[] = [];
@@ -509,22 +543,16 @@ describe("the script, against a fake GitHub", () => {
   });
 
   it("waits for real between tries by default", async () => {
-    vi.useFakeTimers();
-    try {
-      let calls = 0;
-      const once = async () => {
-        calls++;
-        return calls === 1 ? new Response("", { status: 503 }) : new Response(JSON.stringify(pr()), { status: 200 });
-      };
-      const e = env();
-      const github = createGitHub(e, once as typeof fetch);
-      const reading = github.read(7).catch(() => null);
-      await vi.advanceTimersByTimeAsync(2000);
-      await reading;
-      expect(calls).toBeGreaterThan(1);
-    } finally {
-      vi.useRealTimers();
-    }
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    let calls = 0;
+    const once = async () => {
+      calls++;
+      return calls === 1 ? new Response("", { status: 503 }) : new Response(JSON.stringify(pr()), { status: 200 });
+    };
+    const reading = createGitHub(env(), once as typeof fetch).read(7).catch(() => null);
+    await vi.advanceTimersByTimeAsync(2000);
+    await reading;
+    expect(calls).toBeGreaterThan(1);
   });
 
   it("does not try a 4xx again", async () => {
