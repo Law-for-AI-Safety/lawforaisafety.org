@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { isProductionDeploy } from "@/lib/deploy-context";
 import { getAdminSession, isTechAdminEmail } from "@/lib/session";
 import { getNewsRadarSettings, latestRuns, listItems, type ItemState } from "@/lib/news-radar-store";
 import { listNewsletters } from "@/lib/newsletter-store";
@@ -77,9 +78,7 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
       <section aria-label="Last run" className="flex flex-col gap-2 rounded-sm border border-brand-black/15 p-4">
         {run ? (
           <>
-            <p className="text-brand-black">
-              Last run {run.when}: {run.counts}.
-            </p>
+            <p className="text-brand-black">{run.running ? `${run.when}. This updates when it finishes.` : `Last run ${run.when}: ${run.counts}.`}</p>
             {run.sources.length > 0 && <p className="text-sm text-brand-black/70">{run.sources.join(" · ")}</p>}
             {run.failures.map((f) => (
               <p key={f} role="status" className="text-sm text-brand-red">
@@ -96,7 +95,7 @@ export default async function NewsRadarPage({ searchParams }: { searchParams: Pr
         ) : (
           <p className="text-brand-black/70">The radar has not run yet. It runs every Monday at 06:00 UTC.</p>
         )}
-        {isTechAdminEmail(session.email) && <RunNowButton />}
+        {isTechAdminEmail(session.email) && <RunNowButton running={run?.running ?? false} recipient={settings.recipient} production={isProductionDeploy()} />}
       </section>
 
       <form method="get" className="flex flex-wrap items-end gap-3" aria-label="Filter items">

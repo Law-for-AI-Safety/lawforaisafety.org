@@ -1,21 +1,26 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { adminAuditLog, newsletters, newsRadarItems, newsRadarRuns, newsRadarSettings } from "@/drizzle/schema";
-import { getNewsRadarSettings, saveNewsRadarSettings, type FoundItem, recordFound, startRun, finishRun } from "@/lib/news-radar-store";
+import { EMAIL_SENT, getNewsRadarSettings, saveNewsRadarSettings, type FoundItem, recordFound, startRun, finishRun } from "@/lib/news-radar-store";
 import { insertNewsletter } from "@/lib/newsletter-store";
 import { startAdminSession } from "@/lib/session";
 import { DEFAULT_SETTINGS } from "@/news-radar/defaults";
 import type { SourceOutcome } from "@/news-radar/types";
+import { setRunSleep } from "@/news-radar/run";
+import { formatTime, RUN_STALE_MS } from "@/news-radar/view";
 import { cookieJar } from "../../../../test/next-headers";
 import { navigation } from "../../../../test/next-navigation";
+import { emails } from "../../../../test/fakes/email";
+import { DEPLOY_ORIGIN, netlifyFunctions } from "../../../../test/fakes/netlify-functions";
 import { newsSources } from "../../../../test/fakes/news-sources";
 import { runNow, saveSettings, triageItem } from "./actions";
 import NewsRadarLayout from "./layout";
 import NewsRadarPage from "./page";
 import NewsRadarSettingsPage from "./settings/page";
+import { REFRESH_MS } from "./RunNowButton";
 
 vi.mock("next/headers", () => import("../../../../test/next-headers"));
 
@@ -59,6 +64,13 @@ async function seedRun(now: Date, items: FoundItem[], sources: SourceOutcome[] =
 }
 
 const itemRow = async (title: string) => (await db.select().from(newsRadarItems).where(eq(newsRadarItems.title, title)))[0];
+/** On the production deploy, where runs go to the background function (test/fakes/netlify-functions.ts). */
+function onProduction() {
+  vi.stubEnv("DEPLOY_CONTEXT", "production");
+  vi.stubEnv("DEPLOY_ORIGIN", DEPLOY_ORIGIN);
+  vi.stubEnv("CRON_SECRET", "test-cron-secret");
+}
+
 const page = (search: Record<string, string> = {}) => NewsRadarPage({ searchParams: Promise.resolve(search) });
 
 beforeEach(async () => {
@@ -70,7 +82,10 @@ beforeEach(async () => {
   await db.delete(newsRadarSettings);
   await db.delete(newsletters);
   await db.delete(adminAuditLog);
+  setRunSleep(async () => {});
 });
+
+afterEach(() => setRunSleep());
 
 describe("who may do what", () => {
   it("refuses every action when signed out, and the pages send to the login", async () => {
@@ -99,17 +114,128 @@ describe("who may do what", () => {
   });
 
   it("lets a technical admin run it now, without sending the email", async () => {
-    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    onProduction();
     await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "group@example.org" }, EMAIL.tech);
     newsSources.googleNews({ title: "Families sue chatbot maker in class action", url: "https://n.test/a", outlet: "N", date: "2026-11-27T00:00:00Z" }, "lawsuit");
     await signInAs("tech");
     render(await page());
     await userEvent.click(screen.getByRole("button", { name: "Run now" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Done: 1 new, 0 seen before. No email is sent for a run by hand."));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Started: the result appears above when it finishes, usually within a few minutes. No email is sent."),
+    );
     expect(navigation.refresh).toHaveBeenCalled();
     const [run] = await db.select().from(newsRadarRuns);
-    expect(run).toMatchObject({ trigger: "manual", triggeredBy: EMAIL.tech, email: null });
-    expect((await db.select().from(adminAuditLog)).map((r) => r.action)).toContain("news_radar_run");
+    expect(run).toMatchObject({ trigger: "manual", triggeredBy: EMAIL.tech, email: null, newCount: 1 });
+    expect(emails.sent).toEqual([]);
+    expect((await db.select().from(adminAuditLog)).map((r) => [r.action, r.detail])).toContainEqual(["news_radar_run", { runId: run.id, sendDigest: false }]);
+  });
+
+  it("lets a technical admin run it and send the digest, after confirming the recipient", async () => {
+    onProduction();
+    await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "group@example.org" }, EMAIL.tech);
+    newsSources.googleNews({ title: "Families sue chatbot maker in class action", url: "https://n.test/a", outlet: "N", date: "2026-11-27T00:00:00Z" }, "lawsuit");
+    await signInAs("tech");
+    render(await page());
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Run and send digest" }));
+    expect(confirm).toHaveBeenLastCalledWith("Run the radar now and email the summary to group@example.org?");
+    expect(await db.select().from(newsRadarRuns)).toEqual([]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Run and send digest" }));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Started: the result appears above when it finishes, usually within a few minutes. It then emails the summary to group@example.org.",
+      ),
+    );
+    const [run] = await db.select().from(newsRadarRuns);
+    expect(run).toMatchObject({ trigger: "manual", email: EMAIL_SENT });
+    expect(emails.to("group@example.org")[0].html).toContain("Families sue chatbot maker");
+    expect((await db.select().from(adminAuditLog)).map((r) => [r.action, r.detail])).toContainEqual([
+      "news_radar_run",
+      { runId: run.id, sendDigest: true, recipient: "group@example.org" },
+    ]);
+  });
+
+  it("runs here off Netlify, and says when it is done", async () => {
+    await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "group@example.org" }, EMAIL.tech);
+    await signInAs("tech");
+    render(await page());
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Done: the result is above. No email is sent."));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    await userEvent.click(screen.getByRole("button", { name: "Run and send digest" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Done: the result is above, with what became of the email."));
+    expect(netlifyFunctions.answers).toEqual([]);
+  });
+
+  it("says off production that the digest will not actually be sent", async () => {
+    await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "group@example.org" }, EMAIL.tech);
+    await signInAs("tech");
+    render(await page());
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await userEvent.click(screen.getByRole("button", { name: "Run and send digest" }));
+    expect(confirm).toHaveBeenCalledWith(
+      "Run the radar now and email the summary to group@example.org? This is not the production site, so the email will not actually be sent.",
+    );
+  });
+
+  it("offers the digest only once a recipient is set", async () => {
+    await signInAs("tech");
+    render(await page());
+    expect(screen.getByRole("button", { name: "Run and send digest" })).toBeDisabled();
+    expect(screen.getByText("Set a recipient in the settings to send the digest.")).toBeInTheDocument();
+    expect(await runNow(true)).toEqual({ ok: false, message: "No recipient is set in the News radar settings." });
+    expect(await db.select().from(newsRadarRuns)).toEqual([]);
+  });
+
+  it("starts the run in the background on Netlify, and the page follows it until it finishes", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "deploy-preview");
+    vi.stubEnv("DEPLOY_ORIGIN", DEPLOY_ORIGIN);
+    vi.stubEnv("CRON_SECRET", "test-cron-secret");
+    newsSources.down("gdelt");
+    await signInAs("tech");
+    render(await page());
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Started: the result appears above when it finishes, usually within a few minutes. No email is sent."),
+    );
+    expect(netlifyFunctions.answers).toHaveLength(1);
+  });
+
+  it("says why a run could not start", async () => {
+    vi.stubEnv("DEPLOY_CONTEXT", "deploy-preview");
+    vi.stubEnv("DEPLOY_ORIGIN", DEPLOY_ORIGIN);
+    vi.stubEnv("CRON_SECRET", "test-cron-secret");
+    netlifyFunctions.failNext(401);
+    await signInAs("tech");
+    render(await page());
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("The run could not start: the background function answered HTTP 401"));
+  });
+
+  it("shows a run that is still going, refreshes until it finishes, and starts no other meanwhile", async () => {
+    const startedAt = new Date(Date.now() - 60_000);
+    await startRun("manual", EMAIL.tech, startedAt);
+    await signInAs("tech");
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    render(await page());
+    expect(screen.getByText(/^Running since .* \(run by hand by tech@example.com\)\. This updates when it finishes\.$/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run now" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Run and send digest" })).toBeDisabled();
+    navigation.refresh.mockClear();
+    vi.advanceTimersByTime(REFRESH_MS);
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
+    expect(await runNow()).toEqual({ ok: false, message: `A run is already going: it started ${formatTime(startedAt)}. Wait for it to finish.` });
+    expect(await db.select().from(newsRadarRuns)).toHaveLength(1);
+  });
+
+  it("says a run stopped when it never finished", async () => {
+    await startRun("schedule", null, new Date(Date.now() - RUN_STALE_MS - 1000));
+    await signInAs("tech");
+    render(await page());
+    expect(screen.getByText("The run failed: it stopped without finishing. The news-radar-run function's log on Netlify says why.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run now" })).toBeEnabled();
   });
 
   it("refuses arguments that are not what the page sends", async () => {
@@ -118,6 +244,8 @@ describe("who may do what", () => {
     expect(await triageItem("00000000-0000-4000-8000-000000000000", "useful", ["nope"])).toEqual({ ok: false, message: "The request was not understood." });
     expect(await triageItem("00000000-0000-4000-8000-000000000000", "archived")).toEqual({ ok: false, message: "The request was not understood." });
     expect(await triageItem("00000000-0000-4000-8000-000000000000", "useful")).toEqual({ ok: false, message: "That item no longer exists." });
+    await signInAs("tech");
+    expect(await runNow("yes")).toEqual({ ok: false, message: "The request was not understood." });
   });
 });
 

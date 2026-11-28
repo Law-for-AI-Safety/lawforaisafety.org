@@ -83,6 +83,24 @@ export async function finishRun(
     .where(eq(newsRadarRuns.id, id));
 }
 
+/**
+ * Takes an unfinished, unclaimed run on for the one caller that gets it back; any other caller,
+ * at the same time or later, gets null.
+ */
+export async function claimRun(id: string): Promise<NewsRadarRun | null> {
+  const [row] = await db
+    .update(newsRadarRuns)
+    .set({ claimedAt: new Date() })
+    .where(and(eq(newsRadarRuns.id, id), isNull(newsRadarRuns.claimedAt), isNull(newsRadarRuns.finishedAt)))
+    .returning();
+  return row ?? null;
+}
+
+export async function getRun(id: string): Promise<NewsRadarRun | null> {
+  const [row] = await db.select().from(newsRadarRuns).where(eq(newsRadarRuns.id, id));
+  return row ?? null;
+}
+
 export async function latestRuns(limit = 5): Promise<NewsRadarRun[]> {
   return db.select().from(newsRadarRuns).orderBy(desc(newsRadarRuns.startedAt)).limit(limit);
 }

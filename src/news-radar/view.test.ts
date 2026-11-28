@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NewsRadarItem, NewsRadarRun } from "@/lib/news-radar-store";
-import { groupByWeek, isSeenBefore, runSummary, weekStart } from "./view";
+import { groupByWeek, isRunning, isSeenBefore, RUN_STALE_MS, runSummary, weekStart } from "./view";
 
 const item = (id: string, firstSeen: string, storyKey = id): NewsRadarItem =>
   ({ id, storyKey, firstSeenAt: new Date(firstSeen), lastSeenAt: new Date(firstSeen) }) as NewsRadarItem;
@@ -38,6 +38,7 @@ describe("runSummary", () => {
     trigger: "schedule",
     triggeredBy: null,
     startedAt: new Date("2026-11-30T06:00:00Z"),
+    claimedAt: null,
     finishedAt: new Date("2026-11-30T06:00:20Z"),
     sources: [
       { source: "google_news", ok: true, found: 40, relevant: 12 },
@@ -53,6 +54,7 @@ describe("runSummary", () => {
   it("says when it ran, what each source did and what failed", () => {
     expect(runSummary(run({}))).toEqual({
       when: "Mon 30 Nov, 06:00 UTC (weekly run)",
+      running: false,
       sources: ["Google News: 40 found, 12 relevant"],
       failures: ["GDELT failed this week: GDELT answered 429"],
       counts: "9 new, 3 seen before",
@@ -62,9 +64,20 @@ describe("runSummary", () => {
   });
 
   it("says who ran it by hand, and that it is still running", () => {
-    expect(runSummary(run({ trigger: "manual", triggeredBy: "tech@example.com", finishedAt: null })).when).toBe(
-      "Running since Mon 30 Nov, 06:00 UTC (run by hand by tech@example.com)",
-    );
+    const started = new Date("2026-11-30T06:00:00Z");
+    const summary = runSummary(run({ trigger: "manual", triggeredBy: "tech@example.com", finishedAt: null }), new Date(started.getTime() + 60_000));
+    expect(summary).toMatchObject({ when: "Running since Mon 30 Nov, 06:00 UTC (run by hand by tech@example.com)", running: true, error: null });
     expect(runSummary(run({ trigger: "manual" })).when).toContain("(run by hand)");
+  });
+
+  it("says a run stopped when it has been unfinished for longer than one can last", () => {
+    const started = new Date("2026-11-30T06:00:00Z");
+    expect(isRunning({ startedAt: started, finishedAt: null }, new Date(started.getTime() + RUN_STALE_MS - 1))).toBe(true);
+    expect(isRunning({ startedAt: started, finishedAt: null }, new Date(started.getTime() + RUN_STALE_MS))).toBe(false);
+    expect(runSummary(run({ finishedAt: null }), new Date(started.getTime() + RUN_STALE_MS))).toMatchObject({
+      when: "Mon 30 Nov, 06:00 UTC (weekly run)",
+      running: false,
+      error: "it stopped without finishing. The news-radar-run function's log on Netlify says why.",
+    });
   });
 });

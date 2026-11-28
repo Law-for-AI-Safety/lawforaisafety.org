@@ -55,6 +55,8 @@ export type SourceContext = {
 export type SourceAdapter = {
   id: SourceId;
   label: string;
+  /** Time this source has, when it needs longer than most (see SOURCE_BUDGET_MS in run.ts). */
+  budgetMs?: number;
   fetch: (context: SourceContext) => Promise<Candidate[]>;
 };
 
