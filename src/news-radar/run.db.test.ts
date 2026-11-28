@@ -264,7 +264,8 @@ describe("a source failing", () => {
     const result = await runNewsRadar({ trigger: "manual", now: MONDAY, sources: [gdelt], sleep: async (ms) => void waits.push(ms) });
     expect(newsSources.to("gdelt")).toHaveLength(7);
     expect(waits).toEqual([10_000, 20_000, 40_000, 60_000, 60_000, 6_000]);
-    expect(result.sources.find((s) => s.source === "gdelt")).toMatchObject({ ok: true, relevant: 1 });
+    // Both queries return the article.
+    expect(result.sources).toEqual([{ source: "gdelt", ok: true, found: 2, relevant: 2 }]);
   });
 
   it("says GDELT was still turning requests away when it ran out of time", async () => {

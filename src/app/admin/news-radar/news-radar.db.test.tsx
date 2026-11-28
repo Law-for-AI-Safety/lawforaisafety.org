@@ -64,6 +64,13 @@ async function seedRun(now: Date, items: FoundItem[], sources: SourceOutcome[] =
 }
 
 const itemRow = async (title: string) => (await db.select().from(newsRadarItems).where(eq(newsRadarItems.title, title)))[0];
+/** On the production deploy, where runs go to the background function (test/fakes/netlify-functions.ts). */
+function onProduction() {
+  vi.stubEnv("DEPLOY_CONTEXT", "production");
+  vi.stubEnv("DEPLOY_ORIGIN", DEPLOY_ORIGIN);
+  vi.stubEnv("CRON_SECRET", "test-cron-secret");
+}
+
 const page = (search: Record<string, string> = {}) => NewsRadarPage({ searchParams: Promise.resolve(search) });
 
 beforeEach(async () => {
@@ -107,13 +114,15 @@ describe("who may do what", () => {
   });
 
   it("lets a technical admin run it now, without sending the email", async () => {
-    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    onProduction();
     await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "group@example.org" }, EMAIL.tech);
     newsSources.googleNews({ title: "Families sue chatbot maker in class action", url: "https://n.test/a", outlet: "N", date: "2026-11-27T00:00:00Z" }, "lawsuit");
     await signInAs("tech");
     render(await page());
     await userEvent.click(screen.getByRole("button", { name: "Run now" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Done: the result is above. No email is sent."));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Started: the result appears above when it finishes, usually within a few minutes. No email is sent."),
+    );
     expect(navigation.refresh).toHaveBeenCalled();
     const [run] = await db.select().from(newsRadarRuns);
     expect(run).toMatchObject({ trigger: "manual", triggeredBy: EMAIL.tech, email: null, newCount: 1 });
@@ -122,7 +131,7 @@ describe("who may do what", () => {
   });
 
   it("lets a technical admin run it and send the digest, after confirming the recipient", async () => {
-    vi.stubEnv("DEPLOY_CONTEXT", "production");
+    onProduction();
     await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "group@example.org" }, EMAIL.tech);
     newsSources.googleNews({ title: "Families sue chatbot maker in class action", url: "https://n.test/a", outlet: "N", date: "2026-11-27T00:00:00Z" }, "lawsuit");
     await signInAs("tech");
@@ -134,7 +143,11 @@ describe("who may do what", () => {
     expect(await db.select().from(newsRadarRuns)).toEqual([]);
 
     await userEvent.click(screen.getByRole("button", { name: "Run and send digest" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Done: the result is above, with what became of the email."));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Started: the result appears above when it finishes, usually within a few minutes. It then emails the summary to group@example.org.",
+      ),
+    );
     const [run] = await db.select().from(newsRadarRuns);
     expect(run).toMatchObject({ trigger: "manual", email: EMAIL_SENT });
     expect(emails.to("group@example.org")[0].html).toContain("Families sue chatbot maker");
@@ -142,6 +155,18 @@ describe("who may do what", () => {
       "news_radar_run",
       { runId: run.id, sendDigest: true, recipient: "group@example.org" },
     ]);
+  });
+
+  it("runs here off Netlify, and says when it is done", async () => {
+    await saveNewsRadarSettings({ ...DEFAULT_SETTINGS, recipient: "group@example.org" }, EMAIL.tech);
+    await signInAs("tech");
+    render(await page());
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Done: the result is above. No email is sent."));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    await userEvent.click(screen.getByRole("button", { name: "Run and send digest" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Done: the result is above, with what became of the email."));
+    expect(netlifyFunctions.answers).toEqual([]);
   });
 
   it("says off production that the digest will not actually be sent", async () => {
