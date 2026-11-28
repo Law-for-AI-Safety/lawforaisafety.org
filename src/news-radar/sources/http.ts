@@ -9,8 +9,16 @@ export const SNIPPET_MAX = 400;
 
 export const snippet = (text: string) => (text.length > SNIPPET_MAX ? `${text.slice(0, SNIPPET_MAX - 1).trimEnd()}…` : text);
 
-export async function getText(url: string, signal: AbortSignal, accept: string): Promise<{ status: number; text: string }> {
-  const response = await fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: accept }, signal });
+/** How a request is sent: the global `fetch` unless a source needs its own (see sources/gdelt.ts). */
+export type Fetch = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ status: number; text(): Promise<string> }>;
+
+export async function getText(
+  url: string,
+  signal: AbortSignal,
+  accept: string,
+  send: Fetch = (to, init) => fetch(to, init),
+): Promise<{ status: number; text: string }> {
+  const response = await send(url, { headers: { "User-Agent": USER_AGENT, Accept: accept }, signal });
   return { status: response.status, text: await response.text() };
 }
 

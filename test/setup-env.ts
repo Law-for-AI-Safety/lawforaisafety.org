@@ -8,6 +8,7 @@ import { oauthProviders } from "./fakes/oauth";
 import { slack } from "./fakes/slack";
 import { indexNow } from "./fakes/indexnow";
 import { newsSources } from "./fakes/news-sources";
+import { setGdeltFetch } from "@/news-radar/sources/gdelt";
 import { netlifyFunctions } from "./fakes/netlify-functions";
 import { dataCache } from "./next-cache";
 import { afterTasks } from "./next-after";
@@ -53,6 +54,8 @@ vi.mock("next/server", async (importOriginal) => ({
 
 // The outside world is faked at `fetch`; see test/fakes/network.ts.
 globalThis.fetch = fakeFetch as typeof fetch;
+// GDELT is asked through undici's own fetch (src/news-radar/sources/gdelt.ts); here, through the fake.
+setGdeltFetch((url, init) => fetch(url, init));
 routeOrigin(GITHUB_API, (request) => github.handle(request));
 
 beforeEach(() => {

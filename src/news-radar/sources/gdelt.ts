@@ -1,14 +1,29 @@
+import { Agent, fetch as undiciFetch } from "undici";
 import { cleanTitle, hostOf } from "../normalise";
 import type { Candidate, SourceAdapter, Topic } from "../types";
-import { failure, getText } from "./http";
+import { failure, getText, type Fetch } from "./http";
+
+export const GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc";
 
 /**
- * Plain HTTP, as in GDELT's own documentation: its TLS handshake often outlasts the time Node's
- * fetch allows for connecting, so over HTTPS requests fail before GDELT has answered. Nothing
- * private is sent, and what comes back is listings of public news, which a person reads before
- * any of it is used; the scorer and safeHref (digest.ts) keep out anything but web links.
+ * GDELT's TLS handshake often outlasts the 10 seconds Node's own fetch allows for connecting, so
+ * GDELT is asked through undici's fetch with longer limits: this long to connect, and this long
+ * for an answer once connected. A request that runs out of either counts as a failed connection.
  */
-export const GDELT_URL = "http://api.gdeltproject.org/api/v2/doc/doc";
+export const GDELT_CONNECT_TIMEOUT_MS = 30_000;
+export const GDELT_ANSWER_TIMEOUT_MS = 90_000;
+
+const agent = new Agent({ connect: { timeout: GDELT_CONNECT_TIMEOUT_MS }, headersTimeout: GDELT_ANSWER_TIMEOUT_MS, bodyTimeout: GDELT_ANSWER_TIMEOUT_MS });
+const throughAgent: Fetch = (url, init) => undiciFetch(url, { ...init, dispatcher: agent });
+let send: Fetch = throughAgent;
+
+/**
+ * How GDELT is asked. Tests send it through the global `fetch`, which test/setup-env.ts replaces
+ * with the fake network; with nothing, it goes back to undici's.
+ */
+export function setGdeltFetch(fetcher?: Fetch): void {
+  send = fetcher ?? throughAgent;
+}
 
 /**
  * GDELT allows one request every 5 seconds from an address, and often turns away even slower
@@ -85,7 +100,7 @@ async function ask(url: string, signal: AbortSignal, sleep: (ms: number) => Prom
     if (signal.aborted) throw outOfTime(signal.reason);
     let answer: { status: number; text: string } | null = null;
     try {
-      answer = await getText(url, signal, "application/json");
+      answer = await getText(url, signal, "application/json", send);
     } catch (err) {
       if (signal.aborted) throw outOfTime(err);
       if (++unreachable >= GDELT_CONNECT_TRIES) throw err;
