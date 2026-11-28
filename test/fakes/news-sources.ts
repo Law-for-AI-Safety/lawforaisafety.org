@@ -33,6 +33,7 @@ class FakeNewsSources {
   private published: Record<SourceId, { article: FakeArticle; when?: string }[]> = { gdelt: [], google_news: [], openalex: [], eu_digital: [] };
   private failures = new Map<SourceId, Failure>();
   private throttled = 0;
+  private throttleAfter = 0;
   private failingSearches: { source: SourceId; text: string }[] = [];
 
   reset(): void {
@@ -40,6 +41,7 @@ class FakeNewsSources {
     this.published = { gdelt: [], google_news: [], openalex: [], eu_digital: [] };
     this.failures.clear();
     this.throttled = 0;
+    this.throttleAfter = 0;
     this.failingSearches = [];
   }
 
@@ -72,9 +74,13 @@ class FakeNewsSources {
     this.failures.set(source, how);
   }
 
-  /** The next `count` GDELT requests get the plain-text "too fast" notice (`Infinity`: every one). */
-  throttleGdelt(count = 1): void {
+  /**
+   * The next `count` GDELT requests (`Infinity`: every one) get the plain-text "too fast" notice,
+   * once `after` more have been answered.
+   */
+  throttleGdelt(count = 1, { after = 0 } = {}): void {
     this.throttled = count;
+    this.throttleAfter = after;
   }
 
   to(source: SourceId): URL[] {
@@ -102,7 +108,8 @@ class FakeNewsSources {
     }
     switch (source) {
       case "gdelt":
-        if (this.throttled > 0) {
+        if (this.throttleAfter > 0) this.throttleAfter--;
+        else if (this.throttled > 0) {
           this.throttled--;
           return new Response(GDELT_THROTTLE_NOTICE, { status: 429, headers: { "Content-Type": "text/plain" } });
         }

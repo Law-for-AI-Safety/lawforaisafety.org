@@ -686,6 +686,9 @@ export const newsRadarRuns = pgTable("news_radar_runs", {
   trigger: newsRadarRunTrigger("trigger").notNull(),
   triggeredBy: text("triggered_by"),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  // Set by the background function as it takes the run on, so a retry of that function (after
+  // Netlify stopped it at its time limit) never runs it, and emails, a second time.
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
   sources: jsonb("sources").$type<SourceOutcome[]>().notNull().default([]),
   newCount: integer("new_count").notNull().default(0),

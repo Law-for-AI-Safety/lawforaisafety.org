@@ -38,6 +38,7 @@ describe("runSummary", () => {
     trigger: "schedule",
     triggeredBy: null,
     startedAt: new Date("2026-11-30T06:00:00Z"),
+    claimedAt: null,
     finishedAt: new Date("2026-11-30T06:00:20Z"),
     sources: [
       { source: "google_news", ok: true, found: 40, relevant: 12 },

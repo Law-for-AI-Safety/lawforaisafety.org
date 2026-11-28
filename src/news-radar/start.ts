@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { deployOrigin, isNetlifyDeploy } from "@/lib/deploy-context";
-import { finishRun, getRun, latestRuns, startRun, type NewsRadarRun } from "@/lib/news-radar-store";
+import { claimRun, finishRun, latestRuns, startRun, type NewsRadarRun } from "@/lib/news-radar-store";
 import { hasBearerSecret } from "@/lib/timing-safe-equal";
 import { failureReason, runNewsRadar, type RunResult } from "./run";
 import { isRunning } from "./view";
@@ -55,16 +55,17 @@ const RunRequest = z.object({ runId: z.uuid(), sendDigest: z.boolean() });
 
 /**
  * The background function's work: runs the run startNewsRadarRun made. It answers only once the
- * run is over, and never with an error, since Netlify retries a background function that fails
- * and a retry would run (and email) twice. A run already finished, or unknown, is left alone.
+ * run is over, and never with an error, since Netlify retries a background function that fails.
+ * Each run is taken on once (claimRun), so a retry after Netlify stopped the function at its
+ * time limit, or a second delivery, never runs and emails it again.
  */
 export async function handleRunRequest(request: Request): Promise<Response> {
   if (!hasBearerSecret(request, process.env.CRON_SECRET)) return new Response("Unauthorized", { status: 401 });
   const parsed = RunRequest.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return new Response("Bad request", { status: 400 });
-  const run = await getRun(parsed.data.runId);
-  if (!run || run.finishedAt) {
-    console.error(`[news-radar] Run ${parsed.data.runId} is unknown or already finished; not running it again`);
+  const run = await claimRun(parsed.data.runId);
+  if (!run) {
+    console.error(`[news-radar] Run ${parsed.data.runId} is unknown or already taken on; not running it again`);
     return new Response("Nothing to run", { status: 200 });
   }
   let result: RunResult | null = null;

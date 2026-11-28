@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { adminAuditLog, newsletters, newsRadarItems, newsRadarRuns, newsRadarSettings } from "@/drizzle/schema";
 import { EMAIL_SENT, getNewsRadarSettings, saveNewsRadarSettings, type FoundItem, recordFound, startRun, finishRun } from "@/lib/news-radar-store";
@@ -9,6 +9,7 @@ import { insertNewsletter } from "@/lib/newsletter-store";
 import { startAdminSession } from "@/lib/session";
 import { DEFAULT_SETTINGS } from "@/news-radar/defaults";
 import type { SourceOutcome } from "@/news-radar/types";
+import { setRunSleep } from "@/news-radar/run";
 import { formatTime, RUN_STALE_MS } from "@/news-radar/view";
 import { cookieJar } from "../../../../test/next-headers";
 import { navigation } from "../../../../test/next-navigation";
@@ -74,7 +75,10 @@ beforeEach(async () => {
   await db.delete(newsRadarSettings);
   await db.delete(newsletters);
   await db.delete(adminAuditLog);
+  setRunSleep(async () => {});
 });
+
+afterEach(() => setRunSleep());
 
 describe("who may do what", () => {
   it("refuses every action when signed out, and the pages send to the login", async () => {

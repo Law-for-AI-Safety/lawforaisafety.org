@@ -1,18 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { newsRadarItems, newsRadarRuns, newsRadarSettings } from "@/drizzle/schema";
-import { EMAIL_SENT, getRun, saveNewsRadarSettings, startRun } from "@/lib/news-radar-store";
+import { claimRun, EMAIL_SENT, getRun, saveNewsRadarSettings, startRun } from "@/lib/news-radar-store";
 import { emails } from "../../test/fakes/email";
 import { DEPLOY_ORIGIN, netlifyFunctions } from "../../test/fakes/netlify-functions";
 import { newsSources, type FakeArticle } from "../../test/fakes/news-sources";
 import { DEFAULT_SETTINGS } from "./defaults";
+import { setRunSleep } from "./run";
 import { handleRunRequest, RUN_FUNCTION_PATH, runInProgress, startNewsRadarRun } from "./start";
 import { RUN_STALE_MS } from "./view";
 
 /**
  * Starting a run: here when off Netlify, and on Netlify through the background function, which
- * the fake runs for real (test/fakes/netlify-functions.ts). GDELT is down in every test, so no
- * run waits between its queries.
+ * the fake runs for real (test/fakes/netlify-functions.ts). Runs wait between requests without
+ * taking any time (setRunSleep).
  */
 
 const GROUP = "news-digest@lais.test";
@@ -48,11 +49,13 @@ beforeEach(async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.stubEnv("CRON_SECRET", "test-cron-secret");
-  newsSources.down("gdelt");
+  setRunSleep(async () => {});
   await db.delete(newsRadarItems);
   await db.delete(newsRadarRuns);
   await db.delete(newsRadarSettings);
 });
+
+afterEach(() => setRunSleep());
 
 describe("off Netlify", () => {
   it("runs here and returns once the run is over", async () => {
@@ -128,6 +131,11 @@ describe("the background function", () => {
     expect(await (await call({ runId, sendDigest: false })).json()).toEqual({ ok: true });
     const asked = newsSources.requests.length;
     expect(await (await call({ runId, sendDigest: false })).text()).toBe("Nothing to run");
+    // Taken on but never finished, as when Netlify stops the function at its time limit and retries it.
+    const stopped = await startRun("manual", null, new Date());
+    await claimRun(stopped);
+    expect(await (await call({ runId: stopped, sendDigest: true })).text()).toBe("Nothing to run");
+    expect((await getRun(stopped))?.finishedAt).toBeNull();
     expect(await (await call({ runId: "00000000-0000-4000-8000-000000000000", sendDigest: false })).text()).toBe("Nothing to run");
     expect(newsSources.requests).toHaveLength(asked);
   });

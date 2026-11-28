@@ -15,7 +15,14 @@ export const REFRESH_MS = 15_000;
 export default function RunNowButton({ running, recipient, production }: { running: boolean; recipient: string | null; production: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [message, setMessage] = useState<{ text: string; error: boolean; started?: boolean } | null>(null);
+
+  // Once the run it announced is over, "Started" is out of date: the result is above.
+  const [wasRunning, setWasRunning] = useState(running);
+  if (running !== wasRunning) {
+    setWasRunning(running);
+    if (!running && message?.started) setMessage(null);
+  }
 
   useEffect(() => {
     if (!running) return;
@@ -37,7 +44,7 @@ export default function RunNowButton({ running, recipient, production }: { runni
             ? "Done: the result is above, with what became of the email."
             : "Done: the result is above. No email is sent."
           : `Started: the result appears above when it finishes, usually within a few minutes.${sendDigest ? ` It then emails the summary to ${recipient}.` : " No email is sent."}`;
-        setMessage({ text, error: false });
+        setMessage({ text, error: false, started: !result.finished });
       }
       router.refresh();
     });

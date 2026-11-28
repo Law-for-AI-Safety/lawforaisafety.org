@@ -4,7 +4,9 @@ import { failure, getText } from "./http";
 
 /**
  * Plain HTTP, as in GDELT's own documentation: its TLS handshake often outlasts the time Node's
- * fetch allows for connecting, so over HTTPS requests fail before GDELT has answered. What it returns is public news listings, and nothing private is sent.
+ * fetch allows for connecting, so over HTTPS requests fail before GDELT has answered. Nothing
+ * private is sent, and what comes back is listings of public news, which a person reads before
+ * any of it is used; the scorer and safeHref (digest.ts) keep out anything but web links.
  */
 export const GDELT_URL = "http://api.gdeltproject.org/api/v2/doc/doc";
 
@@ -66,7 +68,8 @@ function gdeltDate(value: string | undefined): Date | null {
   return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])) : null;
 }
 
-const isThrottled = (answer: { status: number; text: string }) => answer.status === 429 || /please limit requests/i.test(answer.text);
+const isJson = (text: string) => text.trimStart().startsWith("{");
+const isThrottled = (answer: { status: number; text: string }) => answer.status === 429 || (!isJson(answer.text) && /please limit requests/i.test(answer.text));
 
 /**
  * One query, asked again after each "too fast" notice until GDELT answers or the source runs out
@@ -90,7 +93,7 @@ async function ask(url: string, signal: AbortSignal, sleep: (ms: number) => Prom
     }
     if (answer && !isThrottled(answer)) {
       if (answer.status !== 200) throw failure("GDELT", answer.status, answer.text);
-      if (!answer.text.trimStart().startsWith("{")) throw new Error(`GDELT refused the query: ${answer.text.replace(/\s+/g, " ").trim().slice(0, 160)}`);
+      if (!isJson(answer.text)) throw new Error(`GDELT refused the query: ${answer.text.replace(/\s+/g, " ").trim().slice(0, 160)}`);
       return (JSON.parse(answer.text) as { articles?: GdeltArticle[] }).articles ?? [];
     }
     if (answer) problem = "was still turning requests away as too fast (429)";
@@ -99,16 +102,28 @@ async function ask(url: string, signal: AbortSignal, sleep: (ms: number) => Prom
   }
 }
 
-/** A few queries, asked one after another. A query that fails loses only its own results, unless all do. */
+/**
+ * Time GDELT has: most of the background function's 15 minutes, as on a busy day it turns
+ * requests away for minutes at a time.
+ */
+export const GDELT_BUDGET_MS = 10 * 60_000;
+
+/**
+ * A few queries, asked one after another. A query that fails loses only its own results, unless
+ * all do; running out of time keeps what the queries before it found.
+ */
 export const gdelt: SourceAdapter = {
   id: "gdelt",
   label: "GDELT",
+  budgetMs: GDELT_BUDGET_MS,
   async fetch({ topics, days, signal, sleep }) {
     const results: Candidate[] = [];
     const errors: Error[] = [];
+    let answered = 0;
     const queries = gdeltQueries(topics);
     for (const [i, query] of queries.entries()) {
       if (i > 0) await sleep(GDELT_GAP_MS);
+      if (signal.aborted && answered > 0) break;
       const url = `${GDELT_URL}?${new URLSearchParams({ query, mode: "artlist", format: "json", maxrecords: "250", timespan: `${days}d`, sort: "datedesc" })}`;
       try {
         for (const a of await ask(url, signal, sleep)) {
@@ -116,7 +131,12 @@ export const gdelt: SourceAdapter = {
           const outlet = a.domain || hostOf(a.url);
           results.push({ url: a.url, title: cleanTitle(a.title, outlet), outlet, snippet: "", publishedAt: gdeltDate(a.seendate), kind: "news", source: "gdelt" });
         }
+        answered++;
       } catch (err) {
+        if (signal.aborted && answered > 0) {
+          console.error(`[news-radar] GDELT ran out of time at query ${i + 1} of ${queries.length}; keeping what the others found`, err);
+          break;
+        }
         if (signal.aborted) throw err;
         console.error(`[news-radar] GDELT query ${i + 1} of ${queries.length} failed`, err);
         errors.push(err as Error);

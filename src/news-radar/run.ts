@@ -22,11 +22,8 @@ import type { NewsRadarSettings, SourceAdapter, SourceOutcome } from "./types";
 /** How far back each run looks: a week, so weekly runs overlap at their edges. */
 export const LOOKBACK_DAYS = 7;
 
-/**
- * Time each source has before its requests are abandoned. GDELT needs most of it on a busy day,
- * when it turns requests away for minutes at a time (see sources/gdelt.ts).
- */
-export const SOURCE_BUDGET_MS = 10 * 60_000;
+/** Time a source has before its requests are abandoned, unless it asks for longer (SourceAdapter.budgetMs). */
+export const SOURCE_BUDGET_MS = 60_000;
 
 export type RunOptions = {
   trigger: "schedule" | "manual";
@@ -40,12 +37,23 @@ export type RunOptions = {
   scorer?: Scorer;
   /** Waits between requests; a test passes one that returns at once. */
   sleep?: (ms: number) => Promise<void>;
+  /** Time every source has, in place of each one's own. */
   budgetMs?: number;
 };
 
 export type RunResult = { runId: string; sources: SourceOutcome[]; newCount: number; seenCount: number; email: string | null };
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+let defaultSleep = realSleep;
+
+/**
+ * How a run waits between requests when its caller does not say (RunOptions.sleep), as for a
+ * run started through startNewsRadarRun. A test passes one that returns at once, and calls this
+ * with nothing to go back to real waits.
+ */
+export function setRunSleep(sleep?: (ms: number) => Promise<void>): void {
+  defaultSleep = sleep ?? realSleep;
+}
 
 /**
  * Why a source failed, in a line for the admin page: out of time (and, when the source said, what
@@ -172,7 +180,7 @@ export async function runNewsRadar(options: RunOptions): Promise<RunResult> {
     const settings = await getNewsRadarSettings();
     const asked = await Promise.all(
       (options.sources ?? SOURCES).map((source) =>
-        askSource(source, settings, now, options.scorer ?? keywordScorer, options.sleep ?? realSleep, options.budgetMs ?? SOURCE_BUDGET_MS),
+        askSource(source, settings, now, options.scorer ?? keywordScorer, options.sleep ?? defaultSleep, options.budgetMs ?? source.budgetMs ?? SOURCE_BUDGET_MS),
       ),
     );
     sources = asked.map((a) => a.outcome);

@@ -253,6 +253,13 @@
       "when": 1795710993624,
       "tag": "20261126163633_news_radar_title_match",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795824281472,
+      "tag": "20261128000441_news_radar_run_claim",
+      "breakpoints": true
     }
   ]
 }
